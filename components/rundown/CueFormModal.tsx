@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -11,9 +11,10 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, Upload, X, Music, Video, Volume2, Play, Square } from 'lucide-react'
 import { parseDuration, formatDuration } from '@/lib/utils'
 import type { CreateCueInput, Cue, CueType } from '@/lib/types/database'
+import { createClient } from '@/lib/supabase/client'
 
 const CUE_TYPES: { value: CueType; label: string; emoji: string }[] = [
   { value: 'intro',    label: 'Intro',    emoji: '🎬' },
@@ -26,6 +27,8 @@ const CUE_TYPES: { value: CueType; label: string; emoji: string }[] = [
   { value: 'custom',   label: 'Overig',   emoji: '⚙️' },
 ]
 
+const MEDIA_TYPES: CueType[] = ['audio', 'video', 'intro', 'outro']
+
 interface CueFormModalProps {
   open: boolean
   onClose: () => void
@@ -33,10 +36,14 @@ interface CueFormModalProps {
   initialValues?: Partial<Cue>
   loading?: boolean
   mode?: 'add' | 'edit'
+  // Voor media-upload
+  supabase?: ReturnType<typeof createClient>
+  rundownId?: string
 }
 
 export function CueFormModal({
-  open, onClose, onSave, initialValues, loading = false, mode = 'add'
+  open, onClose, onSave, initialValues, loading = false, mode = 'add',
+  supabase, rundownId,
 }: CueFormModalProps) {
   const [title, setTitle]           = useState('')
   const [type, setType]             = useState<CueType>('custom')
@@ -47,34 +54,179 @@ export function CueFormModal({
   const [location, setLocation]     = useState('')
   const [showExtra, setShowExtra]   = useState(false)
 
+  // Media state
+  const [mediaFile, setMediaFile]       = useState<File | null>(null)
+  const [mediaUrl, setMediaUrl]         = useState<string | null>(null)
+  const [mediaPath, setMediaPath]       = useState<string | null>(null)
+  const [mediaFilename, setMediaFilename] = useState<string | null>(null)
+  const [mediaSize, setMediaSize]       = useState<number | null>(null)
+  const [mediaType, setMediaType]       = useState<string | null>(null)
+  const [mediaVolume, setMediaVolume]   = useState(1.0)
+  const [mediaLoop, setMediaLoop]       = useState(false)
+  const [mediaAutoplay, setMediaAutoplay] = useState(true)
+  const [uploading, setUploading]       = useState(false)
+  const [uploadError, setUploadError]   = useState<string | null>(null)
+  const [previewing, setPreviewing]     = useState(false)
+  const previewRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const supportsMedia = MEDIA_TYPES.includes(type)
+
   useEffect(() => {
-    if (initialValues) {
-      setTitle(initialValues.title ?? '')
-      setType(initialValues.type ?? 'custom')
-      setDurationStr(formatDuration(initialValues.duration_seconds ?? 0))
-      setNotes(initialValues.notes ?? '')
-      setTechNotes(initialValues.tech_notes ?? '')
-      setPresenter(initialValues.presenter ?? '')
-      setLocation(initialValues.location ?? '')
-      // Toon extra sectie als er al gegevens zijn
-      setShowExtra(
-        !!(initialValues.tech_notes || initialValues.presenter || initialValues.location)
-      )
-    } else {
-      setTitle('')
-      setType('custom')
-      setDurationStr('0:00')
-      setNotes('')
-      setTechNotes('')
-      setPresenter('')
-      setLocation('')
-      setShowExtra(false)
+    if (!open) {
+      // Stop preview bij sluiten
+      if (previewRef.current) {
+        previewRef.current.pause()
+        previewRef.current.src = ''
+        previewRef.current = null
+        setPreviewing(false)
+      }
+    }
+    if (open) {
+      if (initialValues) {
+        setTitle(initialValues.title ?? '')
+        setType(initialValues.type ?? 'custom')
+        setDurationStr(formatDuration(initialValues.duration_seconds ?? 0))
+        setNotes(initialValues.notes ?? '')
+        setTechNotes(initialValues.tech_notes ?? '')
+        setPresenter(initialValues.presenter ?? '')
+        setLocation(initialValues.location ?? '')
+        setShowExtra(
+          !!(initialValues.tech_notes || initialValues.presenter || initialValues.location)
+        )
+        // Media uit bestaande cue
+        setMediaUrl(initialValues.media_url ?? null)
+        setMediaPath(initialValues.media_path ?? null)
+        setMediaFilename(initialValues.media_filename ?? null)
+        setMediaSize(initialValues.media_size ?? null)
+        setMediaType(initialValues.media_type ?? null)
+        setMediaVolume(initialValues.media_volume ?? 1.0)
+        setMediaLoop(initialValues.media_loop ?? false)
+        setMediaAutoplay(initialValues.media_autoplay ?? true)
+      } else {
+        setTitle('')
+        setType('custom')
+        setDurationStr('0:00')
+        setNotes('')
+        setTechNotes('')
+        setPresenter('')
+        setLocation('')
+        setShowExtra(false)
+        setMediaFile(null)
+        setMediaUrl(null)
+        setMediaPath(null)
+        setMediaFilename(null)
+        setMediaSize(null)
+        setMediaType(null)
+        setMediaVolume(1.0)
+        setMediaLoop(false)
+        setMediaAutoplay(true)
+      }
+      setUploadError(null)
     }
   }, [initialValues, open])
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setMediaFile(file)
+    setMediaFilename(file.name)
+    setMediaSize(file.size)
+    setMediaType(file.type)
+    setUploadError(null)
+
+    // Auto-detecteer duur van het mediabestand
+    const url = URL.createObjectURL(file)
+    const el = file.type.startsWith('video/') ? document.createElement('video') : document.createElement('audio')
+    el.preload = 'metadata'
+    el.onloadedmetadata = () => {
+      if (isFinite(el.duration) && el.duration > 0) {
+        setDurationStr(formatDuration(Math.round(el.duration)))
+      }
+      URL.revokeObjectURL(url)
+    }
+    el.onerror = () => URL.revokeObjectURL(url)
+    el.src = url
+  }
+
+  function removeMedia() {
+    if (previewRef.current) {
+      previewRef.current.pause()
+      previewRef.current.src = ''
+      previewRef.current = null
+      setPreviewing(false)
+    }
+    setMediaFile(null)
+    setMediaUrl(null)
+    setMediaPath(null)
+    setMediaFilename(null)
+    setMediaSize(null)
+    setMediaType(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function togglePreview() {
+    // Preview het geselecteerde bestand of bestaande URL
+    const src = mediaFile ? URL.createObjectURL(mediaFile) : mediaUrl
+    if (!src) return
+
+    if (previewing && previewRef.current) {
+      previewRef.current.pause()
+      previewRef.current.src = ''
+      previewRef.current = null
+      setPreviewing(false)
+      return
+    }
+
+    const isVideo = mediaType?.startsWith('video/')
+    const el = isVideo ? document.createElement('video') : document.createElement('audio')
+    el.src = src
+    el.volume = mediaVolume
+    el.onended = () => { setPreviewing(false); previewRef.current = null }
+    el.onpause = () => { setPreviewing(false); previewRef.current = null }
+    previewRef.current = el as HTMLAudioElement
+    setPreviewing(true)
+    el.play().catch(() => setPreviewing(false))
+  }
+
+  async function uploadMedia(): Promise<{ url: string; path: string } | null> {
+    if (!mediaFile || !supabase || !rundownId) return null
+    setUploading(true)
+    setUploadError(null)
+    try {
+      const ext = mediaFile.name.split('.').pop()
+      const path = `${rundownId}/${Date.now()}_${mediaFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+      const { data, error } = await supabase.storage
+        .from('cue-media')
+        .upload(path, mediaFile, { upsert: true })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage
+        .from('cue-media')
+        .getPublicUrl(data.path)
+      return { url: publicUrl, path: data.path }
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : 'Upload mislukt')
+      return null
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+
+    let finalMediaUrl = mediaUrl
+    let finalMediaPath = mediaPath
+
+    // Upload nieuw bestand als dat geselecteerd is
+    if (mediaFile && supabase && rundownId) {
+      const result = await uploadMedia()
+      if (!result) return // upload mislukt
+      finalMediaUrl = result.url
+      finalMediaPath = result.path
+    }
+
     onSave({
       title:            title.trim(),
       type,
@@ -83,6 +235,14 @@ export function CueFormModal({
       tech_notes:       techNotes.trim() || undefined,
       presenter:        presenter.trim() || undefined,
       location:         location.trim() || undefined,
+      media_url:        finalMediaUrl,
+      media_path:       finalMediaPath,
+      media_type:       mediaType,
+      media_filename:   mediaFilename,
+      media_size:       mediaSize,
+      media_volume:     mediaVolume,
+      media_loop:       mediaLoop,
+      media_autoplay:   mediaAutoplay,
     })
   }
 
@@ -90,9 +250,16 @@ export function CueFormModal({
     setDurationStr(formatDuration(parseDuration(durationStr)))
   }
 
+  function formatBytes(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const isSubmitting = loading || uploading
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {mode === 'add' ? 'Cue toevoegen' : 'Cue bewerken'}
@@ -145,6 +312,133 @@ export function CueFormModal({
                 />
               </div>
             </div>
+
+            {/* ── Media sectie (audio/video types) ── */}
+            {supportsMedia && (
+              <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+                <div className="flex items-center gap-2">
+                  {type === 'audio' ? (
+                    <Music className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Video className="h-4 w-4 text-primary" />
+                  )}
+                  <span className="text-sm font-medium">Media bestand</span>
+                  {!supabase && (
+                    <span className="text-xs text-muted-foreground ml-auto">(upload beschikbaar na opslaan)</span>
+                  )}
+                </div>
+
+                {/* Bestand selecteren / huidig bestand tonen */}
+                {mediaFilename ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{mediaFilename}</p>
+                      {mediaSize && (
+                        <p className="text-xs text-muted-foreground">{formatBytes(mediaSize)}</p>
+                      )}
+                    </div>
+                    {/* Preview knop */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 shrink-0 ${previewing ? 'text-blue-400' : 'text-muted-foreground hover:text-blue-400'}`}
+                      onClick={togglePreview}
+                      title={previewing ? 'Stop preview' : 'Preview afspelen'}
+                    >
+                      {previewing
+                        ? <Square className="h-3.5 w-3.5" />
+                        : <Play className="h-3.5 w-3.5" />
+                      }
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={removeMedia}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={type === 'audio' ? 'audio/*' : 'audio/*,video/*'}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="media-file-input"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 w-full"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!supabase}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {type === 'audio' ? 'Audiobestand kiezen' : 'Video- of audiobestand kiezen'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Max. 50 MB · MP3, WAV, MP4, MOV, WebM
+                    </p>
+                  </div>
+                )}
+
+                {uploadError && (
+                  <p className="text-xs text-destructive">{uploadError}</p>
+                )}
+
+                {/* Volume + opties */}
+                {(mediaFilename || mediaUrl) && (
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs flex items-center gap-1.5">
+                          <Volume2 className="h-3.5 w-3.5" /> Volume
+                        </Label>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {Math.round(mediaVolume * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={mediaVolume}
+                        onChange={(e) => setMediaVolume(parseFloat(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                    </div>
+
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={mediaAutoplay}
+                          onChange={(e) => setMediaAutoplay(e.target.checked)}
+                          className="rounded accent-primary"
+                        />
+                        Automatisch afspelen bij GO
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={mediaLoop}
+                          onChange={(e) => setMediaLoop(e.target.checked)}
+                          className="rounded accent-primary"
+                        />
+                        Herhalen
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Presenter + Locatie */}
             <div className="grid grid-cols-2 gap-3">
@@ -206,11 +500,13 @@ export function CueFormModal({
           </div>
 
           <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Annuleren
             </Button>
-            <Button type="submit" disabled={loading || !title.trim()}>
-              {loading ? (
+            <Button type="submit" disabled={isSubmitting || !title.trim()}>
+              {uploading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Uploaden...</>
+              ) : loading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Opslaan...</>
               ) : mode === 'add' ? 'Cue toevoegen' : 'Opslaan'}
             </Button>

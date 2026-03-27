@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
-import { CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2 } from 'lucide-react'
+import { CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2, Pencil } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { EditShowModal } from './EditShowModal'
 
 interface ShowWithRundowns {
   id: string
@@ -32,6 +33,7 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
   const [deleteTarget, setDeleteTarget] = useState<ShowWithRundowns | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [editTarget, setEditTarget] = useState<ShowWithRundowns | null>(null)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -53,6 +55,10 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
     } else {
       setDeleteError('Verwijderen mislukt. Controleer je verbinding en probeer opnieuw.')
     }
+  }
+
+  function handleShowSaved(updated: { id: string; name: string; date: string | null; venue: string | null; description: string | null }) {
+    setShows((prev) => prev.map((s) => s.id === updated.id ? { ...s, ...updated } : s))
   }
 
   return (
@@ -98,7 +104,7 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
             </h2>
             <div className="grid gap-3">
               {upcoming.map((show) => (
-                <ShowCard key={show.id} show={show} onDelete={() => setDeleteTarget(show)} />
+                <ShowCard key={show.id} show={show} onDelete={() => setDeleteTarget(show)} onEdit={() => setEditTarget(show)} />
               ))}
             </div>
           </section>
@@ -111,12 +117,20 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
             </h2>
             <div className="grid gap-3 opacity-75">
               {past.map((show) => (
-                <ShowCard key={show.id} show={show} past onDelete={() => setDeleteTarget(show)} />
+                <ShowCard key={show.id} show={show} past onDelete={() => setDeleteTarget(show)} onEdit={() => setEditTarget(show)} />
               ))}
             </div>
           </section>
         )}
       </div>
+
+      {/* Bewerk show */}
+      <EditShowModal
+        open={!!editTarget}
+        show={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={handleShowSaved}
+      />
 
       {/* Bevestigingsdialoog show verwijderen */}
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v && !deleting) { setDeleteTarget(null); setDeleteError(null) } }}>
@@ -151,10 +165,12 @@ function ShowCard({
   show,
   past = false,
   onDelete,
+  onEdit,
 }: {
   show: ShowWithRundowns
   past?: boolean
   onDelete: () => void
+  onEdit: () => void
 }) {
   return (
     <Card className="hover:border-primary/50 transition-colors">
@@ -181,6 +197,15 @@ function ShowCard({
             {past && (
               <Badge variant="outline" className="text-xs">Afgelopen</Badge>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onEdit}
+              title="Show bewerken"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

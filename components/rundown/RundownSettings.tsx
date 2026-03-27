@@ -16,6 +16,7 @@ interface RundownSettingsProps {
   rundown: Rundown
   show: { id: string; name: string }
   onSave: (updates: {
+    name: string
     show_start_time: string | null
     companion_webhook_url: string | null
     presenter_pin: string | null
@@ -24,6 +25,7 @@ interface RundownSettingsProps {
 }
 
 export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete }: RundownSettingsProps) {
+  const [rundownName, setRundownName] = useState('')
   const [startTime, setStartTime]     = useState('')
   const [webhookUrl, setWebhookUrl]   = useState('')
   const [presenterPin, setPresenterPin] = useState('')
@@ -35,6 +37,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
 
   useEffect(() => {
     if (open) {
+      setRundownName(rundown.name)
       const raw = rundown.show_start_time ?? ''
       setStartTime(raw.length >= 5 ? raw.slice(0, 5) : raw)
       setWebhookUrl(rundown.companion_webhook_url ?? '')
@@ -57,9 +60,11 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    if (!rundownName.trim()) return
     setLoading(true)
     try {
       await onSave({
+        name:                  rundownName.trim(),
         show_start_time:       startTime ? startTime + ':00' : null,
         companion_webhook_url: webhookUrl.trim() || null,
         presenter_pin:         presenterPin.trim() || null,
@@ -144,6 +149,20 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
         </DialogHeader>
 
         <form onSubmit={handleSave} className="space-y-5 py-2">
+
+          {/* Rundown naam */}
+          <div className="space-y-1.5">
+            <Label htmlFor="rundown-name">Rundown naam</Label>
+            <Input
+              id="rundown-name"
+              value={rundownName}
+              onChange={(e) => setRundownName(e.target.value)}
+              placeholder="Hoofdrundown"
+              required
+            />
+          </div>
+
+          <hr className="border-border/50" />
 
           {/* Show starttijd */}
           <div className="space-y-3">
@@ -320,7 +339,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
           <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
             Annuleren
           </Button>
-          <Button onClick={handleSave as unknown as React.MouseEventHandler} disabled={loading}>
+          <Button onClick={handleSave as unknown as React.MouseEventHandler} disabled={loading || !rundownName.trim()}>
             {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Opslaan...</> : 'Opslaan'}
           </Button>
         </DialogFooter>

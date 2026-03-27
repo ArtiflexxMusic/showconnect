@@ -52,6 +52,15 @@ export interface Cue {
   location: string | null     // Ruimte / podium / locatie
   status: CueStatus
   started_at: string | null
+  // Media
+  media_url: string | null      // Publieke URL in Supabase Storage
+  media_path: string | null     // Pad in de bucket (voor verwijderen)
+  media_type: string | null     // MIME-type (audio/mp3, video/mp4, etc.)
+  media_filename: string | null // Originele bestandsnaam
+  media_size: number | null     // Bestandsgrootte in bytes
+  media_volume: number | null   // Volume 0.0–1.0 (default 1.0)
+  media_loop: boolean | null    // Herhalen
+  media_autoplay: boolean | null // Automatisch afspelen bij GO
   created_at: string
   updated_at: string
 }
@@ -75,6 +84,15 @@ export interface CreateCueInput {
   tech_notes?: string
   presenter?: string
   location?: string
+  // Media (optioneel)
+  media_url?: string | null
+  media_path?: string | null
+  media_type?: string | null
+  media_filename?: string | null
+  media_size?: number | null
+  media_volume?: number | null
+  media_loop?: boolean | null
+  media_autoplay?: boolean | null
 }
 
 export interface UpdateCueInput extends Partial<CreateCueInput> {

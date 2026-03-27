@@ -146,7 +146,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       presenter:        input.presenter ?? null,
       location:         input.location ?? null,
       status:           'pending',
-    } as Parameters<typeof supabase.from>[0] extends never ? never : Record<string, unknown>)
+      // Media
+      media_url:        input.media_url ?? null,
+      media_path:       input.media_path ?? null,
+      media_type:       input.media_type ?? null,
+      media_filename:   input.media_filename ?? null,
+      media_size:       input.media_size ?? null,
+      media_volume:     input.media_volume ?? 1.0,
+      media_loop:       input.media_loop ?? false,
+      media_autoplay:   input.media_autoplay ?? true,
+    } as Record<string, unknown>)
     if (error) console.error('Fout bij toevoegen cue:', error)
     setIsSaving(false)
     setShowAddModal(false)
@@ -243,6 +252,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── Rundown instellingen opslaan ─────────────────────────────────────────
   const saveRundownSettings = useCallback(async (updates: {
+    name: string
     show_start_time: string | null
     companion_webhook_url: string | null
     presenter_pin: string | null
@@ -277,6 +287,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     })
     setTimeout(() => setNudgeActive(false), 2000)
   }, [nudgeActive, userId])
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key === 'a' || e.key === 'A') { e.preventDefault(); setShowAddModal(true) }
+      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   async function handleDragEnd(event: DragEndEvent) {
@@ -572,6 +594,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onClose={() => setShowAddModal(false)}
         onSave={addCue}
         loading={isSaving}
+        supabase={supabase}
+        rundownId={rundown.id}
       />
 
       {editingCue && (
@@ -582,6 +606,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           initialValues={editingCue}
           loading={isSaving}
           mode="edit"
+          supabase={supabase}
+          rundownId={rundown.id}
         />
       )}
 
@@ -601,6 +627,12 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           onClick={() => { setShowFilterMenu(false); setShowViewMenu(false) }}
         />
       )}
+
+      {/* Sneltoetsen hint */}
+      <div className="mt-4 text-center text-xs text-muted-foreground/30">
+        <kbd className="px-1.5 rounded border border-border/30 font-mono">A</kbd> Cue toevoegen &nbsp;·&nbsp;
+        <kbd className="px-1.5 rounded border border-border/30 font-mono">Esc</kbd> Sluiten
+      </div>
     </div>
   )
 }

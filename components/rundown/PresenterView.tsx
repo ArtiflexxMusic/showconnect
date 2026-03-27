@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, calculateCueStartTimes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Clock, ChevronRight, Mic, MapPin, Lock } from 'lucide-react'
+import { Clock, ChevronRight, Mic, MapPin, Lock, Music, Video } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 
 interface PresenterViewProps {
@@ -257,6 +257,17 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
                 style={{ width: `${progress}%` }}
               />
             </div>
+
+            {/* Media indicator */}
+            {activeCue.media_url && (
+              <div className="flex items-center justify-center gap-2 text-white/30 text-sm">
+                {activeCue.media_type?.startsWith('video/')
+                  ? <Video className="h-4 w-4 animate-pulse" />
+                  : <Music className="h-4 w-4 animate-pulse" />
+                }
+                <span>{activeCue.media_filename ?? 'Media speelt'}</span>
+              </div>
+            )}
 
             {/* Notities voor presenter */}
             {activeCue.notes && (

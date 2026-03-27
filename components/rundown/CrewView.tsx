@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown } from 'lucide-react'
+import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video } from 'lucide-react'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
 
 interface CrewViewProps {
@@ -45,6 +45,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [isOnline, setIsOnline]   = useState(true)
   const [filter, setFilter]       = useState<FilterType>('all')
   const [showFilterBar, setShowFilterBar] = useState(false)
+  const [nudgeMessage, setNudgeMessage]   = useState<string | null>(null)
 
   const activeCue   = cues.find((c) => c.status === 'running')
   const pendingCues = cues.filter((c) => c.status === 'pending')
@@ -90,7 +91,19 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         setIsOnline(status === 'SUBSCRIBED')
       })
 
-    return () => { supabase.removeChannel(channel) }
+    // Aparte channel voor nudge-broadcasts (gedeeld met CallerView en RundownEditor)
+    const nudgeChannel = supabase
+      .channel(`rundown:${rundown.id}`)
+      .on('broadcast', { event: 'nudge' }, (payload) => {
+        setNudgeMessage(payload.payload?.message ?? '🔔 Aandacht gevraagd!')
+        setTimeout(() => setNudgeMessage(null), 5000)
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+      supabase.removeChannel(nudgeChannel)
+    }
   }, [rundown.id, supabase])
 
   const filteredCues = filter === 'all' ? cues : cues.filter((c) => c.type === filter)
@@ -104,6 +117,13 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
+
+      {/* Nudge melding */}
+      {nudgeMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl text-sm animate-bounce">
+          {nudgeMessage}
+        </div>
+      )}
 
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background border-b border-border/50">
@@ -132,7 +152,14 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
             <div className="h-2.5 w-2.5 rounded-full bg-green-400 shrink-0 animate-pulse" />
             <div className="min-w-0 flex-1">
               <p className="text-xs text-green-400 font-semibold uppercase tracking-wider">Nu live</p>
-              <p className="text-sm font-bold text-foreground truncate">{activeCue.title}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-bold text-foreground truncate">{activeCue.title}</p>
+                {activeCue.media_url && (
+                  activeCue.media_type?.startsWith('video/')
+                    ? <Video className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
+                    : <Music className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
+                )}
+              </div>
             </div>
             <div className="text-right shrink-0">
               <p className="font-mono font-bold text-green-400 text-sm">{countdownStr(activeCue)}</p>

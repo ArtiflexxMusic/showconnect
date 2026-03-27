@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes
@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, ChevronRight, SkipForward, Wifi, WifiOff,
-  Users, Radio, Clock, Play, Square, Mic, MapPin, Bell, BellRing
+  Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell, BellRing,
+  Music, Video, Volume2, VolumeX, StopCircle
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 import Link from 'next/link'
@@ -89,6 +90,14 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [isProcessing, setIsProcessing] = useState(false)
   const [nudgeActive, setNudgeActive]   = useState(false)
   const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
+  const [mediaPlaying, setMediaPlaying]         = useState(false)
+  const [mediaMuted, setMediaMuted]             = useState(false)
+  const [mediaPaused, setMediaPaused]           = useState(false)
+  const [mediaCurrentTime, setMediaCurrentTime] = useState(0)
+  const [mediaDuration, setMediaDuration]       = useState(0)
+
+  // Media player ref — één element voor audio én video
+  const mediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null)
 
   // Show starttijd → show clock basis
   const showStartedAt = cues
@@ -153,7 +162,20 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         }
       })
 
-    return () => { supabase.removeChannel(channel) }
+    // Extra nudge-listener op de gedeelde rundown-channel
+    // (RundownEditor stuurt ook nudges op rundown:{id})
+    const nudgeChannel = supabase
+      .channel(`rundown:${rundown.id}`)
+      .on('broadcast', { event: 'nudge' }, (payload) => {
+        setNudgeMessage(payload.payload?.message ?? '🔔 Nudge!')
+        setTimeout(() => setNudgeMessage(null), 4000)
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+      supabase.removeChannel(nudgeChannel)
+    }
   }, [rundown.id, userId, supabase])
 
   // ── GO ───────────────────────────────────────────────────────────────────
@@ -228,7 +250,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const sendNudge = useCallback(async () => {
     if (nudgeActive) return
     setNudgeActive(true)
-    const channel = supabase.channel(`caller:${rundown.id}`)
+    // Stuur op de gedeelde rundown-channel zodat ook CrewView het ontvangt
+    const channel = supabase.channel(`rundown:${rundown.id}`)
     await channel.send({
       type: 'broadcast',
       event: 'nudge',
@@ -252,9 +275,89 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     return () => window.removeEventListener('keydown', onKey)
   }, [handleGo, handlePrev, handleSkip, sendNudge])
 
+  // ── Media afspelen bij actieve cue ───────────────────────────────────────
+  useEffect(() => {
+    // Stop huidig media als de cue verandert
+    if (mediaRef.current) {
+      mediaRef.current.pause()
+      mediaRef.current.src = ''
+      setMediaPlaying(false)
+      setMediaPaused(false)
+      setMediaCurrentTime(0)
+      setMediaDuration(0)
+    }
+
+    if (!activeCue?.media_url || activeCue.media_autoplay === false) return
+
+    const isVideo = activeCue.media_type?.startsWith('video/')
+    const el = isVideo
+      ? document.createElement('video')
+      : document.createElement('audio')
+
+    el.src = activeCue.media_url
+    el.volume = activeCue.media_volume ?? 1.0
+    el.loop = activeCue.media_loop ?? false
+    el.muted = mediaMuted
+
+    el.onplay  = () => { setMediaPlaying(true);  setMediaPaused(false) }
+    el.onpause = () => { setMediaPlaying(false);  setMediaPaused(true) }
+    el.onended = () => { setMediaPlaying(false);  setMediaPaused(false); setMediaCurrentTime(0) }
+    el.onloadedmetadata = () => setMediaDuration(isFinite(el.duration) ? el.duration : 0)
+    el.ontimeupdate = () => setMediaCurrentTime(el.currentTime)
+
+    mediaRef.current = el as HTMLAudioElement
+    el.play().catch(() => {
+      // Autoplay geblokkeerd door browser — gebruiker moet interactie doen
+      setMediaPlaying(false)
+      setMediaPaused(false)
+    })
+
+    return () => {
+      el.pause()
+      el.src = ''
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCue?.id, activeCue?.status])
+
+  function toggleMute() {
+    setMediaMuted((prev) => {
+      const next = !prev
+      if (mediaRef.current) mediaRef.current.muted = next
+      return next
+    })
+  }
+
+  function toggleMediaPlayPause() {
+    if (!mediaRef.current) return
+    if (mediaRef.current.paused) {
+      mediaRef.current.play().catch(() => {})
+    } else {
+      mediaRef.current.pause()
+    }
+  }
+
+  function stopMedia() {
+    if (!mediaRef.current) return
+    mediaRef.current.pause()
+    mediaRef.current.currentTime = 0
+    setMediaCurrentTime(0)
+    setMediaPaused(false)
+    setMediaPlaying(false)
+  }
+
   // ── Berekeningen actieve cue ─────────────────────────────────────────────
   const countdown = activeCue ? calcCountdown(activeCue, now) : 0
   const progress  = activeCue ? calcProgress(activeCue, now) : 0
+
+  // Media player helpers
+  const hasMediaDisplay = !!(activeCue?.media_url && (mediaPlaying || mediaPaused))
+  const mediaProgressPct = mediaDuration > 0 ? Math.min(100, (mediaCurrentTime / mediaDuration) * 100) : 0
+
+  function fmtMediaTime(secs: number) {
+    const m = Math.floor(secs / 60)
+    const s = Math.floor(secs % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background select-none overflow-hidden">
@@ -296,6 +399,23 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               : <Bell className="h-4 w-4" />
             }
           </Button>
+
+          {/* Media-indicator */}
+          {activeCue?.media_url && (
+            <Button
+              variant="ghost" size="sm"
+              onClick={toggleMute}
+              className={cn('gap-1.5 h-8 text-xs', mediaPlaying ? 'text-blue-400' : 'text-muted-foreground')}
+              title={mediaMuted ? 'Geluid aan' : 'Geluid uit'}
+            >
+              {mediaMuted
+                ? <VolumeX className="h-4 w-4" />
+                : mediaPlaying
+                  ? (activeCue.media_type?.startsWith('video/') ? <Video className="h-4 w-4 animate-pulse" /> : <Music className="h-4 w-4 animate-pulse" />)
+                  : <Volume2 className="h-4 w-4" />
+              }
+            </Button>
+          )}
 
           <Badge variant="outline" className={cn('gap-1 text-xs', isOnline ? 'text-green-400 border-green-500/30' : 'text-red-400 border-red-500/30')}>
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
@@ -496,6 +616,64 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           <kbd className="px-1.5 rounded border border-border/50 font-mono">N</kbd> Nudge crew
         </p>
       </div>
+
+      {/* ── MEDIA PLAYER BAR ─────────────────────────────────────────── */}
+      {hasMediaDisplay && (
+        <div className="shrink-0 border-t border-blue-500/20 bg-blue-500/5 px-6 py-2">
+          <div className="flex items-center gap-3 max-w-3xl mx-auto">
+            {activeCue!.media_type?.startsWith('video/')
+              ? <Video className="h-4 w-4 text-blue-400 shrink-0" />
+              : <Music className={cn('h-4 w-4 text-blue-400 shrink-0', mediaPlaying && 'animate-pulse')} />
+            }
+            <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+              {activeCue!.media_filename ?? activeCue!.title}
+            </span>
+            {/* Voortgangsbalk */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-mono tabular-nums text-muted-foreground w-10 text-right">
+                {fmtMediaTime(mediaCurrentTime)}
+              </span>
+              <div className="w-28 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: `${mediaProgressPct}%` }}
+                />
+              </div>
+              <span className="text-xs font-mono tabular-nums text-muted-foreground/50 w-10">
+                {mediaDuration > 0 ? fmtMediaTime(mediaDuration) : '--:--'}
+              </span>
+            </div>
+            {/* Controls */}
+            <Button
+              variant="ghost" size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={toggleMediaPlayPause}
+              title={mediaPaused ? 'Afspelen' : 'Pauzeren'}
+            >
+              {mediaPaused
+                ? <Play className="h-3.5 w-3.5" />
+                : <Pause className="h-3.5 w-3.5" />
+              }
+            </Button>
+            <Button
+              variant="ghost" size="icon"
+              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+              onClick={stopMedia}
+              title="Stoppen"
+            >
+              <StopCircle className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost" size="icon"
+              className="h-6 w-6 shrink-0 text-muted-foreground"
+              onClick={toggleMute}
+              title={mediaMuted ? 'Geluid aan' : 'Geluid uit'}
+            >
+              {mediaMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── CUE MINILIJST ────────────────────────────────────────────── */}
       <div className="shrink-0 border-t border-border/50 px-6 py-3 bg-muted/10">

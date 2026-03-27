@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { CueCountdown } from './CueCountdown'
 import {
   GripVertical, Play, SkipForward, RotateCcw,
-  Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy
+  Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy, Music, Video
 } from 'lucide-react'
 import type { Cue } from '@/lib/types/database'
 import { useState } from 'react'
@@ -42,7 +42,7 @@ export function SortableCueRow({
   const isRunning = cue.status === 'running'
   const isDone    = cue.status === 'done'
   const isSkipped = cue.status === 'skipped'
-  const hasDetails = !!(cue.notes || cue.tech_notes || cue.presenter || cue.location)
+  const hasDetails = !!(cue.notes || cue.tech_notes || cue.presenter || cue.location || cue.media_filename)
 
   return (
     <div
@@ -89,6 +89,17 @@ export function SortableCueRow({
             )}>
               {cue.title}
             </span>
+            {cue.media_url && (
+              <span
+                className="shrink-0 text-blue-400/60"
+                title={cue.media_filename ?? 'Media bijgevoegd'}
+              >
+                {cue.media_type?.startsWith('video/')
+                  ? <Video className="h-3 w-3" />
+                  : <Music className="h-3 w-3" />
+                }
+              </span>
+            )}
             {hasDetails && (
               <button
                 onClick={() => setShowDetails(!showDetails)}
@@ -215,6 +226,27 @@ export function SortableCueRow({
             <div className="flex items-start gap-1.5 text-xs text-yellow-400/80 border-l-2 border-yellow-500/30 pl-3 py-0.5">
               <Wrench className="h-3 w-3 mt-0.5 shrink-0" />
               <span>{cue.tech_notes}</span>
+            </div>
+          )}
+          {cue.media_filename && (
+            <div className="flex items-center gap-1.5 text-xs text-blue-400/70 border-l-2 border-blue-500/20 pl-3 py-0.5">
+              {cue.media_type?.startsWith('video/')
+                ? <Video className="h-3 w-3 shrink-0" />
+                : <Music className="h-3 w-3 shrink-0" />
+              }
+              <span className="truncate">{cue.media_filename}</span>
+              {cue.media_size && (
+                <span className="text-muted-foreground/50 shrink-0">
+                  ({cue.media_size < 1024 * 1024
+                    ? `${(cue.media_size / 1024).toFixed(0)} KB`
+                    : `${(cue.media_size / (1024 * 1024)).toFixed(1)} MB`})
+                </span>
+              )}
+              <span className="text-muted-foreground/40 shrink-0">
+                · Vol {Math.round((cue.media_volume ?? 1.0) * 100)}%
+                {cue.media_autoplay !== false && ' · Autoplay'}
+                {cue.media_loop && ' · Loop'}
+              </span>
             </div>
           )}
         </div>

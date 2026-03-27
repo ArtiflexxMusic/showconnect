@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle } from 'lucide-react'
 import type { Rundown } from '@/lib/types/database'
 
 interface RundownSettingsProps {
@@ -20,15 +20,18 @@ interface RundownSettingsProps {
     companion_webhook_url: string | null
     presenter_pin: string | null
   }) => Promise<void>
+  onDelete?: () => Promise<void>
 }
 
-export function RundownSettings({ open, onClose, rundown, show, onSave }: RundownSettingsProps) {
+export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete }: RundownSettingsProps) {
   const [startTime, setStartTime]     = useState('')
   const [webhookUrl, setWebhookUrl]   = useState('')
   const [presenterPin, setPresenterPin] = useState('')
   const [loading, setLoading]         = useState(false)
   const [testStatus, setTestStatus]   = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [copied, setCopied]           = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting]       = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -38,8 +41,19 @@ export function RundownSettings({ open, onClose, rundown, show, onSave }: Rundow
       setPresenterPin(rundown.presenter_pin ?? '')
       setTestStatus('idle')
       setCopied(null)
+      setShowDeleteConfirm(false)
     }
   }, [open, rundown])
+
+  async function handleDelete() {
+    if (!onDelete) return
+    setDeleting(true)
+    try {
+      await onDelete()
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -245,6 +259,60 @@ export function RundownSettings({ open, onClose, rundown, show, onSave }: Rundow
               Deel de juiste link met je team. Geen inlog vereist voor Presenter en Crew view.
             </p>
           </div>
+
+          {/* Rundown verwijderen */}
+          {onDelete && (
+            <>
+              <hr className="border-border/50" />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <h3 className="text-sm font-semibold text-destructive">Gevaarlijke zone</h3>
+                </div>
+                {!showDeleteConfirm ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive gap-2"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Rundown verwijderen
+                  </Button>
+                ) : (
+                  <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 space-y-3">
+                    <p className="text-sm text-destructive">
+                      Weet je zeker dat je <strong>&ldquo;{rundown.name}&rdquo;</strong> wilt verwijderen?
+                      Alle cues worden ook verwijderd en dit kan niet ongedaan worden gemaakt.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={deleting}
+                      >
+                        Annuleren
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                      >
+                        {deleting
+                          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verwijderen...</>
+                          : 'Ja, verwijder rundown'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
         </form>
 

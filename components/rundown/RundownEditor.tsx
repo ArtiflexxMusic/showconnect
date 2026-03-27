@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   DndContext, DragEndEvent, KeyboardSensor, PointerSensor,
@@ -50,6 +51,7 @@ interface RundownEditorProps {
 
 export function RundownEditor({ rundown: initialRundown, show, initialCues, userId }: RundownEditorProps) {
   const supabase = createClient()
+  const router = useRouter()
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
@@ -253,6 +255,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       .single()
     if (!error && data) setRundown(data as Rundown)
   }, [rundown.id, supabase])
+
+  // ── Rundown verwijderen ───────────────────────────────────────────────────
+  const deleteRundown = useCallback(async () => {
+    const { error } = await supabase.from('rundowns').delete().eq('id', rundown.id)
+    if (!error) {
+      router.push('/dashboard')
+    } else {
+      console.error('Fout bij verwijderen rundown:', error)
+    }
+  }, [rundown.id, supabase, router])
 
   // ── Nudge sturen ─────────────────────────────────────────────────────────
   const sendNudge = useCallback(async () => {
@@ -579,6 +591,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         rundown={rundown}
         show={show}
         onSave={saveRundownSettings}
+        onDelete={deleteRundown}
       />
 
       {/* Sluit menu's bij klik buiten */}

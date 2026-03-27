@@ -13,7 +13,7 @@ export default async function DashboardPage() {
   const { data: shows } = await supabase
     .from('shows')
     .select('*, rundowns(id, name, is_active)')
-    .order('date', { ascending: true })
+    .order('date', { ascending: true, nullsFirst: false })
 
   return <ShowsOverview shows={shows ?? []} />
 }

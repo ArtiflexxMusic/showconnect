@@ -1,10 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, MapPin, Plus, ChevronRight, ListMusic } from 'lucide-react'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog'
+import { CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 interface ShowWithRundowns {
@@ -21,71 +26,136 @@ interface ShowsOverviewProps {
   shows: ShowWithRundowns[]
 }
 
-export function ShowsOverview({ shows }: ShowsOverviewProps) {
-  const upcoming = shows.filter((s) => s.date && new Date(s.date) >= new Date())
-  const past     = shows.filter((s) => !s.date || new Date(s.date) < new Date())
+export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
+  const supabase = createClient()
+  const [shows, setShows] = useState<ShowWithRundowns[]>(initialShows)
+  const [deleteTarget, setDeleteTarget] = useState<ShowWithRundowns | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Geen datum = aankomend (gepland maar nog niet ingepland)
+  const upcoming = shows.filter((s) => !s.date || new Date(s.date) >= today)
+  const past     = shows.filter((s) => s.date && new Date(s.date) < today)
+    .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime()) // meest recent bovenaan
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setDeleteError(null)
+    const { error } = await supabase.from('shows').delete().eq('id', deleteTarget.id)
+    setDeleting(false)
+    if (!error) {
+      setShows((prev) => prev.filter((s) => s.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } else {
+      setDeleteError('Verwijderen mislukt. Controleer je verbinding en probeer opnieuw.')
+    }
+  }
 
   return (
-    <div className="max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Shows</h1>
-          <p className="text-muted-foreground mt-1">
-            {shows.length === 0 ? 'Nog geen shows aangemaakt' : `${shows.length} show${shows.length !== 1 ? 's' : ''} gevonden`}
-          </p>
+    <>
+      <div className="max-w-4xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Shows</h1>
+            <p className="text-muted-foreground mt-1">
+              {shows.length === 0
+                ? 'Nog geen shows aangemaakt'
+                : `${shows.length} show${shows.length !== 1 ? 's' : ''} gevonden`}
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/shows/new">
+              <Plus className="h-4 w-4" /> Nieuwe show
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/shows/new">
-            <Plus className="h-4 w-4" /> Nieuwe show
-          </Link>
-        </Button>
+
+        {shows.length === 0 && (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <ListMusic className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="font-medium mb-1">Geen shows gevonden</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Maak je eerste show aan en begin met je rundown.
+              </p>
+              <Button asChild size="sm">
+                <Link href="/shows/new"><Plus className="h-4 w-4" /> Show aanmaken</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {upcoming.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Aankomende shows
+            </h2>
+            <div className="grid gap-3">
+              {upcoming.map((show) => (
+                <ShowCard key={show.id} show={show} onDelete={() => setDeleteTarget(show)} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {past.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Afgelopen shows
+            </h2>
+            <div className="grid gap-3 opacity-75">
+              {past.map((show) => (
+                <ShowCard key={show.id} show={show} past onDelete={() => setDeleteTarget(show)} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
-      {shows.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <ListMusic className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <p className="font-medium mb-1">Geen shows gevonden</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Maak je eerste show aan en begin met je rundown.
-            </p>
-            <Button asChild size="sm">
-              <Link href="/shows/new"><Plus className="h-4 w-4" /> Show aanmaken</Link>
+      {/* Bevestigingsdialoog show verwijderen */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v && !deleting) { setDeleteTarget(null); setDeleteError(null) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Show verwijderen</DialogTitle>
+            <DialogDescription>
+              Weet je zeker dat je <strong>&ldquo;{deleteTarget?.name}&rdquo;</strong> wilt verwijderen?
+              Alle bijbehorende rundowns en cues worden ook verwijderd. Dit kan niet ongedaan worden gemaakt.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive px-1">{deleteError}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(null) }} disabled={deleting}>
+              Annuleren
             </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {upcoming.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Aankomende shows
-          </h2>
-          <div className="grid gap-3">
-            {upcoming.map((show) => <ShowCard key={show.id} show={show} />)}
-          </div>
-        </section>
-      )}
-
-      {past.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Afgelopen shows
-          </h2>
-          <div className="grid gap-3 opacity-75">
-            {past.map((show) => <ShowCard key={show.id} show={show} past />)}
-          </div>
-        </section>
-      )}
-    </div>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Verwijderen...</>
+                : 'Ja, verwijder show'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
-function ShowCard({ show, past = false }: { show: ShowWithRundowns; past?: boolean }) {
-  const mainRundown = show.rundowns.find((r) => r.is_active) ?? show.rundowns[0]
-
+function ShowCard({
+  show,
+  past = false,
+  onDelete,
+}: {
+  show: ShowWithRundowns
+  past?: boolean
+  onDelete: () => void
+}) {
   return (
     <Card className="hover:border-primary/50 transition-colors">
       <CardHeader className="pb-3">
@@ -107,9 +177,20 @@ function ShowCard({ show, past = false }: { show: ShowWithRundowns; past?: boole
               )}
             </CardDescription>
           </div>
-          {past && (
-            <Badge variant="outline" className="text-xs shrink-0">Afgelopen</Badge>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {past && (
+              <Badge variant="outline" className="text-xs">Afgelopen</Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={onDelete}
+              title="Show verwijderen"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
 

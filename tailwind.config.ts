@@ -48,7 +48,7 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // ShowConnect brand colors
+        // CueBoard brand colors
         show: {
           red: "#E53E3E",
           amber: "#D69E2E",

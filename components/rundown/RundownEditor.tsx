@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   DndContext, DragEndEvent, KeyboardSensor, PointerSensor,
@@ -51,6 +51,8 @@ interface RundownEditorProps {
 export function RundownEditor({ rundown: initialRundown, show, initialCues, userId }: RundownEditorProps) {
   const supabase = createClient()
 
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+
   const [rundown, setRundown]           = useState<Rundown>(initialRundown)
   const [cues, setCues]                 = useState<Cue[]>(initialCues)
   const [isOnline, setIsOnline]         = useState(true)
@@ -74,8 +76,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── Supabase Realtime ──────────────────────────────────────────────────
   useEffect(() => {
-    const channel = supabase
-      .channel(`rundown:${rundown.id}`)
+    const channel = supabase.channel(`rundown:${rundown.id}`)
+    channelRef.current = channel
+    channel
       .on('presence', { event: 'sync' }, () => {
         setConnectedUsers(Object.keys(channel.presenceState()).length)
       })
@@ -120,7 +123,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         }
       })
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      channelRef.current = null
+      supabase.removeChannel(channel)
+    }
   }, [rundown.id, userId, supabase])
 
   // ── CRUD ────────────────────────────────────────────────────────────────
@@ -250,16 +256,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── Nudge sturen ─────────────────────────────────────────────────────────
   const sendNudge = useCallback(async () => {
-    if (nudgeActive) return
+    if (nudgeActive || !channelRef.current) return
     setNudgeActive(true)
-    const channel = supabase.channel(`rundown:${rundown.id}`)
-    await channel.send({
+    await channelRef.current.send({
       type: 'broadcast',
       event: 'nudge',
       payload: { from: userId, message: '🔔 Aandacht van de caller!' },
     })
     setTimeout(() => setNudgeActive(false), 2000)
-  }, [nudgeActive, rundown.id, userId, supabase])
+  }, [nudgeActive, userId])
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   async function handleDragEnd(event: DragEndEvent) {

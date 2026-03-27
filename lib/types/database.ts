@@ -1,5 +1,5 @@
 // ============================================================
-// ShowConnect – Database Types
+// CueBoard – Database Types
 // ============================================================
 
 export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'custom' | 'intro' | 'outro'

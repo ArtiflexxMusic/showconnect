@@ -3,8 +3,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'ShowConnect',
-    template: '%s | ShowConnect',
+    default: 'CueBoard',
+    template: '%s | CueBoard',
   },
   description: 'Real-time show control & rundown beheer voor live events',
   icons: { icon: '/favicon.ico' },

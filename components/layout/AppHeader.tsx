@@ -28,7 +28,7 @@ export function AppHeader({ user }: AppHeaderProps) {
           <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
             <Radio className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="tracking-tight">ShowConnect</span>
+          <span className="tracking-tight">CueBoard</span>
         </div>
 
         <div className="flex-1" />

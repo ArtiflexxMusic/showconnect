@@ -175,7 +175,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              event: 'cue_started', source: 'ShowConnect',
+              event: 'cue_started', source: 'CueBoard',
               cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
               timestamp: new Date().toISOString(),
             }),

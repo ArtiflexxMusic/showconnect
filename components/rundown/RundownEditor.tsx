@@ -212,7 +212,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           event:    'cue_started',
-          source:   'ShowConnect',
+          source:   'CueBoard',
           cue: {
             id:       targetCue.id,
             title:    targetCue.title,

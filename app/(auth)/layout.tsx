@@ -7,9 +7,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">SC</span>
+              <span className="text-primary-foreground font-bold text-sm">CB</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">ShowConnect</span>
+            <span className="text-xl font-bold tracking-tight">CueBoard</span>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             Show control voor live events

@@ -180,7 +180,7 @@ export default async function PrintPage({ params }: PageProps) {
         </table>
 
         <div className="footer">
-          Afgedrukt via ShowConnect · {printDate} {printTime}
+          Afgedrukt via CueBoard · {printDate} {printTime}
           {rundown.show_start_time && ` · Aanvang ${rundown.show_start_time.slice(0, 5)}`}
         </div>
       </body>

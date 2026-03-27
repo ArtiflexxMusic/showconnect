@@ -65,7 +65,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave }: Rundow
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           event: 'test',
-          source: 'ShowConnect',
+          source: 'CueBoard',
           rundown: rundown.name,
           timestamp: new Date().toISOString(),
         }),

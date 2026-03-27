@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ShowsOverview } from '@/components/dashboard/ShowsOverview'
 
-export const metadata: Metadata = { title: 'Dashboard – ShowConnect' }
+export const metadata: Metadata = { title: 'Dashboard – CueBoard' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()

@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .single()
 
   if (!data) return { title: 'Rundown' }
-  return { title: `${data.name} – ShowConnect` }
+  return { title: `${data.name} – CueBoard` }
 }
 
 export default async function RundownPage({ params }: PageProps) {

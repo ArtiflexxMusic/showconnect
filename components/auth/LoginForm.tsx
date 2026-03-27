@@ -76,7 +76,7 @@ export function LoginForm() {
   }
 
   const descriptions: Record<Mode, string> = {
-    login:  'Log in met je ShowConnect-account',
+    login:  'Log in met je CueBoard-account',
     signup: 'Maak een nieuw crew-account aan',
     reset:  'Voer je e-mail in voor een reset-link',
   }
@@ -127,7 +127,7 @@ export function LoginForm() {
             <Input
               id="email"
               type="email"
-              placeholder="crew@showconnect.nl"
+              placeholder="crew@cueboard.nl"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

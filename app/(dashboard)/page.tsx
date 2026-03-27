@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
-// Dit bestand bestaat niet meer als actieve pagina – redirect naar /dashboard
-export default function OldDashboardRoot() {
+export const dynamic = 'force-dynamic'
+
+export default function DashboardRootPage() {
   redirect('/dashboard')
 }

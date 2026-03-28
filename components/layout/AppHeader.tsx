@@ -62,7 +62,7 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cueboard-logo.svg" alt="CueBoard" className="h-8 w-auto" />
+            <img src="/cueboard-logo-dark.svg" alt="CueBoard" className="h-8 w-auto" />
           </Link>
 
           <div className="flex-1" />

@@ -20,6 +20,7 @@ export interface Profile {
   plan: UserPlan
   plan_source: PlanSource
   plan_expires_at: string | null
+  trial_ends_at: string | null
 }
 
 export interface Show {

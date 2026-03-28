@@ -139,6 +139,43 @@ export function buildPaymentRequestEmail(opts: {
 }
 
 /**
+ * Mail: 3-daagse trial gestart (welkomstmail voor nieuwe gebruikers)
+ */
+export function buildTrialWelcomeEmail(opts: {
+  name: string | null
+}) {
+  const displayName = opts.name ?? 'daar'
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Welkom bij CueBoard! 🎉
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#ccc;line-height:1.7;">
+      Je account is aangemaakt en je hebt <strong style="color:#fff;">3 dagen volledig toegang</strong>
+      tot alle functies van CueBoard — inclusief Companion-integratie, slideshow-upload, mic patch en onbeperkte shows.
+    </p>
+    <p style="margin:0 0 8px;font-size:15px;color:#ccc;line-height:1.7;">
+      Verken alles en kies daarna het plan dat het beste bij jou past:
+    </p>
+    <a href="${BASE_URL}/upgrade" style="${btnStyle}">
+      Aan de slag →
+    </a>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+    </p>
+  `
+
+  return {
+    subject: 'Welkom bij CueBoard — 3 dagen gratis toegang',
+    html: emailBase(content),
+  }
+}
+
+/**
  * Mail: plan verlopen → teruggevallen naar Free
  */
 export function buildPlanExpiredEmail(opts: {
@@ -174,6 +211,46 @@ export function buildPlanExpiredEmail(opts: {
 
   return {
     subject: `Je CueBoard ${planLabel}-plan is verlopen`,
+    html:    emailBase(content),
+  }
+}
+
+/**
+ * Mail: admin heeft een gebruiker uitgenodigd
+ * (aanvullend op de Supabase invite-mail — optioneel te versturen)
+ */
+export function buildInviteEmail(opts: {
+  name: string | null
+  invitedBy?: string | null
+}) {
+  const displayName = opts.name ?? 'daar'
+  const invitedBy   = opts.invitedBy ?? 'een beheerder'
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Je bent uitgenodigd voor CueBoard
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#ccc;line-height:1.7;">
+      ${invitedBy} heeft je uitgenodigd om CueBoard te gebruiken.
+      Je krijgt <strong style="color:#fff;">3 dagen gratis toegang</strong> tot alle functies.
+    </p>
+    <p style="margin:0 0 8px;font-size:15px;color:#ccc;line-height:1.7;">
+      Klik op de knop in de uitnodigingsmail om je account aan te maken en direct aan de slag te gaan:
+    </p>
+    <a href="${BASE_URL}" style="${btnStyle}">
+      Account aanmaken →
+    </a>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+    </p>
+  `
+
+  return {
+    subject: 'Je bent uitgenodigd voor CueBoard',
     html:    emailBase(content),
   }
 }

@@ -16,10 +16,10 @@ export default async function AdminPage() {
     .from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'beheerder') redirect('/dashboard')
 
-  // Alle gebruikers ophalen incl. plan
+  // Alle gebruikers ophalen incl. plan en trial
   const { data: users } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, avatar_url, created_at, plan, plan_source, plan_expires_at')
+    .select('id, email, full_name, role, avatar_url, created_at, plan, plan_source, plan_expires_at, trial_ends_at')
     .order('created_at', { ascending: false })
 
   // Alle shows (twee queries om RLS-aggregatie-issue te vermijden)

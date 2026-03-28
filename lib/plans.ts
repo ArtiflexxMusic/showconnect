@@ -82,14 +82,26 @@ export const PLAN_SOURCE_COLORS: Record<PlanSource, string> = {
   paid: 'text-emerald-400',
 }
 
-/** Geeft de limieten terug voor een plan, rekening houdend met verloopdatum */
+/** Geeft true als een gebruiker een actieve trial heeft */
+export function isTrialActive(trialEndsAt: string | null | undefined): boolean {
+  if (!trialEndsAt) return false
+  return new Date(trialEndsAt) > new Date()
+}
+
+/** Geeft de limieten terug voor een plan, rekening houdend met verloopdatum en trial */
 export function getPlanLimits(
   plan: Plan,
-  planExpiresAt: string | null
+  planExpiresAt: string | null,
+  trialEndsAt?: string | null
 ): PlanLimits {
+  // Actieve trial op free plan → tijdelijk team-limieten
+  if (plan === 'free' && isTrialActive(trialEndsAt)) {
+    return PLAN_LIMITS.team
+  }
+
   if (plan === 'free') return PLAN_LIMITS.free
 
-  // Check verloopdatum
+  // Check verloopdatum betaald plan
   if (planExpiresAt && new Date(planExpiresAt) < new Date()) {
     return PLAN_LIMITS.free
   }
@@ -101,9 +113,10 @@ export function getPlanLimits(
 export function canUse(
   plan: Plan,
   planExpiresAt: string | null,
-  feature: keyof PlanLimits
+  feature: keyof PlanLimits,
+  trialEndsAt?: string | null
 ): boolean {
-  const limits = getPlanLimits(plan, planExpiresAt)
+  const limits = getPlanLimits(plan, planExpiresAt, trialEndsAt)
   const val = limits[feature]
   if (typeof val === 'boolean') return val
   return (val as number) > 0
@@ -114,9 +127,10 @@ export function withinLimit(
   plan: Plan,
   planExpiresAt: string | null,
   feature: 'max_shows' | 'max_rundowns_per_show' | 'max_cues_per_rundown' | 'max_members_per_show' | 'max_cast_members',
-  currentCount: number
+  currentCount: number,
+  trialEndsAt?: string | null
 ): boolean {
-  const limits = getPlanLimits(plan, planExpiresAt)
+  const limits = getPlanLimits(plan, planExpiresAt, trialEndsAt)
   const max = limits[feature]
   return currentCount < max
 }

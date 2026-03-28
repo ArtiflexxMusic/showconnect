@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button'
 import {
   Users, Shield, Calendar, ChevronDown, Check,
   Search, Trash2, Crown, ExternalLink, X, Sparkles,
+  UserPlus, Clock,
 } from 'lucide-react'
 import type { UserRole, UserPlan, PlanSource } from '@/lib/types/database'
 import {
   PLAN_LABELS, PLAN_COLORS, PLAN_SOURCE_LABELS, PLAN_SOURCE_COLORS, PLAN_PRICES,
+  isTrialActive,
 } from '@/lib/plans'
 import type { Plan } from '@/lib/plans'
 import { cn } from '@/lib/utils'
@@ -25,6 +27,7 @@ interface UserRow {
   plan: UserPlan
   plan_source: PlanSource
   plan_expires_at: string | null
+  trial_ends_at: string | null
 }
 
 interface ShowRow {
@@ -70,6 +73,193 @@ function Avatar({ user }: { user: Pick<UserRow, 'full_name' | 'email' | 'avatar_
         : initials
       }
     </div>
+  )
+}
+
+// ── Invite modal ─────────────────────────────────────────────────────────────
+function InviteModal({
+  onClose,
+  onInvited,
+}: {
+  onClose: () => void
+  onInvited: (email: string) => void
+}) {
+  const [email, setEmail]       = useState('')
+  const [name, setName]         = useState('')
+  const [plan, setPlan]         = useState<Plan>('free')
+  const [source, setSource]     = useState<PlanSource>('gift')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState<string | null>(null)
+  const [success, setSuccess]   = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim()) return
+    setLoading(true)
+    setError(null)
+
+    const res = await fetch('/api/admin/invite-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        fullName: name.trim() || undefined,
+        plan,
+        planSource: plan !== 'free' ? source : 'free',
+      }),
+    })
+    const data = await res.json()
+    setLoading(false)
+
+    if (!res.ok) {
+      setError(data.error ?? 'Er ging iets mis')
+    } else {
+      setSuccess(true)
+      onInvited(email.trim())
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md pointer-events-auto"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">Gebruiker uitnodigen</h2>
+            </div>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {success ? (
+            <div className="px-6 py-8 text-center space-y-3">
+              <div className="h-12 w-12 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
+                <Check className="h-6 w-6 text-emerald-400" />
+              </div>
+              <p className="text-sm font-medium">Uitnodiging verstuurd!</p>
+              <p className="text-xs text-muted-foreground">
+                {email} ontvangt een e-mail met een activatielink.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-2 text-xs text-primary hover:underline"
+              >
+                Sluiten
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+              {/* E-mail */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">E-mailadres *</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="naam@bedrijf.nl"
+                  className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Naam (optioneel) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">
+                  Naam <span className="text-muted-foreground font-normal">(optioneel)</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Voor- en achternaam"
+                  className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Plan (optioneel) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">
+                  Startplan <span className="text-muted-foreground font-normal">(optioneel)</span>
+                </label>
+                <div className="flex gap-1.5">
+                  {(['free', 'pro', 'team'] as Plan[]).map(p => (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() => setPlan(p)}
+                      className={cn(
+                        'flex-1 py-1.5 rounded-md border text-xs font-medium transition-colors',
+                        plan === p
+                          ? PLAN_COLORS[p]
+                          : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'
+                      )}
+                    >
+                      {PLAN_LABELS[p]}
+                    </button>
+                  ))}
+                </div>
+                {plan !== 'free' && (
+                  <div className="flex gap-1.5 mt-1.5">
+                    {(['gift', 'paid'] as PlanSource[]).map(s => (
+                      <button
+                        type="button"
+                        key={s}
+                        onClick={() => setSource(s)}
+                        className={cn(
+                          'flex-1 py-1.5 px-2 rounded-md border text-[10px] font-medium transition-colors',
+                          source === s
+                            ? 'bg-primary/15 text-primary border-primary/30'
+                            : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'
+                        )}
+                      >
+                        {PLAN_SOURCE_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  Nieuwe gebruikers krijgen altijd een 3-daagse gratis trial.
+                </p>
+              </div>
+
+              {error && (
+                <p className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 text-xs text-muted-foreground hover:text-foreground py-2 rounded-md border border-border hover:bg-muted transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !email.trim()}
+                  className="flex-1 text-xs bg-primary text-primary-foreground py-2 rounded-md font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {loading
+                    ? <div className="h-3 w-3 border border-white border-t-transparent rounded-full animate-spin" />
+                    : <UserPlus className="h-3 w-3" />
+                  }
+                  {loading ? 'Versturen…' : 'Uitnodiging sturen'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -241,6 +431,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [userSearch, setUserSearch]     = useState('')
   const [showSearch, setShowSearch]     = useState('')
+  const [showInvite, setShowInvite]     = useState(false)
 
   const isBeheerder = currentUserRole === 'beheerder'
 
@@ -319,10 +510,9 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     }
   }
 
-  const beheerderCount = users.filter(u => u.role === 'beheerder').length
-  const adminCount     = users.filter(u => u.role === 'admin').length
-  const proCount       = users.filter(u => u.plan === 'pro').length
-  const teamCount      = users.filter(u => u.plan === 'team').length
+  const proCount    = users.filter(u => u.plan === 'pro').length
+  const teamCount   = users.filter(u => u.plan === 'team').length
+  const trialCount  = users.filter(u => isTrialActive(u.trial_ends_at) && u.plan === 'free').length
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -346,9 +536,9 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Gebruikers', value: users.length,    icon: Users,    color: '' },
+          { label: 'Trial',      value: trialCount,      icon: Clock,    color: 'text-amber-400' },
           { label: 'Pro',        value: proCount,        icon: Sparkles, color: 'text-primary' },
           { label: 'Team',       value: teamCount,       icon: Crown,    color: 'text-violet-400' },
-          { label: 'Shows',      value: shows.length,    icon: Calendar, color: '' },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardContent className="pt-4 pb-3">
@@ -366,6 +556,28 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
         ))}
       </div>
 
+      {/* Invite modal */}
+      {showInvite && (
+        <InviteModal
+          onClose={() => setShowInvite(false)}
+          onInvited={(email) => {
+            // Voeg tijdelijk placeholder toe zodat UI direct bijwerkt
+            setUsers(prev => [...prev, {
+              id: `pending-${Date.now()}`,
+              email,
+              full_name: null,
+              role: 'crew',
+              avatar_url: null,
+              created_at: new Date().toISOString(),
+              plan: 'free',
+              plan_source: 'free',
+              plan_expires_at: null,
+              trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            } as UserRow])
+          }}
+        />
+      )}
+
       {/* Gebruikers tabel */}
       <Card>
         <CardHeader className="pb-3">
@@ -377,20 +589,30 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                 ({filteredUsers.length}/{users.length})
               </span>
             </CardTitle>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Zoek naam of e-mail…"
-                value={userSearch}
-                onChange={e => setUserSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-sm bg-background border border-border rounded-md w-56 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              {userSearch && (
-                <button onClick={() => setUserSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
+            <div className="flex items-center gap-2">
+              {/* Uitnodigen (beheerder + admin) */}
+              <button
+                onClick={() => setShowInvite(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/25 rounded-md hover:bg-primary/20 transition-colors"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Uitnodigen
+              </button>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Zoek naam of e-mail…"
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-sm bg-background border border-border rounded-md w-52 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {userSearch && (
+                  <button onClick={() => setUserSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -411,7 +633,13 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                   )}
                   {user.plan_expires_at && user.plan !== 'free' && (
                     <p className="text-[10px] text-amber-400/80">
-                      Verloopt {new Date(user.plan_expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Plan verloopt {new Date(user.plan_expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                  {isTrialActive(user.trial_ends_at) && user.plan === 'free' && (
+                    <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5" />
+                      Trial tot {new Date(user.trial_ends_at!).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
                     </p>
                   )}
                 </div>

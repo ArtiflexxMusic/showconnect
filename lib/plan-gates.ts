@@ -35,13 +35,14 @@ export async function checkPlanGate(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, plan_expires_at')
+    .select('plan, plan_expires_at, trial_ends_at')
     .eq('id', userId)
     .single()
 
   const plan = (profile?.plan ?? 'free') as Plan
   const expiresAt = profile?.plan_expires_at ?? null
-  const limits = getPlanLimits(plan, expiresAt)
+  const trialEndsAt = profile?.trial_ends_at ?? null
+  const limits = getPlanLimits(plan, expiresAt, trialEndsAt)
   const limit = limits[feature] as number
 
   const FEATURE_LABELS: Record<GateFeature, string> = {
@@ -52,7 +53,7 @@ export async function checkPlanGate(
     max_cast_members:      'cast members',
   }
 
-  const allowed = withinLimit(plan, expiresAt, feature, currentCount)
+  const allowed = withinLimit(plan, expiresAt, feature, currentCount, trialEndsAt)
 
   return {
     allowed,
@@ -78,13 +79,14 @@ export async function checkFeatureAccess(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, plan_expires_at')
+    .select('plan, plan_expires_at, trial_ends_at')
     .eq('id', userId)
     .single()
 
   const plan = (profile?.plan ?? 'free') as Plan
   const expiresAt = profile?.plan_expires_at ?? null
-  const limits = getPlanLimits(plan, expiresAt)
+  const trialEndsAt = profile?.trial_ends_at ?? null
+  const limits = getPlanLimits(plan, expiresAt, trialEndsAt)
   const allowed = limits[feature] as boolean
 
   const FEATURE_LABELS: Record<string, string> = {

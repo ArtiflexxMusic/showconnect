@@ -181,16 +181,23 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
     if (!url) return
     setTestStatus('testing')
     const isCompanionVar = url.includes('/api/custom-variable/')
+    const payload = isCompanionVar
+      ? { value: 'TEST — CueBoard verbinding OK' }
+      : { event: 'test', source: 'CueBoard', rundown: rundown.name, timestamp: new Date().toISOString() }
     try {
-      await fetch(url, {
+      // Gebruik server-side proxy om mixed-content (HTTPS→HTTP) te omzeilen
+      const res = await fetch('/api/companion/relay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: isCompanionVar
-          ? JSON.stringify({ value: 'TEST — CueBoard verbinding OK' })
-          : JSON.stringify({ event: 'test', source: 'CueBoard', rundown: rundown.name, timestamp: new Date().toISOString() }),
-        signal: AbortSignal.timeout(5000),
+        body: JSON.stringify({ url, payload }),
+        signal: AbortSignal.timeout(8000),
       })
-      setTestStatus('ok')
+      const data = await res.json()
+      if (res.ok && data.ok) {
+        setTestStatus('ok')
+      } else {
+        setTestStatus('error')
+      }
     } catch {
       setTestStatus('error')
     }

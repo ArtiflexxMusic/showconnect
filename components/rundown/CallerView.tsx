@@ -247,21 +247,21 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           })
         }
 
-        // Companion koppeling
+        // Companion koppeling — via server-side proxy (omzeilt mixed-content HTTPS→HTTP)
         if (rundown.companion_webhook_url) {
           const url = rundown.companion_webhook_url
-          // Companion Custom Variable modus: stuur {"value": "..."} formaat
           const isCompanionVar = url.includes('/api/custom-variable/')
-          fetch(url, {
+          const payload = isCompanionVar
+            ? { value: nextCue.title }
+            : {
+                event: 'cue_started', source: 'CueBoard',
+                cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
+                timestamp: new Date().toISOString(),
+              }
+          fetch('/api/companion/relay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: isCompanionVar
-              ? JSON.stringify({ value: nextCue.title })
-              : JSON.stringify({
-                  event: 'cue_started', source: 'CueBoard',
-                  cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
-                  timestamp: new Date().toISOString(),
-                }),
+            body: JSON.stringify({ url, payload }),
           }).catch(() => {})
         }
       }

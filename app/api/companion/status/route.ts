@@ -12,8 +12,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { rateLimit, getIp } from '@/lib/rate-limit'
+
+// Gebruik service role om RLS te omzeilen — endpoint is publiek maar
+// vereist een geldig rundownId als impliciete toegangstoken
+function createServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  )
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -28,7 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Rundown info
     const { data: rundown, error: rErr } = await supabase

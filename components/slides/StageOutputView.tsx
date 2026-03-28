@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Cue, Rundown } from '@/lib/types/database'
+import { Maximize, Minimize } from 'lucide-react'
 
 // pdf.js types
 declare global {
@@ -14,10 +15,76 @@ declare global {
 
 const PDFJS_CDN        = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
 const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+const POLL_INTERVAL_MS = 3000  // poll every 3s als realtime fallback
 
 interface StageOutputViewProps {
   rundown: Rundown
   showName: string
+}
+
+// ── Fullscreen knop ───────────────────────────────────────────────────────────
+function FullscreenButton() {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [visible, setVisible] = useState(false)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  // Toetsenbord: F = fullscreen toggle
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'f' || e.key === 'F') {
+        // Niet triggeren als iemand in een input typt
+        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+          toggleFullscreen()
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleFullscreen])
+
+  // Muis bewegen → toon knop, verberg na 3s stilte
+  useEffect(() => {
+    const onMove = () => {
+      setVisible(true)
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = setTimeout(() => setVisible(false), 3000)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('touchstart', onMove)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('touchstart', onMove)
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    }
+  }, [])
+
+  return (
+    <button
+      onClick={toggleFullscreen}
+      title={isFullscreen ? 'Verlaat volledig scherm (F)' : 'Volledig scherm (F)'}
+      className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white/50 hover:text-white/90 hover:bg-black/70 transition-all duration-200 text-xs backdrop-blur-sm"
+      style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity 0.4s' }}
+    >
+      {isFullscreen
+        ? <><Minimize className="h-3.5 w-3.5" /> Verlaat</>
+        : <><Maximize className="h-3.5 w-3.5" /> Volledig scherm</>
+      }
+    </button>
+  )
 }
 
 // ── PPTX viewer via Microsoft Office Online ───────────────────────────────────
@@ -47,6 +114,7 @@ function PptxOutputView({ url, rundownId }: { url: string; rundownId: string }) 
       <div className="fixed bottom-2 right-3 text-white/10 text-[10px] font-mono pointer-events-none select-none">
         PPTX · automatische navigatie alleen bij PDF
       </div>
+      <FullscreenButton />
     </div>
   )
 }
@@ -173,6 +241,7 @@ function PdfOutputView({
         >
           Opnieuw proberen
         </button>
+        <FullscreenButton />
       </div>
     )
   }
@@ -193,10 +262,11 @@ function PdfOutputView({
       />
 
       {loaded && totalPages > 1 && (
-        <div className="fixed bottom-2 right-3 text-white/10 text-[10px] font-mono tabular-nums pointer-events-none select-none">
+        <div className="fixed bottom-10 right-3 text-white/10 text-[10px] font-mono tabular-nums pointer-events-none select-none">
           {slideIndex + 1} / {totalPages}
         </div>
       )}
+      <FullscreenButton />
     </div>
   )
 }
@@ -211,6 +281,7 @@ function StillImageView({ url, showName }: { url: string; showName: string }) {
         className="max-w-full max-h-full object-contain"
         style={{ imageRendering: 'auto' }}
       />
+      <FullscreenButton />
     </div>
   )
 }
@@ -227,6 +298,7 @@ function NoContentView({ showName }: { showName: string }) {
           Geen presentatie geladen — upload een PDF, PPTX of still in de rundown instellingen
         </p>
       </div>
+      <FullscreenButton />
     </div>
   )
 }
@@ -239,22 +311,31 @@ export function StageOutputView({ rundown, showName }: StageOutputViewProps) {
   const [activeCue, setActiveCue] = useState<Cue | null>(null)
   const activeCueRef = useRef<Cue | null>(null)
 
-  useEffect(() => {
-    // Haal direct de actieve cue op
-    async function fetchActiveCue() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
-        .from('cues')
-        .select('*')
-        .eq('rundown_id', rundown.id)
-        .eq('status', 'running')
-        .maybeSingle()
-      activeCueRef.current = data ?? null
-      setActiveCue(data ?? null)
+  // ── Cue ophalen (eenmalig + polling fallback) ───────────────────────────────
+  const fetchActiveCue = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+      .from('cues')
+      .select('*')
+      .eq('rundown_id', rundown.id)
+      .eq('status', 'running')
+      .maybeSingle()
+    const cue = data ?? null
+    // Alleen state updaten als er iets veranderd is
+    if (JSON.stringify(cue) !== JSON.stringify(activeCueRef.current)) {
+      activeCueRef.current = cue
+      setActiveCue(cue)
     }
+  }, [rundown.id, supabase])
+
+  useEffect(() => {
+    // Directe initiële fetch
     fetchActiveCue()
 
-    // Luister naar cue-statuswijzigingen
+    // Polling elke 3s als realtime fallback
+    const pollTimer = setInterval(fetchActiveCue, POLL_INTERVAL_MS)
+
+    // Realtime: luister naar cue-statuswijzigingen
     const channel = supabase
       .channel(`stage_cues:${rundown.id}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -271,12 +352,17 @@ export function StageOutputView({ rundown, showName }: StageOutputViewProps) {
         } else if (activeCueRef.current?.id === updated.id) {
           activeCueRef.current = null
           setActiveCue(null)
+          // Directe poll om eventuele volgende actieve cue te pakken
+          fetchActiveCue()
         }
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
-  }, [rundown.id, supabase])
+    return () => {
+      clearInterval(pollTimer)
+      supabase.removeChannel(channel)
+    }
+  }, [rundown.id, supabase, fetchActiveCue])
 
   // ── Prioriteit: per-cue presentatie > rundown deck > still > leeg ─────────
 

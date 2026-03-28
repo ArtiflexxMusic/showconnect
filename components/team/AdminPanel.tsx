@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
   Users, Shield, Calendar, ChevronDown, Check,
   Search, Trash2, Crown, ExternalLink, X, Sparkles,
-  UserPlus, Clock,
+  UserPlus, Clock, Phone, Download, Filter,
 } from 'lucide-react'
 import type { UserRole, UserPlan, PlanSource } from '@/lib/types/database'
 import {
@@ -21,6 +21,7 @@ interface UserRow {
   id: string
   email: string
   full_name: string | null
+  phone: string | null
   role: UserRole
   avatar_url: string | null
   created_at: string
@@ -432,6 +433,8 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const [userSearch, setUserSearch]     = useState('')
   const [showSearch, setShowSearch]     = useState('')
   const [showInvite, setShowInvite]     = useState(false)
+  const [planFilter, setPlanFilter]     = useState<'all' | 'free' | 'trial' | 'pro' | 'team'>('all')
+  const [expandedUser, setExpandedUser] = useState<string | null>(null)
 
   const isBeheerder = currentUserRole === 'beheerder'
 
@@ -439,20 +442,60 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     ? ['beheerder', 'admin', 'crew']
     : ['admin', 'crew']
 
+  // Shows aangemaakt per gebruiker
+  const showsPerUser = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const s of shows) {
+      if (s.created_by) map[s.created_by] = (map[s.created_by] ?? 0) + 1
+    }
+    return map
+  }, [shows])
+
   const filteredUsers = useMemo(() => {
+    let list = users
+    // Plan filter
+    if (planFilter !== 'all') {
+      list = list.filter(u => {
+        if (planFilter === 'trial') return isTrialActive(u.trial_ends_at) && u.plan === 'free'
+        if (planFilter === 'free')  return u.plan === 'free' && !isTrialActive(u.trial_ends_at)
+        return u.plan === planFilter
+      })
+    }
+    // Zoeken
     const q = userSearch.toLowerCase().trim()
-    if (!q) return users
-    return users.filter(u =>
+    if (!q) return list
+    return list.filter(u =>
       u.email.toLowerCase().includes(q) ||
-      (u.full_name ?? '').toLowerCase().includes(q)
+      (u.full_name ?? '').toLowerCase().includes(q) ||
+      (u.phone ?? '').toLowerCase().includes(q)
     )
-  }, [users, userSearch])
+  }, [users, userSearch, planFilter])
 
   const filteredShows = useMemo(() => {
     const q = showSearch.toLowerCase().trim()
     if (!q) return shows
     return shows.filter(s => s.name.toLowerCase().includes(q))
   }, [shows, showSearch])
+
+  // ── CSV export ──────────────────────────────────────────────────────────────
+  function exportCsv() {
+    const header = ['Naam', 'E-mail', 'Telefoon', 'Rol', 'Plan', 'Shows', 'Lid sinds']
+    const rows = users.map(u => [
+      u.full_name ?? '',
+      u.email,
+      u.phone ?? '',
+      u.role,
+      u.plan,
+      String(showsPerUser[u.id] ?? 0),
+      new Date(u.created_at).toLocaleDateString('nl-NL'),
+    ])
+    const csv = [header, ...rows].map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `cueboard-gebruikers-${new Date().toISOString().slice(0,10)}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
 
   // ── Rol wijzigen ────────────────────────────────────────────────────────────
   const changeRole = async (userId: string, newRole: UserRole) => {
@@ -517,30 +560,46 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          {isBeheerder
-            ? <Crown className="h-6 w-6 text-violet-400" />
-            : <Shield className="h-6 w-6 text-primary" />
-          }
-          {isBeheerder ? 'Beheerder-paneel' : 'Admin-paneel'}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isBeheerder
-            ? 'Volledig platform-overzicht — alle gebruikers, rollen, plannen en shows'
-            : 'Beheer gebruikers en bekijk alle shows in CueBoard'}
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            {isBeheerder
+              ? <Crown className="h-6 w-6 text-violet-400" />
+              : <Shield className="h-6 w-6 text-primary" />
+            }
+            {isBeheerder ? 'Beheerder-paneel' : 'Admin-paneel'}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isBeheerder
+              ? 'Volledig platform-overzicht — alle gebruikers, rollen, plannen en shows'
+              : 'Beheer gebruikers en bekijk alle shows in CueBoard'}
+          </p>
+        </div>
+        {isBeheerder && (
+          <button
+            onClick={exportCsv}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground border border-border rounded-md hover:bg-muted/80 transition-colors"
+            title="Exporteer gebruikerslijst als CSV"
+          >
+            <Download className="h-3.5 w-3.5" /> CSV exporteren
+          </button>
+        )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Gebruikers', value: users.length,    icon: Users,    color: '' },
-          { label: 'Trial',      value: trialCount,      icon: Clock,    color: 'text-amber-400' },
-          { label: 'Pro',        value: proCount,        icon: Sparkles, color: 'text-primary' },
-          { label: 'Team',       value: teamCount,       icon: Crown,    color: 'text-violet-400' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label}>
+          { label: 'Gebruikers', value: users.length,    icon: Users,    color: '',                   filter: 'all'   },
+          { label: 'Trial',      value: trialCount,      icon: Clock,    color: 'text-amber-400',     filter: 'trial' },
+          { label: 'Gratis',     value: users.filter(u => u.plan === 'free' && !isTrialActive(u.trial_ends_at)).length, icon: Users, color: 'text-muted-foreground', filter: 'free' },
+          { label: 'Pro',        value: proCount,        icon: Sparkles, color: 'text-primary',       filter: 'pro'   },
+          { label: 'Team',       value: teamCount,       icon: Crown,    color: 'text-violet-400',    filter: 'team'  },
+        ].map(({ label, value, icon: Icon, color, filter }) => (
+          <Card
+            key={label}
+            className={cn('cursor-pointer transition-colors', planFilter === filter && 'ring-1 ring-primary border-primary/40')}
+            onClick={() => setPlanFilter(planFilter === filter ? 'all' : filter as typeof planFilter)}
+          >
             <CardContent className="pt-4 pb-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -588,6 +647,15 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
               <span className="text-xs font-normal text-muted-foreground ml-1">
                 ({filteredUsers.length}/{users.length})
               </span>
+              {planFilter !== 'all' && (
+                <span className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary border border-primary/25 rounded px-1.5 py-0.5">
+                  <Filter className="h-2.5 w-2.5" />
+                  {planFilter === 'trial' ? 'Trial' : planFilter === 'free' ? 'Gratis' : planFilter === 'pro' ? 'Pro' : 'Team'}
+                  <button onClick={() => setPlanFilter('all')} className="ml-0.5 hover:text-destructive">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               {/* Uitnodigen (beheerder + admin) */}
@@ -602,7 +670,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Zoek naam of e-mail…"
+                  placeholder="Zoek naam, e-mail of tel…"
                   value={userSearch}
                   onChange={e => setUserSearch(e.target.value)}
                   className="pl-8 pr-3 py-1.5 text-sm bg-background border border-border rounded-md w-52 focus:outline-none focus:ring-1 focus:ring-primary"
@@ -617,20 +685,43 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-border">
+          <div>
             {filteredUsers.length === 0 && (
-              <p className="px-6 py-4 text-sm text-muted-foreground">Geen gebruikers gevonden voor &ldquo;{userSearch}&rdquo;.</p>
+              <p className="px-6 py-4 text-sm text-muted-foreground">Geen gebruikers gevonden{userSearch ? ` voor "${userSearch}"` : planFilter !== 'all' ? ' voor dit filter' : ''}.</p>
             )}
             {filteredUsers.map(user => (
-              <div key={user.id} className="flex items-center gap-3 px-6 py-3.5 flex-wrap sm:flex-nowrap">
+              <div key={user.id} className="border-b border-border last:border-0">
+              <div className="flex items-center gap-3 px-6 py-3.5 flex-wrap sm:flex-nowrap">
                 <Avatar user={user} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {user.full_name || user.email}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">
+                      {user.full_name || user.email}
+                    </p>
+                    {/* Expandeer knop voor extra info */}
+                    <button
+                      onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
+                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      title="Meer details"
+                    >
+                      <ChevronDown className={cn('h-3 w-3 transition-transform', expandedUser === user.id && 'rotate-180')} />
+                    </button>
+                  </div>
                   {user.full_name && (
                     <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                   )}
+                  <div className="flex items-center gap-3 mt-0.5">
+                    {user.phone && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Phone className="h-2.5 w-2.5" />{user.phone}
+                      </p>
+                    )}
+                    {(showsPerUser[user.id] ?? 0) > 0 && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-2.5 w-2.5" />{showsPerUser[user.id]} show{showsPerUser[user.id] !== 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
                   {user.plan_expires_at && user.plan !== 'free' && (
                     <p className="text-[10px] text-amber-400/80">
                       Plan verloopt {new Date(user.plan_expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -724,6 +815,45 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                     </button>
                   )
                 )}
+              </div>
+
+              {/* Uitklapbare gebruikersdetails */}
+              {expandedUser === user.id && (
+                <div className="px-6 pb-4 bg-muted/20 border-t border-border/50">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-xs">
+                    <div>
+                      <p className="text-muted-foreground mb-0.5">Lid sinds</p>
+                      <p className="font-medium">{new Date(user.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-0.5">Telefoonnummer</p>
+                      <p className="font-medium">{user.phone ?? <span className="text-muted-foreground/50 italic">—</span>}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-0.5">Shows aangemaakt</p>
+                      <p className="font-medium">{showsPerUser[user.id] ?? 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-0.5">Gebruiker-ID</p>
+                      <p className="font-mono text-[10px] text-muted-foreground truncate" title={user.id}>{user.id.slice(0, 8)}…</p>
+                    </div>
+                    {user.trial_ends_at && (
+                      <div>
+                        <p className="text-muted-foreground mb-0.5">Trial eindigt</p>
+                        <p className={cn('font-medium', isTrialActive(user.trial_ends_at) ? 'text-amber-400' : 'text-muted-foreground/50 line-through')}>
+                          {new Date(user.trial_ends_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    )}
+                    {user.plan_expires_at && user.plan !== 'free' && (
+                      <div>
+                        <p className="text-muted-foreground mb-0.5">Plan verloopt</p>
+                        <p className="font-medium text-amber-400">{new Date(user.plan_expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               </div>
             ))}
           </div>

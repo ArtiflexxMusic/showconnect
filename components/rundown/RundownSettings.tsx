@@ -590,9 +590,9 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                 </Button>
               </div>
             ) : (
-              <div
-                className="rounded-lg border border-dashed border-white/15 bg-white/2 p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                onClick={() => slideInputRef.current?.click()}
+              <label
+                htmlFor="slide-upload-input"
+                className="rounded-lg border border-dashed border-white/15 bg-white/2 p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors block"
               >
                 {uploadingSlide ? (
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -605,16 +605,17 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                     <p className="text-xs text-muted-foreground/60 mt-0.5">PDF of PowerPoint · Max 100 MB</p>
                   </>
                 )}
-              </div>
+              </label>
             )}
             {slideError && (
               <p className="text-xs text-destructive">{slideError}</p>
             )}
             <input
               ref={slideInputRef}
+              id="slide-upload-input"
               type="file"
               accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pptx,application/vnd.ms-powerpoint,.ppt"
-              className="hidden"
+              className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 if (f) handleSlideUpload(f)
@@ -651,9 +652,9 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                 </Button>
               </div>
             ) : (
-              <div
-                className="rounded-lg border border-dashed border-white/15 bg-white/2 p-4 text-center cursor-pointer hover:border-blue-400/40 hover:bg-blue-500/5 transition-colors"
-                onClick={() => stillInputRef.current?.click()}
+              <label
+                htmlFor="still-upload-input"
+                className="rounded-lg border border-dashed border-white/15 bg-white/2 p-4 text-center cursor-pointer hover:border-blue-400/40 hover:bg-blue-500/5 transition-colors block"
               >
                 {uploadingStill ? (
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -666,16 +667,17 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                     <p className="text-xs text-muted-foreground/60 mt-0.5">PNG, JPG of WebP · Max 20 MB</p>
                   </>
                 )}
-              </div>
+              </label>
             )}
             {stillError && (
               <p className="text-xs text-destructive">{stillError}</p>
             )}
             <input
               ref={stillInputRef}
+              id="still-upload-input"
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp"
-              className="hidden"
+              className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 if (f) handleStillUpload(f)

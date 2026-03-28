@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, User, Shield, Check, KeyRound, LogOut } from 'lucide-react'
+import { Loader2, User, Shield, Check, KeyRound, LogOut, Phone } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { useRouter } from 'next/navigation'
 
@@ -38,6 +38,7 @@ export function ProfilePage({ profile }: ProfilePageProps) {
   const supabase = createClient()
 
   const [fullName, setFullName]       = useState(profile.full_name ?? '')
+  const [phone, setPhone]             = useState(profile.phone ?? '')
   const [saving, setSaving]           = useState(false)
   const [saved, setSaved]             = useState(false)
   const [error, setError]             = useState('')
@@ -50,7 +51,7 @@ export function ProfilePage({ profile }: ProfilePageProps) {
     setError('')
     const { error: dbError } = await supabase
       .from('profiles')
-      .update({ full_name: fullName.trim() || null })
+      .update({ full_name: fullName.trim() || null, phone: phone.trim() || null })
       .eq('id', profile.id)
     setSaving(false)
     if (dbError) {
@@ -108,12 +109,12 @@ export function ProfilePage({ profile }: ProfilePageProps) {
         </CardHeader>
       </Card>
 
-      {/* Naam bewerken */}
+      {/* Naam en telefoon bewerken */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Weergavenaam</CardTitle>
+          <CardTitle className="text-base">Persoonlijke gegevens</CardTitle>
           <CardDescription>
-            Je naam is zichtbaar voor teamgenoten in gedeelde shows.
+            Je naam is zichtbaar voor teamgenoten in gedeelde shows. Je telefoonnummer is alleen zichtbaar voor beheerders.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -124,6 +125,20 @@ export function ProfilePage({ profile }: ProfilePageProps) {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Je volledige naam"
+              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="phone" className="flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" /> Telefoonnummer
+              <span className="text-muted-foreground font-normal text-xs">(optioneel)</span>
+            </Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+31 6 12 34 56 78"
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
             />
           </div>

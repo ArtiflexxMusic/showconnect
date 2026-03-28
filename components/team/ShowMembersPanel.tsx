@@ -240,13 +240,13 @@ export function ShowMembersPanel({
           {canManage && !showInvite && (
             <div className="px-6 pt-4 pb-3 border-b border-border/50">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Rollen</p>
-              <div className="grid grid-cols-2 gap-1">
+              <div className="flex flex-col gap-1.5">
                 {ASSIGNABLE_ROLES.map(role => (
-                  <div key={role} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium', ROLE_COLORS[role])}>
+                  <div key={role} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium shrink-0', ROLE_COLORS[role])}>
                       {ROLE_LABELS[role]}
                     </span>
-                    <span className="truncate">{ROLE_DESC[role].split(':')[0]}</span>
+                    <span>{ROLE_DESC[role].split(':')[0]}</span>
                   </div>
                 ))}
               </div>

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     // field === 'active' (default)
     const { data } = await supabase
       .from('cues').select('title')
-      .eq('rundown_id', rundownId).eq('status', 'active')
+      .eq('rundown_id', rundownId).eq('status', 'running')
       .single()
     return new NextResponse(data?.title ?? '', {
       headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       .from('cues')
       .select('id, title, type, position, notes, duration')
       .eq('rundown_id', rundownId)
-      .eq('status', 'active')
+      .eq('status', 'running')
       .single()
 
     // Next pending cue

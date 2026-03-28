@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import type { Rundown, RundownSnapshot, Cue } from '@/lib/types/database'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,9 +29,10 @@ interface RundownSettingsProps {
   onDelete?: () => Promise<void>
   onDuplicate?: () => Promise<void>
   onRestore?: (cues: Cue[]) => Promise<void>
+  onRundownUpdated?: (rundown: Rundown) => void
 }
 
-export function RundownSettings({ open, onClose, rundown, show, supabase, onSave, onDelete, onDuplicate, onRestore }: RundownSettingsProps) {
+export function RundownSettings({ open, onClose, rundown, show, supabase, onSave, onDelete, onDuplicate, onRestore, onRundownUpdated }: RundownSettingsProps) {
   const [rundownName, setRundownName] = useState('')
   const [startTime, setStartTime]     = useState('')
   const [webhookUrl, setWebhookUrl]   = useState('')
@@ -49,6 +50,15 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [deletingSnap, setDeletingSnap] = useState<string | null>(null)
   const [restoreConfirm, setRestoreConfirm] = useState<RundownSnapshot | null>(null)
 
+  // Slide deck state
+  const [slideUrl, setSlideUrl]           = useState<string | null>(null)
+  const [slidePath, setSlidePath]         = useState<string | null>(null)
+  const [slideFilename, setSlideFilename] = useState<string | null>(null)
+  const [slideFile, setSlideFile]         = useState<File | null>(null)
+  const [uploadingSlide, setUploadingSlide] = useState(false)
+  const [slideError, setSlideError]       = useState<string | null>(null)
+  const slideInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (open) {
       setRundownName(rundown.name)
@@ -57,6 +67,11 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       setWebhookUrl(rundown.companion_webhook_url ?? '')
       setPresenterPin(rundown.presenter_pin ?? '')
       setNotes(rundown.notes ?? '')
+      setSlideUrl(rundown.slide_url ?? null)
+      setSlidePath(rundown.slide_path ?? null)
+      setSlideFilename(rundown.slide_filename ?? null)
+      setSlideFile(null)
+      setSlideError(null)
       setTestStatus('idle')
       setCopied(null)
       setShowDeleteConfirm(false)
@@ -151,12 +166,64 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
     setTimeout(() => setCopied(null), 2000)
   }
 
+  // ── Slide deck upload ───────────────────────────────────────────────────
+  async function handleSlideUpload(file: File) {
+    setSlideFile(file)
+    setSlideError(null)
+    setUploadingSlide(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('rundownId', rundown.id)
+      const res  = await fetch('/api/upload-rundown-slide', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload mislukt')
+      // Direct in DB opslaan
+      const { data: updated, error } = await supabase
+        .from('rundowns')
+        .update({ slide_url: data.url, slide_path: data.path, slide_filename: data.filename, slide_type: 'pdf' })
+        .eq('id', rundown.id)
+        .select()
+        .single()
+      if (error) throw error
+      setSlideUrl(data.url)
+      setSlidePath(data.path)
+      setSlideFilename(data.filename)
+      if (updated) onRundownUpdated?.(updated as Rundown)
+    } catch (err: unknown) {
+      setSlideError(err instanceof Error ? err.message : 'Upload mislukt')
+    } finally {
+      setUploadingSlide(false)
+      setSlideFile(null)
+    }
+  }
+
+  async function handleSlideRemove() {
+    if (slidePath) {
+      await fetch('/api/upload-rundown-slide', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: slidePath }),
+      }).catch(() => {})
+    }
+    const { data: updated } = await supabase
+      .from('rundowns')
+      .update({ slide_url: null, slide_path: null, slide_filename: null, slide_type: null })
+      .eq('id', rundown.id)
+      .select()
+      .single()
+    setSlideUrl(null)
+    setSlidePath(null)
+    setSlideFilename(null)
+    if (updated) onRundownUpdated?.(updated as Rundown)
+  }
+
   const baseUrl   = typeof window !== 'undefined' ? window.location.origin : ''
   const basePath  = `/shows/${show.id}/rundown/${rundown.id}`
   const callerUrl   = `${baseUrl}${basePath}/caller`
   const presenterUrl = `${baseUrl}${basePath}/presenter`
   const crewUrl     = `${baseUrl}${basePath}/crew`
   const printUrl    = `${baseUrl}${basePath}/print`
+  const outputUrl   = `${baseUrl}${basePath}/output`
 
   function LinkRow({ label, url, linkKey }: { label: string; url: string; linkKey: string }) {
     return (
@@ -329,6 +396,65 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
 
           <hr className="border-border/50" />
 
+          {/* Slide deck voor stage output */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Slide deck (output scherm)</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload de presentatie als PDF. Het output-scherm toont de slides live — koppel het via je videomixer.
+              Exporteer je PPTX vanuit PowerPoint als PDF voor de beste weergave.
+            </p>
+            {slideUrl ? (
+              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-emerald-500/5 px-3 py-2">
+                <FileText className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span className="text-sm text-emerald-300 truncate flex-1">{slideFilename ?? 'presentatie.pdf'}</span>
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={handleSlideRemove}
+                  title="Verwijderen"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div
+                className="rounded-lg border border-dashed border-white/15 bg-white/2 p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                onClick={() => slideInputRef.current?.click()}
+              >
+                {uploadingSlide ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Uploaden...
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-sm text-muted-foreground">Klik om PDF te uploaden</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Max 100 MB</p>
+                  </>
+                )}
+              </div>
+            )}
+            {slideError && (
+              <p className="text-xs text-destructive">{slideError}</p>
+            )}
+            <input
+              ref={slideInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) handleSlideUpload(f)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
+          <hr className="border-border/50" />
+
           {/* View links */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold">View-links</h3>
@@ -337,6 +463,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <LinkRow label="Presenter" url={presenterUrl} linkKey="presenter" />
               <LinkRow label="Crew" url={crewUrl} linkKey="crew" />
               <LinkRow label="Afdrukken" url={printUrl} linkKey="print" />
+              {slideUrl && <LinkRow label="🖥️ Output" url={outputUrl} linkKey="output" />}
             </div>
             <p className="text-xs text-muted-foreground">
               Deel de juiste link met je team. Geen inlog vereist voor Presenter en Crew view.

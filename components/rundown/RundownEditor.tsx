@@ -177,6 +177,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       media_autoplay:   input.media_autoplay ?? true,
       color:            input.color ?? null,
       auto_advance:     input.auto_advance ?? false,
+      slide_index:      input.slide_index ?? null,
     })
     if (error) console.error('Fout bij toevoegen cue:', error)
     setIsSaving(false)
@@ -981,6 +982,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onDelete={deleteRundown}
         onDuplicate={duplicateRundown}
         onRestore={restoreSnapshot}
+        onRundownUpdated={(updated) => setRundown(updated)}
       />
 
       {showImportModal && (

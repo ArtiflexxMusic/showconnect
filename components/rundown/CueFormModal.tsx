@@ -55,6 +55,7 @@ export function CueFormModal({
   const [showExtra, setShowExtra]   = useState(false)
   const [color, setColor]           = useState<string | null>(null)
   const [autoAdvance, setAutoAdvance] = useState(false)
+  const [slideIndex, setSlideIndex]   = useState<string>('')  // '' = geen koppeling
 
   // Presentatie state
   const [presentationFile, setPresentationFile]   = useState<File | null>(null)
@@ -109,6 +110,7 @@ export function CueFormModal({
         )
         setColor(initialValues.color ?? null)
         setAutoAdvance(initialValues.auto_advance ?? false)
+        setSlideIndex(initialValues.slide_index != null ? String(initialValues.slide_index + 1) : '')
         // Presentatie uit bestaande cue
         setPresentationUrl(initialValues.presentation_url ?? null)
         setPresentationPath(initialValues.presentation_path ?? null)
@@ -136,6 +138,7 @@ export function CueFormModal({
         setShowExtra(false)
         setColor(null)
         setAutoAdvance(false)
+        setSlideIndex('')
         setMediaFile(null)
         setMediaUrl(null)
         setMediaPath(null)
@@ -318,6 +321,7 @@ export function CueFormModal({
       presentation_filename: finalPresentationFilename,
       slide_control_mode:    slideControlMode,
       current_slide_index:   0,
+      slide_index:           slideIndex.trim() !== '' ? (parseInt(slideIndex, 10) - 1) : null,
     })
   }
 
@@ -608,6 +612,25 @@ export function CueFormModal({
               />
               <span>Auto-advance: volgende cue automatisch starten bij 0</span>
             </label>
+
+            {/* Slide koppeling (voor stage output) */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground shrink-0 w-28" htmlFor="slide-index-input">
+                🖥️ Slide bij GO
+              </label>
+              <Input
+                id="slide-index-input"
+                type="number"
+                min={1}
+                placeholder="—"
+                value={slideIndex}
+                onChange={(e) => setSlideIndex(e.target.value)}
+                className="w-20 h-7 text-sm font-mono"
+              />
+              <span className="text-xs text-muted-foreground">
+                {slideIndex.trim() !== '' ? `Ga naar slide ${slideIndex} bij GO` : 'Geen automatische slide'}
+              </span>
+            </div>
 
             {/* ── Presentatie / Slides ──────────────────────────────────── */}
             <hr className="border-border/50" />

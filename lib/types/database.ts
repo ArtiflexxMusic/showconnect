@@ -38,6 +38,11 @@ export interface Rundown {
   companion_webhook_url: string | null  // HTTP URL voor Bitfocus Companion
   presenter_pin: string | null          // 4-cijferige PIN voor presenter view
   notes: string | null                  // Algemene notities zichtbaar in caller & crew
+  // Show-breed slide deck (voor stage output)
+  slide_url: string | null
+  slide_path: string | null
+  slide_type: 'pdf' | null
+  slide_filename: string | null
   created_at: string
   updated_at: string
 }
@@ -76,13 +81,15 @@ export interface Cue {
   // UI / UX uitbreidingen
   color: string | null           // Hex kleurcode voor visueel label (bijv. '#ef4444')
   auto_advance: boolean | null   // Automatisch volgende cue starten bij 0
-  // Presentatie / slides
+  // Presentatie / slides (per-cue, verouderd — gebruik rundown-level slide_url)
   presentation_url: string | null       // Publieke URL in Supabase Storage
   presentation_path: string | null      // Pad in de bucket
   presentation_type: 'pdf' | 'pptx' | null  // Bestandstype
   presentation_filename: string | null  // Originele bestandsnaam
   slide_control_mode: 'caller' | 'presenter' | 'both' | null  // Wie bedient de slides
   current_slide_index: number | null    // Huidige slide (0-based)
+  // Stage output
+  slide_index: number | null            // Welke slide auto-jump bij GO (0-based, gebruik rundown slide deck)
   created_at: string
   updated_at: string
 }
@@ -213,6 +220,7 @@ export interface CreateCueInput {
   presentation_filename?: string | null
   slide_control_mode?: 'caller' | 'presenter' | 'both' | null
   current_slide_index?: number | null
+  slide_index?: number | null
 }
 
 export interface UpdateCueInput extends Partial<CreateCueInput> {
@@ -322,6 +330,10 @@ export type Database = {
           companion_webhook_url: string | null
           presenter_pin: string | null
           notes: string | null
+          slide_url: string | null
+          slide_path: string | null
+          slide_type: 'pdf' | null
+          slide_filename: string | null
           created_at: string
           updated_at: string
         }
@@ -335,6 +347,10 @@ export type Database = {
           companion_webhook_url?: string | null
           presenter_pin?: string | null
           notes?: string | null
+          slide_url?: string | null
+          slide_path?: string | null
+          slide_type?: 'pdf' | null
+          slide_filename?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -348,6 +364,10 @@ export type Database = {
           companion_webhook_url?: string | null
           presenter_pin?: string | null
           notes?: string | null
+          slide_url?: string | null
+          slide_path?: string | null
+          slide_type?: 'pdf' | null
+          slide_filename?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -390,6 +410,7 @@ export type Database = {
           presentation_filename: string | null
           slide_control_mode: 'caller' | 'presenter' | 'both' | null
           current_slide_index: number | null
+          slide_index: number | null
           created_at: string
           updated_at: string
         }
@@ -422,6 +443,7 @@ export type Database = {
           presentation_filename?: string | null
           slide_control_mode?: 'caller' | 'presenter' | 'both' | null
           current_slide_index?: number | null
+          slide_index?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -454,6 +476,7 @@ export type Database = {
           presentation_filename?: string | null
           slide_control_mode?: 'caller' | 'presenter' | 'both' | null
           current_slide_index?: number | null
+          slide_index?: number | null
           updated_at?: string
         }
         Relationships: [

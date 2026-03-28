@@ -233,6 +233,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           return
         }
 
+        // Auto-advance slide als de cue een slide_index heeft
+        if (nextCue.slide_index != null && slideChannelRef.current) {
+          setCurrentSlideIndex(nextCue.slide_index)
+          slideChannelRef.current.send({
+            type: 'broadcast',
+            event: 'slide_change',
+            payload: { index: nextCue.slide_index, source: 'caller' },
+          })
+        }
+
         // Companion webhook
         if (rundown.companion_webhook_url) {
           fetch(rundown.companion_webhook_url, {

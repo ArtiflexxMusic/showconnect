@@ -14,12 +14,13 @@ import {
 import { SortableCueRow } from './SortableCueRow'
 import { CueFormModal } from './CueFormModal'
 import { RundownSettings } from './RundownSettings'
+import { ImportCuesModal } from './ImportCuesModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
-  RotateCcw, AlertTriangle, ListMusic
+  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -71,6 +72,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showViewMenu, setShowViewMenu]         = useState(false)
   const [showRundownMenu, setShowRundownMenu]   = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [showImportModal, setShowImportModal]   = useState(false)
 
   // DnD sensors
   const sensors = useSensors(
@@ -161,6 +163,26 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     if (error) console.error('Fout bij toevoegen cue:', error)
     setIsSaving(false)
     setShowAddModal(false)
+  }, [cues, rundown.id, supabase])
+
+  const importCues = useCallback(async (inputs: CreateCueInput[]) => {
+    setIsSaving(true)
+    const startPos = cues.length > 0 ? Math.max(...cues.map(c => c.position)) + 1 : 0
+    const rows = inputs.map((input, i) => ({
+      rundown_id:       rundown.id,
+      position:         startPos + i,
+      title:            input.title,
+      type:             input.type,
+      duration_seconds: input.duration_seconds,
+      notes:            input.notes ?? null,
+      tech_notes:       input.tech_notes ?? null,
+      presenter:        input.presenter ?? null,
+      location:         input.location ?? null,
+      status:           'pending' as const,
+    }))
+    const { error } = await supabase.from('cues').insert(rows)
+    if (error) { console.error('Import fout:', error); throw error }
+    setIsSaving(false)
   }, [cues, rundown.id, supabase])
 
   const updateCue = useCallback(async (id: string, updates: UpdateCueInput) => {
@@ -556,6 +578,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               <Settings className="h-3.5 w-3.5" />
             </Button>
 
+            {/* Import */}
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setShowImportModal(true)}
+              className="gap-2 text-muted-foreground"
+              title="Cues importeren vanuit CSV of Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+            </Button>
+
             {/* Cue toevoegen */}
             <Button size="sm" onClick={() => setShowAddModal(true)}>
               <Plus className="h-4 w-4" /> Cue
@@ -666,6 +698,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onSave={saveRundownSettings}
         onDelete={deleteRundown}
       />
+
+      {showImportModal && (
+        <ImportCuesModal
+          onClose={() => setShowImportModal(false)}
+          onImport={importCues}
+        />
+      )}
 
       {/* Sluit menu's bij klik buiten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (

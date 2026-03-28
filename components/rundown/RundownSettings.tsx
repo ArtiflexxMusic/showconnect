@@ -456,10 +456,10 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <p>Companion haalt zelf de actieve cue op via bovenstaande URL. Zo werkt het ook als CueBoard in de cloud draait.</p>
               <ol className="space-y-1.5 pl-1">
                 {[
-                  { step: 'Connections → Add connection → zoek "HTTP Variable"', sub: null },
-                  { step: 'Vul de Poll-URL hierboven in bij "URL"', sub: null },
-                  { step: 'Stel interval in op 500 ms voor bijna real-time updates', sub: null },
-                  { step: 'Gebruik in knoppen: $(http-variable:body_active_cue_title)', sub: 'Of: body_next_cue_title, body_active_cue_type, etc.' },
+                  { step: 'Triggers → Add trigger → Event type: "Time — Interval" → 1000 ms', sub: null },
+                  { step: 'Actie 1: Internal → HTTP Request → GET → plak de Poll-URL hierboven', sub: null },
+                  { step: 'Actie 2: Internal → Set custom variable → naam: cueboard_cue → waarde uit response body', sub: null },
+                  { step: 'Gebruik $(internal:custom_cueboard_cue) in je knoppen', sub: 'Of zoek in Connections → Add connection op "HTTP" voor een polling-module' },
                 ].map((item, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>

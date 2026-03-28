@@ -6,6 +6,7 @@ import {
   QrCode, Webhook, Clock, ChevronRight, ChevronDown, Zap,
   UserPlus, Printer, Eye, Presentation, Rocket,
 } from 'lucide-react'
+import { FeatureSlideshow } from '@/components/landing/FeatureSlideshow'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ const sections: Section[] = [
     subtitle: 'Showcontrol — de regie',
     badge: 'Voor de regisseur',
     description:
-      'De Caller is het hart van de show. Van hieruit druk je op GO om cues te starten en de show te besturen. Alle andere views — Presenter, Crew, Publiek — worden realtime bijgewerkt op het moment dat jij GO drukt.',
+      'De Caller is het hart van de show. Van hieruit druk je op GO om cues te starten en de show te besturen. Alle andere views — Presenter, Crew, Programmascherm — worden realtime bijgewerkt op het moment dat jij GO drukt.',
     steps: [
       'Open de Caller link (of scan de QR-code in de rundown instellingen).',
       'De volgende cue is altijd rechts in beeld. Druk op GO om hem te starten.',
@@ -93,16 +94,16 @@ const sections: Section[] = [
     id: 'publiek',
     icon: Globe,
     color: 'sky',
-    title: 'Publiek (Status view)',
-    subtitle: 'Live meekijken voor iedereen',
+    title: 'Programmascherm',
+    subtitle: 'Backstage statusscherm voor crew en sprekers',
     description:
-      'De Publiek view is een lichtgewicht, publiek toegankelijke pagina waarop te zien is welke cue er momenteel actief is. Handig als backstage scherm voor sprekers die wachten, of als informatiedisplay.',
+      'Het Programmascherm is een lichtgewicht pagina die backstage te gebruiken is: sprekers die wachten kunnen zien welke cue er live is en wanneer zij aan de beurt zijn. Geen login nodig, geen knoppen — alleen de essentie van het programma.',
     steps: [
-      'Klik op "Publiek" in je rundown om de link te kopiëren of de QR-code te scannen.',
+      'Klik op "Programma" in je show-dashboard om de link te kopiëren of de QR-code te scannen.',
       'Geen login nodig — iedereen met de link kan meekijken.',
       'De pagina ververst automatisch wanneer de Caller op GO drukt.',
     ],
-    tip: 'Gebruik de Publiek view op een tv backstage zodat sprekers weten wanneer ze aan de beurt zijn.',
+    tip: 'Hang het Programmascherm op een tv of tablet backstage, zodat alle wachtende sprekers precies weten wanneer ze aan de beurt zijn — zonder dat je iemand hoeft te informeren.',
   },
   {
     id: 'presentatie',
@@ -180,7 +181,7 @@ const sections: Section[] = [
     title: 'QR-codes & links',
     subtitle: 'Snel delen met je team',
     description:
-      'Elke view (Caller, Presenter, Crew, Publiek, Presentatie) heeft een eigen link én een QR-code. Zo kun je snel iemand toegang geven zonder te typen.',
+      'Elke view (Caller, Presenter, Crew, Programmascherm, Presentatie) heeft een eigen link én een QR-code. Zo kun je snel iemand toegang geven zonder te typen.',
     steps: [
       'Klik op het QR-icoontje naast een link in je show-dashboard.',
       'Een QR-code verschijnt in beeld — scan met een telefoon of tablet.',
@@ -425,6 +426,17 @@ export function HelpPage() {
               onToggle={() => toggle(section.id)}
             />
           ))}
+
+          {/* Feature slideshow */}
+          <div className="rounded-2xl border border-border/30 bg-card/50 overflow-hidden">
+            <div className="px-6 pt-6 pb-2">
+              <p className="text-sm font-semibold text-foreground">CueBoard in de praktijk</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Klik door de functies om te zien hoe alles werkt.
+              </p>
+            </div>
+            <FeatureSlideshow />
+          </div>
 
           {/* Footer */}
           <div className="rounded-2xl border border-border/30 bg-card/50 p-6 text-center space-y-2">

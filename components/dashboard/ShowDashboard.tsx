@@ -305,15 +305,15 @@ export function ShowDashboard({
                   <div className="flex items-center gap-0.5">
                     <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
                       <a href={`/status/${show.id}/${rundown.id}`} target="_blank">
-                        <Globe className="h-3 w-3" /> Publiek
+                        <Globe className="h-3 w-3" /> Programma
                       </a>
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/50 hover:text-muted-foreground"
                       title="QR-code tonen"
-                      onClick={() => showQr(`${window.location.origin}/status/${show.id}/${rundown.id}`, 'Publieke status')}>
+                      onClick={() => showQr(`${window.location.origin}/status/${show.id}/${rundown.id}`, 'Programmascherm')}>
                       <QrCode className="h-3 w-3" />
                     </Button>
-                    <InfoButton section="publiek" text="Live meekijkpagina — ideaal als backstage scherm voor wachtende sprekers." />
+                    <InfoButton section="publiek" text="Backstage programmascherm — laat sprekers en crew zien welke cue er nu live is. Geen login nodig." />
                   </div>
                   <div className="flex items-center gap-0.5">
                     <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>

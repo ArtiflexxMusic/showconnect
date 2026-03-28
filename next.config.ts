@@ -22,8 +22,8 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       `default-src 'self'`,
-      // Scripts: self + inline (needed for Next.js hydration)
-      `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+      // Scripts: self + inline (needed for Next.js hydration) + cdnjs (pdf.js)
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com`,
       // Styles: self + inline (needed for Tailwind) + Google Fonts
       `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
       // Fonts: self + Google Fonts CDN
@@ -32,12 +32,12 @@ const securityHeaders = [
       `img-src 'self' data: blob: https://${SUPABASE_HOST} https://www.mollie.com`,
       // API + WebSocket connections: self + Supabase
       `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://api.supabase.com`,
-      // Frames: same origin only (for PDF viewer)
-      `frame-src 'self' blob:`,
+      // Frames: same origin + Office Online (PPTX embed)
+      `frame-src 'self' blob: https://view.officeapps.live.com`,
       // No plugins
       `object-src 'none'`,
-      // Workers: self + blob (for PDF.js)
-      `worker-src 'self' blob:`,
+      // Workers: self + blob + cdnjs (pdf.js worker)
+      `worker-src 'self' blob: https://cdnjs.cloudflare.com`,
       // Upgrade insecure requests in production
       `upgrade-insecure-requests`,
     ].join('; '),

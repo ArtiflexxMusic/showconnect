@@ -5,7 +5,7 @@
 export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'custom' | 'intro' | 'outro'
 export type CueStatus = 'pending' | 'running' | 'done' | 'skipped'
 export type UserRole = 'beheerder' | 'admin' | 'crew'
-export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'viewer'
+export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'crew' | 'presenter' | 'viewer'
 
 export interface Profile {
   id: string
@@ -515,7 +515,7 @@ export type Database = {
       cue_status: CueStatus
       cue_type: CueType
       user_role: 'beheerder' | 'admin' | 'crew'
-      show_member_role: ShowMemberRole
+      show_member_role: 'owner' | 'editor' | 'caller' | 'crew' | 'presenter' | 'viewer'
     }
     CompositeTypes: Record<string, never>
   }

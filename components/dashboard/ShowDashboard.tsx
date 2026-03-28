@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
-  Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus,
+  Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -209,6 +209,11 @@ export function ShowDashboard({
                   <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
                     <a href={`/shows/${show.id}/rundown/${rundown.id}/crew`} target="_blank">
                       <ExternalLink className="h-3 w-3" /> Crew
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
+                    <a href={`/status/${show.id}/${rundown.id}`} target="_blank">
+                      <Globe className="h-3 w-3" /> Publiek
                     </a>
                   </Button>
                 </div>

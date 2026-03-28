@@ -1,46 +1,45 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
-import { PresenterView } from '@/components/rundown/PresenterView'
+import { notFound } from 'next/navigation'
+import { PublicStatusView } from '@/components/rundown/PublicStatusView'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 
 interface PageProps {
   params: Promise<{ showId: string; rundownId: string }>
 }
 
-export default async function PresenterPage({ params }: PageProps) {
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+export default async function PublicStatusPage({ params }: PageProps) {
   const { showId, rundownId } = await params
+  // Gebruik de anonieme Supabase client (geen auth vereist)
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Rundown laden
   const { data: rundownRaw } = await supabase
     .from('rundowns')
     .select('*')
     .eq('id', rundownId)
+    .eq('show_id', showId)
     .single()
 
   if (!rundownRaw) return notFound()
 
-  // Show laden
   const { data: showRaw } = await supabase
     .from('shows')
-    .select('*')
+    .select('name, venue, date')
     .eq('id', showId)
     .single()
 
   if (!showRaw) return notFound()
 
-  // Cues laden
   const { data: cues } = await supabase
     .from('cues')
-    .select('*')
+    .select('id, position, title, type, status, duration_seconds, presenter, color')
     .eq('rundown_id', rundownId)
     .order('position', { ascending: true })
 
-  // Geen login vereist voor presenter view (alleen PIN indien ingesteld)
   return (
-    <PresenterView
+    <PublicStatusView
       rundown={rundownRaw as unknown as Rundown}
       show={showRaw as unknown as Show}
       initialCues={(cues ?? []) as unknown as Cue[]}

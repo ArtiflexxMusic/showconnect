@@ -14,6 +14,24 @@ export default async function CallerPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Controleer of de gebruiker toegang heeft (owner, editor, caller of platform admin)
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
+
+  if (!isPlatformAdmin) {
+    const { data: membership } = await supabase
+      .from('show_members')
+      .select('role')
+      .eq('show_id', showId)
+      .eq('user_id', user.id)
+      .single()
+
+    const allowedRoles = ['owner', 'editor', 'caller']
+    if (!membership || !allowedRoles.includes(membership.role)) {
+      redirect(`/shows/${showId}`)
+    }
+  }
+
   const { data: rundownData } = await supabase
     .from('rundowns')
     .select('*')

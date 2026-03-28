@@ -63,9 +63,12 @@ export default async function InvitePage({ params }: PageProps) {
 
   const showName = (invitation.shows as { name: string; date: string | null } | null)?.name ?? 'een show'
   const roleLabels: Record<string, string> = {
-    editor: 'Editor — kan rundowns bewerken',
-    caller: 'Caller — heeft toegang tot de caller-view',
-    viewer: 'Toeschouwer — kan meekijken',
+    owner:     'Eigenaar — volledige controle',
+    editor:    'Editor — kan rundowns bewerken',
+    caller:    'Caller — heeft toegang tot de caller-view',
+    crew:      'Crew — crew-view met technische notities',
+    presenter: 'Presenter — ziet eigen cues en volgorde',
+    viewer:    'Toeschouwer — kan meekijken',
   }
 
   if (!user) {

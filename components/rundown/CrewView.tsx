@@ -4,8 +4,18 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video } from 'lucide-react'
+import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
+
+interface CrewAnnotation {
+  id: string
+  rundown_id: string
+  cue_id: string | null
+  user_id: string | null
+  content: string
+  created_at: string
+}
 
 interface CrewViewProps {
   rundown: Rundown
@@ -46,6 +56,13 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [filter, setFilter]       = useState<FilterType>('all')
   const [showFilterBar, setShowFilterBar] = useState(false)
   const [nudgeMessage, setNudgeMessage]   = useState<string | null>(null)
+
+  // Annotaties
+  const [annotations, setAnnotations]   = useState<CrewAnnotation[]>([])
+  const [annotationText, setAnnotationText] = useState('')
+  const [annotating, setAnnotating]     = useState(false)
+  const [showAnnotations, setShowAnnotations] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const activeCue   = cues.find((c) => c.status === 'running')
   const pendingCues = cues.filter((c) => c.status === 'pending')
@@ -105,6 +122,58 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       supabase.removeChannel(nudgeChannel)
     }
   }, [rundown.id, supabase])
+
+  // Annotaties laden + user ophalen
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id ?? null)
+    })
+
+    supabase
+      .from('crew_annotations')
+      .select('*')
+      .eq('rundown_id', rundown.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (data) setAnnotations(data as CrewAnnotation[])
+      })
+
+    // Realtime annotaties
+    const annChannel = supabase
+      .channel(`crew_ann:${rundown.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'crew_annotations',
+        filter: `rundown_id=eq.${rundown.id}`,
+      }, (payload) => {
+        setAnnotations(prev => [...prev, payload.new as CrewAnnotation])
+      })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'crew_annotations',
+        filter: `rundown_id=eq.${rundown.id}`,
+      }, (payload) => {
+        setAnnotations(prev => prev.filter(a => a.id !== payload.old.id))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(annChannel) }
+  }, [rundown.id, supabase])
+
+  async function addAnnotation() {
+    if (!annotationText.trim()) return
+    setAnnotating(true)
+    const activeCueId = cues.find(c => c.status === 'running')?.id ?? null
+    await supabase.from('crew_annotations').insert({
+      rundown_id: rundown.id,
+      cue_id: activeCueId,
+      content: annotationText.trim(),
+    })
+    setAnnotationText('')
+    setAnnotating(false)
+  }
+
+  async function deleteAnnotation(id: string) {
+    await supabase.from('crew_annotations').delete().eq('id', id)
+  }
 
   const filteredCues = filter === 'all' ? cues : cues.filter((c) => c.type === filter)
 
@@ -312,21 +381,102 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         )}
       </div>
 
-      {/* Volgende cue sticky onderaan */}
-      {nextCue && (
-        <div className="sticky bottom-0 bg-background/90 backdrop-blur border-t border-border/50 px-4 py-3">
-          <p className="text-xs text-muted-foreground mb-1">Volgende cue</p>
-          <div className="flex items-center gap-3">
-            <Badge className={cn('text-xs border shrink-0', cueTypeColor(nextCue.type))}>
-              {cueTypeLabel(nextCue.type)}
-            </Badge>
-            <span className="text-sm font-medium truncate">{nextCue.title}</span>
-            <span className="font-mono text-sm text-muted-foreground shrink-0 ml-auto">
-              {formatDuration(nextCue.duration_seconds)}
-            </span>
+      {/* ── Annotaties panel ──────────────────────────────────────────── */}
+      <div className="sticky bottom-0 bg-background border-t border-border/50">
+
+        {/* Annotaties toggle */}
+        <button
+          onClick={() => setShowAnnotations(!showAnnotations)}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Crew notities
+            {annotations.length > 0 && (
+              <span className="bg-primary/20 text-primary rounded-full px-1.5 text-[10px] font-semibold">
+                {annotations.length}
+              </span>
+            )}
+          </span>
+          {showAnnotations
+            ? <ChevronDown className="h-3.5 w-3.5" />
+            : <ChevronUp className="h-3.5 w-3.5" />
+          }
+        </button>
+
+        {showAnnotations && (
+          <div className="border-t border-border/30 bg-background/95">
+            {/* Notities lijst */}
+            <div className="max-h-48 overflow-y-auto px-4 py-2 space-y-2">
+              {annotations.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-3">Nog geen notities</p>
+              ) : (
+                annotations.map(ann => (
+                  <div key={ann.id} className="flex items-start gap-2 group">
+                    <div className="flex-1 min-w-0">
+                      {ann.cue_id && (
+                        <p className="text-[10px] text-primary/60 mb-0.5">
+                          @ {cues.find(c => c.id === ann.cue_id)?.title ?? 'cue'}
+                        </p>
+                      )}
+                      <p className="text-xs text-foreground">{ann.content}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                        {new Date(ann.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    {ann.user_id === currentUserId && (
+                      <button
+                        onClick={() => deleteAnnotation(ann.id)}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0 mt-0.5"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Invoer */}
+            <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border/30">
+              <input
+                type="text"
+                placeholder="Notitie toevoegen..."
+                value={annotationText}
+                onChange={e => setAnnotationText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnnotation() } }}
+                className="flex-1 text-xs bg-muted/30 border border-border/50 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                disabled={annotating}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={addAnnotation}
+                disabled={annotating || !annotationText.trim()}
+                className="h-8 w-8 p-0 shrink-0"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Volgende cue sticky onderaan */}
+        {nextCue && (
+          <div className="bg-background/90 backdrop-blur border-t border-border/50 px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Volgende cue</p>
+            <div className="flex items-center gap-3">
+              <Badge className={cn('text-xs border shrink-0', cueTypeColor(nextCue.type))}>
+                {cueTypeLabel(nextCue.type)}
+              </Badge>
+              <span className="text-sm font-medium truncate">{nextCue.title}</span>
+              <span className="font-mono text-sm text-muted-foreground shrink-0 ml-auto">
+                {formatDuration(nextCue.duration_seconds)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

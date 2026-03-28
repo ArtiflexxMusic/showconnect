@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2 } from 'lucide-react'
+import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2, Shield, Mic, Users, Eye, Pencil, Mail } from 'lucide-react'
 import type { ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -15,31 +14,47 @@ interface ShowMembersPanelProps {
   members: ShowMember[]
   invitations: Invitation[]
   onClose: () => void
-  autoOpenInvite?: boolean   // Open het uitnodigingsformulier meteen
+  autoOpenInvite?: boolean
 }
 
 const ROLE_LABELS: Record<ShowMemberRole, string> = {
-  owner:  'Eigenaar',
-  editor: 'Editor',
-  caller: 'Caller',
-  viewer: 'Toeschouwer',
+  owner:     'Eigenaar',
+  editor:    'Editor',
+  caller:    'Caller',
+  crew:      'Crew',
+  presenter: 'Presenter',
+  viewer:    'Toeschouwer',
 }
 
 const ROLE_DESC: Record<ShowMemberRole, string> = {
-  owner:  'Volledige controle',
-  editor: 'Rundowns bewerken',
-  caller: 'Caller-view + cue status',
-  viewer: 'Alleen meekijken',
+  owner:     'Volledige controle over show',
+  editor:    'Rundowns bewerken + caller view',
+  caller:    'Caller-view + cue status wijzigen',
+  crew:      'Crew-view: cues + tech notities',
+  presenter: 'Presenter-view: eigen cues zien',
+  viewer:    'Alleen meekijken (read-only)',
 }
 
 const ROLE_COLORS: Record<ShowMemberRole, string> = {
-  owner:  'bg-primary/15 text-primary border-primary/30',
-  editor: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  caller: 'bg-green-500/15 text-green-400 border-green-500/30',
-  viewer: 'bg-muted text-muted-foreground border-border',
+  owner:     'bg-primary/15 text-primary border-primary/30',
+  editor:    'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  caller:    'bg-green-500/15 text-green-400 border-green-500/30',
+  crew:      'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  presenter: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  viewer:    'bg-muted text-muted-foreground border-border',
 }
 
-const ASSIGNABLE_ROLES: ShowMemberRole[] = ['editor', 'caller', 'viewer']
+const ROLE_ICONS: Record<ShowMemberRole, React.ReactNode> = {
+  owner:     <Shield className="h-3 w-3" />,
+  editor:    <Pencil className="h-3 w-3" />,
+  caller:    <Mic className="h-3 w-3" />,
+  crew:      <Users className="h-3 w-3" />,
+  presenter: <Eye className="h-3 w-3" />,
+  viewer:    <Eye className="h-3 w-3" />,
+}
+
+// Rollen die je kunt toewijzen bij uitnodigingen (geen owner)
+const ASSIGNABLE_ROLES: ShowMemberRole[] = ['editor', 'caller', 'crew', 'presenter', 'viewer']
 
 function Avatar({ name, email }: { name: string | null; email?: string }) {
   const label = name || email || '?'
@@ -54,19 +69,21 @@ function Avatar({ name, email }: { name: string | null; email?: string }) {
 export function ShowMembersPanel({
   showId, showName, currentUserRole, members: initialMembers, invitations: initialInvitations, onClose, autoOpenInvite = false
 }: ShowMembersPanelProps) {
-  const [members, setMembers] = useState(initialMembers)
+  const [members, setMembers]         = useState(initialMembers)
   const [invitations, setInvitations] = useState(initialInvitations)
-  const [showInvite, setShowInvite] = useState(autoOpenInvite && currentUserRole === 'owner')
+  const [showInvite, setShowInvite]   = useState(autoOpenInvite && currentUserRole === 'owner')
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<ShowMemberRole>('editor')
-  const [inviting, setInviting] = useState(false)
+  const [inviteRole, setInviteRole]   = useState<ShowMemberRole>('caller')
+  const [inviting, setInviting]       = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [changingRole, setChangingRole] = useState<string | null>(null)
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [openMenu, setOpenMenu]       = useState<string | null>(null)
+  const [emailSending, setEmailSending] = useState<string | null>(null)
+  const [emailSent, setEmailSent]     = useState<string | null>(null)
 
-  const supabase = createClient()
-  const canManage = currentUserRole === 'owner'
+  const supabase  = createClient()
+  const canManage = currentUserRole === 'owner' || currentUserRole === 'editor'
 
   // ── Uitnodigen ─────────────────────────────────────────────────────────────
   const handleInvite = async () => {
@@ -74,7 +91,6 @@ export function ShowMembersPanel({
     setInviting(true)
     setInviteError('')
 
-    // Haal de huidige user op zodat we invited_by kunnen meegeven
     const { data: { user } } = await supabase.auth.getUser()
 
     const { data, error } = await supabase
@@ -97,6 +113,24 @@ export function ShowMembersPanel({
       setShowInvite(false)
     }
     setInviting(false)
+  }
+
+  // ── Email sturen via API ──────────────────────────────────────────────────
+  const sendInviteEmail = async (invId: string) => {
+    setEmailSending(invId)
+    try {
+      const resp = await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invitationId: invId }),
+      })
+      if (resp.ok) {
+        setEmailSent(invId)
+        setTimeout(() => setEmailSent(null), 3000)
+      }
+    } finally {
+      setEmailSending(null)
+    }
   }
 
   // ── Link kopiëren ──────────────────────────────────────────────────────────
@@ -177,6 +211,16 @@ export function ShowMembersPanel({
                   ))}
                 </select>
               </div>
+
+              {/* Rol uitleg */}
+              <div className={cn(
+                'text-xs rounded-md px-3 py-2 mb-2 border flex items-start gap-2',
+                ROLE_COLORS[inviteRole]
+              )}>
+                <span className="mt-0.5">{ROLE_ICONS[inviteRole]}</span>
+                <span>{ROLE_DESC[inviteRole]}</span>
+              </div>
+
               {inviteError && <p className="text-xs text-destructive mb-2">{inviteError}</p>}
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
@@ -189,6 +233,23 @@ export function ShowMembersPanel({
               <p className="text-xs text-muted-foreground mt-2">
                 Er wordt een uitnodigingslink gegenereerd die je kunt delen.
               </p>
+            </div>
+          )}
+
+          {/* Rol legenda */}
+          {canManage && !showInvite && (
+            <div className="px-6 pt-4 pb-3 border-b border-border/50">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Rollen</p>
+              <div className="grid grid-cols-2 gap-1">
+                {ASSIGNABLE_ROLES.map(role => (
+                  <div key={role} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium', ROLE_COLORS[role])}>
+                      {ROLE_LABELS[role]}
+                    </span>
+                    <span className="truncate">{ROLE_DESC[role].split(':')[0]}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -230,7 +291,7 @@ export function ShowMembersPanel({
                     {openMenu === member.id && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg min-w-[160px] overflow-hidden">
+                        <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg min-w-[200px] overflow-hidden">
                           {ASSIGNABLE_ROLES.map(role => (
                             <button
                               key={role}
@@ -244,8 +305,12 @@ export function ShowMembersPanel({
                                 }
                               </div>
                               <div>
-                                <p className="font-medium">{ROLE_LABELS[role]}</p>
-                                <p className="text-muted-foreground text-[10px]">{ROLE_DESC[role]}</p>
+                                <p className="font-medium flex items-center gap-1">
+                                  <span className={cn('inline-flex items-center gap-0.5 px-1 py-0.5 rounded border text-[10px]', ROLE_COLORS[role])}>
+                                    {ROLE_ICONS[role]} {ROLE_LABELS[role]}
+                                  </span>
+                                </p>
+                                <p className="text-muted-foreground text-[10px] mt-0.5">{ROLE_DESC[role]}</p>
                               </div>
                             </button>
                           ))}
@@ -254,8 +319,8 @@ export function ShowMembersPanel({
                     )}
                   </div>
                 ) : (
-                  <span className={cn('px-2 py-1 rounded border text-xs font-medium', ROLE_COLORS[member.role])}>
-                    {ROLE_LABELS[member.role]}
+                  <span className={cn('flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium', ROLE_COLORS[member.role])}>
+                    {ROLE_ICONS[member.role]} {ROLE_LABELS[member.role]}
                   </span>
                 )}
 
@@ -289,9 +354,25 @@ export function ShowMembersPanel({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{inv.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ROLE_LABELS[inv.role]} · verloopt {new Date(inv.expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                        <span className={cn('inline-flex items-center gap-0.5 px-1 py-0.5 rounded border text-[10px] font-medium mr-1', ROLE_COLORS[inv.role])}>
+                          {ROLE_LABELS[inv.role]}
+                        </span>
+                        · verloopt {new Date(inv.expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
+                    <button
+                      onClick={() => sendInviteEmail(inv.id)}
+                      disabled={emailSending === inv.id}
+                      className="flex items-center gap-1 text-xs text-blue-400 hover:underline disabled:opacity-50"
+                      title="Stuur uitnodiging per e-mail"
+                    >
+                      {emailSent === inv.id
+                        ? <><Check className="h-3 w-3" /> Verstuurd</>
+                        : emailSending === inv.id
+                        ? <><div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin" /> Sturen...</>
+                        : <><Mail className="h-3 w-3" /> Mail</>
+                      }
+                    </button>
                     <button
                       onClick={() => copyInviteLink(inv.token)}
                       className="flex items-center gap-1 text-xs text-primary hover:underline"

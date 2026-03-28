@@ -56,6 +56,17 @@ export default async function ShowPage({ params }: PageProps) {
   const currentMember = (members ?? []).find(m => m.user_id === user.id)
   const currentUserRole: ShowMemberRole = isPlatformAdmin ? 'owner' : (currentMember?.role ?? 'viewer')
 
+  // Auto-redirect: presenter → presenter view, crew → crew view (alleen als er één rundown is)
+  if (!isPlatformAdmin && rundowns && rundowns.length === 1) {
+    const activeOrFirst = rundowns[0]
+    if (currentUserRole === 'presenter') {
+      redirect(`/shows/${showId}/rundown/${activeOrFirst.id}/presenter`)
+    }
+    if (currentUserRole === 'crew') {
+      redirect(`/shows/${showId}/rundown/${activeOrFirst.id}/crew`)
+    }
+  }
+
   return (
     <ShowDashboard
       show={show as Show}

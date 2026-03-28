@@ -15,17 +15,19 @@ import { SortableCueRow } from './SortableCueRow'
 import { CueFormModal } from './CueFormModal'
 import { RundownSettings } from './RundownSettings'
 import { ImportCuesModal } from './ImportCuesModal'
+import { SaveTemplateModal } from './SaveTemplateModal'
+import { LoadTemplateModal } from './LoadTemplateModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
-  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet
+  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
 } from '@/lib/utils'
-import type { Cue, Rundown, CueType, CreateCueInput, UpdateCueInput } from '@/lib/types/database'
+import type { Cue, Rundown, CueType, CreateCueInput, UpdateCueInput, TemplateCue } from '@/lib/types/database'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -71,8 +73,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showFilterMenu, setShowFilterMenu]     = useState(false)
   const [showViewMenu, setShowViewMenu]         = useState(false)
   const [showRundownMenu, setShowRundownMenu]   = useState(false)
-  const [showResetConfirm, setShowResetConfirm] = useState(false)
-  const [showImportModal, setShowImportModal]   = useState(false)
+  const [showResetConfirm, setShowResetConfirm]         = useState(false)
+  const [showImportModal, setShowImportModal]           = useState(false)
+  const [showSaveTemplate, setShowSaveTemplate]         = useState(false)
+  const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
 
   // DnD sensors
   const sensors = useSensors(
@@ -182,6 +186,32 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     }))
     const { error } = await supabase.from('cues').insert(rows)
     if (error) { console.error('Import fout:', error); throw error }
+    setIsSaving(false)
+  }, [cues, rundown.id, supabase])
+
+  const applyTemplate = useCallback(async (templateCues: TemplateCue[]) => {
+    setIsSaving(true)
+    // Verwijder alle bestaande cues
+    if (cues.length > 0) {
+      await Promise.all(cues.map((c) => supabase.from('cues').delete().eq('id', c.id)))
+    }
+    // Voeg template-cues in
+    const rows = templateCues.map((tc, i) => ({
+      rundown_id:       rundown.id,
+      position:         i,
+      title:            tc.title,
+      type:             tc.type,
+      duration_seconds: tc.duration_seconds,
+      notes:            tc.notes ?? null,
+      tech_notes:       tc.tech_notes ?? null,
+      presenter:        tc.presenter ?? null,
+      location:         tc.location ?? null,
+      status:           'pending' as const,
+    }))
+    if (rows.length > 0) {
+      const { error } = await supabase.from('cues').insert(rows)
+      if (error) console.error('Template toepassen mislukt:', error)
+    }
     setIsSaving(false)
   }, [cues, rundown.id, supabase])
 
@@ -538,6 +568,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                   >
                     <Printer className="h-3.5 w-3.5" /> Afdrukken / PDF
                   </a>
+                  <hr className="border-border/50 my-1" />
+                  <button
+                    onClick={() => { setShowViewMenu(false); setShowSaveTemplate(true) }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-muted-foreground text-left"
+                    disabled={cues.length === 0}
+                  >
+                    <BookTemplate className="h-3.5 w-3.5" /> Opslaan als template
+                  </button>
                 </div>
               )}
             </div>
@@ -587,6 +625,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
             </Button>
+
+            {/* Templates */}
+            <div className="relative">
+              <Button
+                size="sm" variant="outline"
+                className="gap-2 text-muted-foreground"
+                title="Rundown templates"
+                onClick={() => setShowLoadTemplate(true)}
+              >
+                <BookTemplate className="h-3.5 w-3.5" />
+              </Button>
+            </div>
 
             {/* Cue toevoegen */}
             <Button size="sm" onClick={() => setShowAddModal(true)}>
@@ -705,6 +755,20 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           onImport={importCues}
         />
       )}
+
+      <SaveTemplateModal
+        open={showSaveTemplate}
+        onClose={() => setShowSaveTemplate(false)}
+        rundownName={rundown.name}
+        cues={cues}
+      />
+
+      <LoadTemplateModal
+        open={showLoadTemplate}
+        onClose={() => setShowLoadTemplate(false)}
+        onApply={applyTemplate}
+        hasCues={cues.length > 0}
+      />
 
       {/* Sluit menu's bij klik buiten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (

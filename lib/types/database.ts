@@ -87,6 +87,26 @@ export interface ShowMember {
   profile?: Pick<Profile, 'id' | 'email' | 'full_name' | 'avatar_url'>
 }
 
+export interface RundownTemplate {
+  id: string
+  name: string
+  description: string | null
+  created_by: string | null
+  cues_json: TemplateCue[]
+  is_public: boolean
+  created_at: string
+}
+
+export interface TemplateCue {
+  title: string
+  type: CueType
+  duration_seconds: number
+  notes?: string | null
+  tech_notes?: string | null
+  presenter?: string | null
+  location?: string | null
+}
+
 export interface Invitation {
   id: string
   show_id: string

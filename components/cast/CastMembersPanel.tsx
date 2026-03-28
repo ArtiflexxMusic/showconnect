@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   UserPlus, Trash2, Copy, Check, Link2, QrCode, Loader2,
-  Pencil, Plus, Users, ExternalLink, X,
+  Pencil, Plus, Users, ExternalLink, X, Hash, RefreshCw,
 } from 'lucide-react'
 import type { CastMember, CastPortalLink } from '@/lib/types/database'
 
@@ -87,6 +87,17 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
     setAddOpen(true)
   }
 
+  function generatePin(): string {
+    return String(Math.floor(100000 + Math.random() * 900000))
+  }
+
+  async function regeneratePin(memberId: string) {
+    const newPin = generatePin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('cast_members').update({ pin: newPin }).eq('id', memberId)
+    await load()
+  }
+
   async function saveMember() {
     if (!name.trim()) return
     setSaving(true)
@@ -97,8 +108,9 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
         const { error } = await (supabase as any).from('cast_members').update({ name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null }).eq('id', editTarget.id)
         if (error) throw error
       } else {
+        const pin = generatePin()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('cast_members').insert({ show_id: showId, name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null })
+        const { error } = await (supabase as any).from('cast_members').insert({ show_id: showId, name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null, pin })
         if (error) throw error
       }
       await load()
@@ -203,8 +215,49 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
                         </div>
                       </div>
 
+                      {/* PIN */}
+                      <div className="px-4 py-3 border-t border-border/30">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                            <Hash className="h-3 w-3" /> PIN login
+                          </p>
+                          <div className="flex items-center gap-1">
+                            {member.pin && (
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-6 text-xs gap-1 text-muted-foreground/60 hover:text-muted-foreground px-2"
+                                onClick={() => { navigator.clipboard.writeText(member.pin!); setCopied('pin-' + member.id); setTimeout(() => setCopied(null), 2000) }}
+                                title="Kopieer PIN"
+                              >
+                                {copied === 'pin-' + member.id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost" size="sm"
+                              className="h-6 text-xs gap-1 text-muted-foreground/60 hover:text-muted-foreground px-2"
+                              onClick={() => regeneratePin(member.id)}
+                              title="Genereer nieuwe PIN"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {member.pin ? (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <code className="text-lg font-mono font-bold tracking-[0.3em] text-emerald-400">
+                              {member.pin}
+                            </code>
+                            <span className="text-xs text-muted-foreground/40">→ /cast-login</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground/40 italic mt-1">
+                            Klik <RefreshCw className="inline h-3 w-3 mx-0.5" /> om een PIN te genereren.
+                          </p>
+                        )}
+                      </div>
+
                       {/* Magic links */}
-                      <div className="px-4 py-3 space-y-2">
+                      <div className="px-4 py-3 space-y-2 border-t border-border/30">
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                             <Link2 className="h-3 w-3" /> Magic Links

@@ -13,7 +13,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
-  Copy, QrCode, X,
+  Copy, QrCode, X, Monitor,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -301,6 +301,18 @@ export function ShowDashboard({
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/50 hover:text-muted-foreground"
                       title="QR-code tonen"
                       onClick={() => showQr(`${window.location.origin}/status/${show.id}/${rundown.id}`, 'Publieke status')}>
+                      <QrCode className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
+                      <a href={`/shows/${show.id}/rundown/${rundown.id}/output`} target="_blank">
+                        <Monitor className="h-3 w-3" /> Presentatie
+                      </a>
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/50 hover:text-muted-foreground"
+                      title="QR-code tonen"
+                      onClick={() => showQr(`${window.location.origin}/shows/${show.id}/rundown/${rundown.id}/output`, 'Presentatie output')}>
                       <QrCode className="h-3 w-3" />
                     </Button>
                   </div>

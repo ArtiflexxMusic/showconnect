@@ -33,12 +33,22 @@ export interface Rundown {
   show_id: string
   name: string
   is_active: boolean
+  is_locked: boolean                    // Vergrendeld tijdens live show
   show_start_time: string | null        // "HH:MM:SS" – configeerbare showstarttijd
   companion_webhook_url: string | null  // HTTP URL voor Bitfocus Companion
   presenter_pin: string | null          // 4-cijferige PIN voor presenter view
   notes: string | null                  // Algemene notities zichtbaar in caller & crew
   created_at: string
   updated_at: string
+}
+
+export interface RundownSnapshot {
+  id: string
+  rundown_id: string
+  label: string
+  cues_json: import('./database').Cue[]
+  created_by: string | null
+  created_at: string
 }
 
 export interface Cue {
@@ -247,6 +257,7 @@ export type Database = {
           show_id: string
           name: string
           is_active: boolean
+          is_locked: boolean
           show_start_time: string | null
           companion_webhook_url: string | null
           presenter_pin: string | null
@@ -259,6 +270,7 @@ export type Database = {
           show_id: string
           name: string
           is_active?: boolean
+          is_locked?: boolean
           show_start_time?: string | null
           companion_webhook_url?: string | null
           presenter_pin?: string | null
@@ -271,6 +283,7 @@ export type Database = {
           show_id?: string
           name?: string
           is_active?: boolean
+          is_locked?: boolean
           show_start_time?: string | null
           companion_webhook_url?: string | null
           presenter_pin?: string | null

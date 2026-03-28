@@ -129,12 +129,14 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       setCurrentUserId(user?.id ?? null)
     })
 
-    supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(supabase as any)
       .from('crew_annotations')
       .select('*')
       .eq('rundown_id', rundown.id)
       .order('created_at', { ascending: true })
-      .then(({ data }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }: { data: any }) => {
         if (data) setAnnotations(data as CrewAnnotation[])
       })
 
@@ -162,7 +164,8 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
     if (!annotationText.trim()) return
     setAnnotating(true)
     const activeCueId = cues.find(c => c.status === 'running')?.id ?? null
-    await supabase.from('crew_annotations').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('crew_annotations').insert({
       rundown_id: rundown.id,
       cue_id: activeCueId,
       content: annotationText.trim(),
@@ -172,7 +175,8 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   }
 
   async function deleteAnnotation(id: string) {
-    await supabase.from('crew_annotations').delete().eq('id', id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('crew_annotations').delete().eq('id', id)
   }
 
   const filteredCues = filter === 'all' ? cues : cues.filter((c) => c.type === filter)

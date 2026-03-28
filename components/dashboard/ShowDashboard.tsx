@@ -13,6 +13,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
+  Copy, QrCode, X,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -55,6 +56,9 @@ export function ShowDashboard({
   const [deleteTarget, setDeleteTarget]     = useState<RundownSummary | null>(null)
   const [deleting, setDeleting]             = useState(false)
   const [deleteError, setDeleteError]       = useState<string | null>(null)
+  const [duplicating, setDuplicating]       = useState(false)
+  const [qrUrl, setQrUrl]                   = useState<string | null>(null)
+  const [qrLabel, setQrLabel]               = useState('')
 
   async function handleDeleteRundown() {
     if (!deleteTarget) return
@@ -71,6 +75,59 @@ export function ShowDashboard({
   }
 
   const cueCount = (r: RundownSummary) => r.cues?.[0]?.count ?? 0
+
+  // ── Show dupliceren ────────────────────────────────────────────────────────
+  async function handleDuplicateShow() {
+    setDuplicating(true)
+    try {
+      // Nieuwe show aanmaken
+      const { data: newShow, error: showError } = await supabase
+        .from('shows')
+        .insert({ name: `${show.name} (kopie)`, date: show.date, venue: show.venue, description: show.description })
+        .select()
+        .single()
+      if (showError || !newShow) throw showError
+
+      // Huidige rundowns ophalen met cues
+      for (const rd of rundowns) {
+        const { data: newRd } = await supabase
+          .from('rundowns')
+          .insert({ show_id: newShow.id, name: rd.name })
+          .select()
+          .single()
+        if (!newRd) continue
+
+        // Cues ophalen en kopiëren
+        const { data: cues } = await supabase
+          .from('cues')
+          .select('*')
+          .eq('rundown_id', rd.id)
+          .order('position', { ascending: true })
+        if (cues && cues.length > 0) {
+          await supabase.from('cues').insert(
+            cues.map(({ id: _id, created_at: _c, updated_at: _u, started_at: _s, status: _st, ...rest }) => ({
+              ...rest,
+              rundown_id: newRd.id,
+              status: 'pending' as const,
+              started_at: null,
+            }))
+          )
+        }
+      }
+
+      router.push(`/shows/${newShow.id}`)
+    } catch (e) {
+      console.error('Dupliceren mislukt:', e)
+    } finally {
+      setDuplicating(false)
+    }
+  }
+
+  // ── QR-code tonen ─────────────────────────────────────────────────────────
+  function showQr(url: string, label: string) {
+    setQrUrl(url)
+    setQrLabel(label)
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -122,8 +179,12 @@ export function ShowDashboard({
               </span>
             )}
           </Button>
+          <Button variant="outline" size="sm" onClick={handleDuplicateShow} disabled={duplicating} className="gap-2">
+            {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+            Dupliceren
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditShowOpen(true)} className="gap-2">
-            <Pencil className="h-3.5 w-3.5" /> Show bewerken
+            <Pencil className="h-3.5 w-3.5" /> Bewerken
           </Button>
         </div>
       </div>
@@ -200,22 +261,43 @@ export function ShowDashboard({
                     </a>
                   </Button>
 
-                  {/* View links */}
-                  <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
-                    <a href={`/shows/${show.id}/rundown/${rundown.id}/presenter`} target="_blank">
-                      <ExternalLink className="h-3 w-3" /> Presenter
-                    </a>
-                  </Button>
-                  <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
-                    <a href={`/shows/${show.id}/rundown/${rundown.id}/crew`} target="_blank">
-                      <ExternalLink className="h-3 w-3" /> Crew
-                    </a>
-                  </Button>
-                  <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
-                    <a href={`/status/${show.id}/${rundown.id}`} target="_blank">
-                      <Globe className="h-3 w-3" /> Publiek
-                    </a>
-                  </Button>
+                  {/* View links met QR */}
+                  <div className="flex items-center gap-0.5">
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
+                      <a href={`/shows/${show.id}/rundown/${rundown.id}/presenter`} target="_blank">
+                        <ExternalLink className="h-3 w-3" /> Presenter
+                      </a>
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/50 hover:text-muted-foreground"
+                      title="QR-code tonen"
+                      onClick={() => showQr(`${window.location.origin}/shows/${show.id}/rundown/${rundown.id}/presenter`, 'Presenter view')}>
+                      <QrCode className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
+                      <a href={`/shows/${show.id}/rundown/${rundown.id}/crew`} target="_blank">
+                        <ExternalLink className="h-3 w-3" /> Crew
+                      </a>
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/50 hover:text-muted-foreground"
+                      title="QR-code tonen"
+                      onClick={() => showQr(`${window.location.origin}/shows/${show.id}/rundown/${rundown.id}/crew`, 'Crew view')}>
+                      <QrCode className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
+                      <a href={`/status/${show.id}/${rundown.id}`} target="_blank">
+                        <Globe className="h-3 w-3" /> Publiek
+                      </a>
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/50 hover:text-muted-foreground"
+                      title="QR-code tonen"
+                      onClick={() => showQr(`${window.location.origin}/status/${show.id}/${rundown.id}`, 'Publieke status')}>
+                      <QrCode className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -243,6 +325,41 @@ export function ShowDashboard({
         onClose={() => setEditShowOpen(false)}
         onSaved={(updated) => setShow((prev) => ({ ...prev, ...updated }))}
       />
+
+      {/* QR-code modal */}
+      {qrUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setQrUrl(null)} />
+          <div className="relative bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col items-center gap-4 max-w-xs w-full">
+            <div className="flex items-center justify-between w-full">
+              <div>
+                <p className="font-semibold text-sm">{qrLabel}</p>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{qrUrl}</p>
+              </div>
+              <button onClick={() => setQrUrl(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {/* QR via gratis API — geen npm package nodig */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrUrl)}&size=220x220&margin=10&color=6366f1&bgcolor=0f172a`}
+              alt="QR-code"
+              className="rounded-lg border border-border"
+              width={220}
+              height={220}
+            />
+            <div className="flex gap-2 w-full">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => { navigator.clipboard.writeText(qrUrl); }}>
+                Link kopiëren
+              </Button>
+              <Button size="sm" className="flex-1" onClick={() => window.open(qrUrl, '_blank')}>
+                Openen
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete rundown bevestiging */}
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v && !deleting) { setDeleteTarget(null); setDeleteError(null) } }}>

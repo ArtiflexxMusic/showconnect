@@ -7,15 +7,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
-import type { Rundown } from '@/lib/types/database'
+import type { Rundown, RundownSnapshot, Cue } from '@/lib/types/database'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabase = any
 
 interface RundownSettingsProps {
   open: boolean
   onClose: () => void
   rundown: Rundown
   show: { id: string; name: string }
+  supabase: AnySupabase
   onSave: (updates: {
     name: string
     show_start_time: string | null
@@ -25,9 +28,10 @@ interface RundownSettingsProps {
   }) => Promise<void>
   onDelete?: () => Promise<void>
   onDuplicate?: () => Promise<void>
+  onRestore?: (cues: Cue[]) => Promise<void>
 }
 
-export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete, onDuplicate }: RundownSettingsProps) {
+export function RundownSettings({ open, onClose, rundown, show, supabase, onSave, onDelete, onDuplicate, onRestore }: RundownSettingsProps) {
   const [rundownName, setRundownName] = useState('')
   const [startTime, setStartTime]     = useState('')
   const [webhookUrl, setWebhookUrl]   = useState('')
@@ -39,6 +43,11 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting]       = useState(false)
   const [duplicating, setDuplicating] = useState(false)
+  const [snapshots, setSnapshots]     = useState<RundownSnapshot[]>([])
+  const [loadingSnaps, setLoadingSnaps] = useState(false)
+  const [restoring, setRestoring]     = useState<string | null>(null)
+  const [deletingSnap, setDeletingSnap] = useState<string | null>(null)
+  const [restoreConfirm, setRestoreConfirm] = useState<RundownSnapshot | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -51,8 +60,22 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
       setTestStatus('idle')
       setCopied(null)
       setShowDeleteConfirm(false)
+      setRestoreConfirm(null)
+      // Load snapshots
+      setLoadingSnaps(true)
+      supabase
+        .from('rundown_snapshots')
+        .select('*')
+        .eq('rundown_id', rundown.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then(({ data }: { data: any }) => {
+          setSnapshots((data ?? []) as RundownSnapshot[])
+          setLoadingSnaps(false)
+        })
     }
-  }, [open, rundown])
+  }, [open, rundown, supabase])
 
   async function handleDelete() {
     if (!onDelete) return
@@ -101,6 +124,25 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
     } catch {
       setTestStatus('error')
     }
+  }
+
+  async function handleRestoreSnapshot(snap: RundownSnapshot) {
+    if (!onRestore) return
+    setRestoring(snap.id)
+    try {
+      await onRestore(snap.cues_json as unknown as Cue[])
+      setRestoreConfirm(null)
+      onClose()
+    } finally {
+      setRestoring(null)
+    }
+  }
+
+  async function handleDeleteSnapshot(snapId: string) {
+    setDeletingSnap(snapId)
+    await supabase.from('rundown_snapshots').delete().eq('id', snapId)
+    setSnapshots(prev => prev.filter(s => s.id !== snapId))
+    setDeletingSnap(null)
   }
 
   function copyLink(key: string, url: string) {
@@ -334,6 +376,87 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
               </div>
             </>
           )}
+
+          {/* Versiegeschiedenis / snapshots */}
+          <>
+            <hr className="border-border/50" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Versiegeschiedenis</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sla tussentijdse versies op via het camera-icoon in de toolbar. Je kunt hier elke versie terugzetten.
+              </p>
+              {loadingSnaps ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Laden...
+                </div>
+              ) : snapshots.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-1">Nog geen snapshots opgeslagen.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {snapshots.map((snap) => (
+                    <div key={snap.id} className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/20 px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{snap.label}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(snap.created_at).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })}
+                        </p>
+                      </div>
+                      {restoreConfirm?.id === snap.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-orange-400">Zeker?</span>
+                          <Button
+                            type="button" size="sm" variant="outline"
+                            className="h-6 px-2 text-xs border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                            disabled={restoring === snap.id}
+                            onClick={() => handleRestoreSnapshot(snap)}
+                          >
+                            {restoring === snap.id
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <><RotateCcw className="h-3 w-3" /> Ja</>
+                            }
+                          </Button>
+                          <Button
+                            type="button" size="sm" variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setRestoreConfirm(null)}
+                          >
+                            Nee
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button" size="sm" variant="ghost"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                            title="Terugzetten naar deze versie"
+                            onClick={() => setRestoreConfirm(snap)}
+                            disabled={!onRestore}
+                          >
+                            <RotateCcw className="h-3 w-3" /> Zetten
+                          </Button>
+                          <Button
+                            type="button" size="icon" variant="ghost"
+                            className="h-6 w-6 text-muted-foreground/50 hover:text-destructive"
+                            title="Snapshot verwijderen"
+                            disabled={deletingSnap === snap.id}
+                            onClick={() => handleDeleteSnapshot(snap.id)}
+                          >
+                            {deletingSnap === snap.id
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <Trash2 className="h-3 w-3" />
+                            }
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
 
           {/* Rundown verwijderen */}
           {onDelete && (

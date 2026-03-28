@@ -86,6 +86,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
   const [cues, setCues]                 = useState<Cue[]>(initialCues)
   const [isOnline, setIsOnline]         = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
   const [connectedUsers, setConnectedUsers] = useState(1)
   const [isProcessing, setIsProcessing] = useState(false)
   const [nudgeActive, setNudgeActive]   = useState(false)
@@ -159,6 +160,12 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         setIsOnline(status === 'SUBSCRIBED')
         if (status === 'SUBSCRIBED') {
           await channel.track({ user_id: userId, role: 'caller', online_at: new Date().toISOString() })
+          setSessionExpired(false)
+        }
+        if (status === 'CHANNEL_ERROR') {
+          // Controleer of sessie verlopen is
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) setSessionExpired(true)
         }
       })
 
@@ -184,12 +191,23 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     setIsProcessing(true)
     try {
       if (activeCue) {
-        await supabase.from('cues').update({ status: 'done' } as Record<string, unknown>).eq('id', activeCue.id)
+        // Race condition bescherming: alleen updaten als de cue nog steeds 'running' is
+        await supabase.from('cues')
+          .update({ status: 'done' } as Record<string, unknown>)
+          .eq('id', activeCue.id)
+          .eq('status', 'running')
       }
       if (nextCue) {
-        await supabase.from('cues').update({
+        // Race condition bescherming: alleen starten als de cue nog 'pending' is
+        const { error } = await supabase.from('cues').update({
           status: 'running', started_at: new Date().toISOString(),
-        } as Record<string, unknown>).eq('id', nextCue.id)
+        } as Record<string, unknown>).eq('id', nextCue.id).eq('status', 'pending')
+        if (error) {
+          // Cue al gestart door andere caller — sync state opnieuw
+          const { data: fresh } = await supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
+          if (fresh) setCues(fresh as Cue[])
+          return
+        }
 
         // Companion webhook
         if (rundown.companion_webhook_url) {
@@ -382,6 +400,19 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
   return (
     <div className="h-screen flex flex-col bg-background select-none overflow-hidden">
+
+      {/* ── Sessie verlopen banner ───────────────────────────────────── */}
+      {sessionExpired && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-red-600 text-white text-sm font-semibold text-center px-4 py-2 flex items-center justify-center gap-3">
+          ⚠️ Sessie verlopen — je bent niet meer verbonden.
+          <button
+            onClick={() => window.location.reload()}
+            className="underline hover:no-underline text-white"
+          >
+            Vernieuwen
+          </button>
+        </div>
+      )}
 
       {/* ── Nudge melding ────────────────────────────────────────────── */}
       {nudgeMessage && (

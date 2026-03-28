@@ -17,16 +17,17 @@ interface SortableCueRowProps {
   cue: Cue
   index: number
   expectedTime?: string      // Verwachte starttijd bv "14:32"
-  onEdit: () => void
-  onDelete: () => void
-  onDuplicate: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+  onDuplicate?: () => void
   onStart: () => void
   onSkip: () => void
   onReset: () => void
+  locked?: boolean
 }
 
 export function SortableCueRow({
-  cue, index, expectedTime, onEdit, onDelete, onDuplicate, onStart, onSkip, onReset
+  cue, index, expectedTime, onEdit, onDelete, onDuplicate, onStart, onSkip, onReset, locked = false
 }: SortableCueRowProps) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging
@@ -69,8 +70,12 @@ export function SortableCueRow({
         {/* Drag handle */}
         <button
           {...attributes}
-          {...listeners}
-          className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
+          {...(!locked ? listeners : {})}
+          className={cn(
+            'flex items-center justify-center h-6 w-6 rounded text-muted-foreground/30',
+            locked ? 'cursor-not-allowed opacity-30' : 'hover:text-muted-foreground cursor-grab active:cursor-grabbing'
+          )}
+          disabled={locked}
         >
           <GripVertical className="h-4 w-4" />
         </button>
@@ -210,19 +215,23 @@ export function SortableCueRow({
               <RotateCcw className="h-3 w-3" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDuplicate} title="Dupliceren">
-            <Copy className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Bewerken">
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className="h-7 w-7 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
-            onClick={onDelete} title="Verwijderen"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {!locked && (
+            <>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDuplicate} title="Dupliceren">
+                <Copy className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Bewerken">
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost" size="icon"
+                className="h-7 w-7 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+                onClick={onDelete} title="Verwijderen"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

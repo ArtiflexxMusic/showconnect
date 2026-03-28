@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, User, Shield, Check } from 'lucide-react'
+import { Loader2, User, Shield, Check, KeyRound, LogOut } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { useRouter } from 'next/navigation'
 
@@ -28,18 +28,22 @@ function Avatar({ name, email, size = 'lg' }: { name: string | null; email: stri
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Beheerder',
-  crew:  'Gebruiker',
+  beheerder: 'Beheerder',
+  admin:     'Admin',
+  crew:      'Gebruiker',
 }
 
 export function ProfilePage({ profile }: ProfilePageProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [fullName, setFullName] = useState(profile.full_name ?? '')
-  const [saving, setSaving]     = useState(false)
-  const [saved, setSaved]       = useState(false)
-  const [error, setError]       = useState('')
+  const [fullName, setFullName]       = useState(profile.full_name ?? '')
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [error, setError]             = useState('')
+  const [pwSending, setPwSending]     = useState(false)
+  const [pwSent, setPwSent]           = useState(false)
+  const [loggingOut, setLoggingOut]   = useState(false)
 
   const handleSave = async () => {
     setSaving(true)
@@ -56,6 +60,22 @@ export function ProfilePage({ profile }: ProfilePageProps) {
       router.refresh()
       setTimeout(() => setSaved(false), 2000)
     }
+  }
+
+  const handlePasswordReset = async () => {
+    setPwSending(true)
+    await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/profile`,
+    })
+    setPwSending(false)
+    setPwSent(true)
+    setTimeout(() => setPwSent(false), 5000)
+  }
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   return (
@@ -116,6 +136,24 @@ export function ProfilePage({ profile }: ProfilePageProps) {
         </CardContent>
       </Card>
 
+      {/* Wachtwoord wijzigen */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Wachtwoord</CardTitle>
+          <CardDescription>
+            Ontvang een reset-link op je e-mailadres om je wachtwoord te wijzigen.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={handlePasswordReset} disabled={pwSending || pwSent}>
+            {pwSending ? <><Loader2 className="h-4 w-4 animate-spin" /> Versturen…</> :
+             pwSent    ? <><Check className="h-4 w-4" /> Link verstuurd!</> :
+             <><KeyRound className="h-4 w-4" /> Reset-link sturen</>}
+          </Button>
+          {pwSent && <p className="text-sm text-muted-foreground mt-2">Controleer je inbox op {profile.email}.</p>}
+        </CardContent>
+      </Card>
+
       {/* Accountinfo (read-only) */}
       <Card>
         <CardHeader>
@@ -138,6 +176,14 @@ export function ProfilePage({ profile }: ProfilePageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Uitloggen */}
+      <div className="pt-2 border-t border-border/50">
+        <Button variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={handleLogout} disabled={loggingOut}>
+          {loggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+          Uitloggen
+        </Button>
+      </div>
     </div>
   )
 }

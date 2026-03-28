@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
-  Pencil, Radio, Users, ArrowRight, Sparkles,
+  Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EditShowModal } from './EditShowModal'
@@ -43,6 +43,10 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
   const [deleting, setDeleting]     = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<ShowWithRundowns | null>(null)
+  const [viewMode, setViewMode]     = useState<'list' | 'calendar'>('list')
+  const [calMonth, setCalMonth]     = useState(() => {
+    const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }
+  })
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -82,11 +86,28 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
                 : `${shows.length} show${shows.length !== 1 ? 's' : ''} gevonden`}
             </p>
           </div>
-          <Button asChild>
-            <Link href="/shows/new">
-              <Plus className="h-4 w-4" /> Nieuwe show
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Weergave-toggle */}
+            <div className="flex items-center border border-border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <LayoutList className="h-3.5 w-3.5" /> Lijst
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" /> Kalender
+              </button>
+            </div>
+            <Button asChild>
+              <Link href="/shows/new">
+                <Plus className="h-4 w-4" /> Nieuwe show
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Lege staat met onboarding-stappen */}
@@ -126,7 +147,12 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
           </Card>
         )}
 
-        {upcoming.length > 0 && (
+        {/* ── Kalenderweergave ──────────────────────────────────────── */}
+        {viewMode === 'calendar' && shows.length > 0 && (
+          <CalendarView shows={shows} calMonth={calMonth} setCalMonth={setCalMonth} />
+        )}
+
+        {viewMode === 'list' && upcoming.length > 0 && (
           <section className="mb-8">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Aankomende shows
@@ -144,7 +170,7 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
           </section>
         )}
 
-        {past.length > 0 && (
+        {viewMode === 'list' && past.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Afgelopen shows
@@ -324,5 +350,102 @@ function ShowCard({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// ── Kalenderweergave ──────────────────────────────────────────────────────────
+function CalendarView({
+  shows,
+  calMonth,
+  setCalMonth,
+}: {
+  shows: ShowWithRundowns[]
+  calMonth: { year: number; month: number }
+  setCalMonth: (m: { year: number; month: number }) => void
+}) {
+  const { year, month } = calMonth
+  const firstDay   = new Date(year, month, 1)
+  const lastDay    = new Date(year, month + 1, 0)
+  const startDow   = (firstDay.getDay() + 6) % 7 // Ma=0 … Zo=6
+  const daysInMonth = lastDay.getDate()
+
+  const DAYS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
+  const MONTHS = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December']
+
+  // Bouw grid: lege cellen vóór + alle dagcellen
+  const cells: (number | null)[] = [
+    ...Array(startDow).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
+  // Vul aan tot veelvoud van 7
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  const showsByDate: Record<string, ShowWithRundowns[]> = {}
+  for (const show of shows) {
+    if (!show.date) continue
+    const d = new Date(show.date)
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const key = d.getDate().toString()
+      if (!showsByDate[key]) showsByDate[key] = []
+      showsByDate[key].push(show)
+    }
+  }
+
+  const todayDate = new Date()
+  const isToday = (day: number) =>
+    todayDate.getFullYear() === year && todayDate.getMonth() === month && todayDate.getDate() === day
+
+  function prevMonth() {
+    setCalMonth(month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 })
+  }
+  function nextMonth() {
+    setCalMonth(month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 })
+  }
+
+  return (
+    <div className="mb-8">
+      {/* Header navigatie */}
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={prevMonth} className="p-1.5 rounded hover:bg-muted transition-colors">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <h2 className="font-semibold">{MONTHS[month]} {year}</h2>
+        <button onClick={nextMonth} className="p-1.5 rounded hover:bg-muted transition-colors">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Dag-headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAYS.map(d => (
+          <div key={d} className="text-center text-[11px] font-semibold text-muted-foreground py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Cellen */}
+      <div className="grid grid-cols-7 border-l border-t border-border/40 rounded-lg overflow-hidden">
+        {cells.map((day, i) => (
+          <div
+            key={i}
+            className={`min-h-[80px] border-r border-b border-border/40 p-1.5 ${!day ? 'bg-muted/10' : 'bg-card'}`}
+          >
+            {day && (
+              <>
+                <p className={`text-xs font-mono mb-1 w-6 h-6 flex items-center justify-center rounded-full leading-none
+                  ${isToday(day) ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground'}`}>
+                  {day}
+                </p>
+                {(showsByDate[day.toString()] ?? []).map(show => (
+                  <Link key={show.id} href={`/shows/${show.id}`}
+                    className="block text-[10px] font-medium text-primary bg-primary/10 border border-primary/20 rounded px-1 py-0.5 mb-0.5 truncate hover:bg-primary/20 transition-colors">
+                    {show.name}
+                  </Link>
+                ))}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

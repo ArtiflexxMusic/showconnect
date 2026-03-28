@@ -25,7 +25,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -78,6 +78,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showRundownMenu, setShowRundownMenu]   = useState(false)
   const [showResetConfirm, setShowResetConfirm]         = useState(false)
   const [showImportModal, setShowImportModal]           = useState(false)
+  const [locking, setLocking]                           = useState(false)
+  const [snapshotting, setSnapshotting]                 = useState(false)
+  const [snapshotDone, setSnapshotDone]                 = useState(false)
   const [showSaveTemplate, setShowSaveTemplate]         = useState(false)
   const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
   const [showCueLog, setShowCueLog]                     = useState(false)
@@ -330,6 +333,57 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     if (!error && data) setRundown(data as Rundown)
   }, [rundown.id, supabase])
 
+  // ── Rundown vergrendelen / ontgrendelen ─────────────────────────────────
+  const toggleLock = useCallback(async () => {
+    setLocking(true)
+    const newLocked = !rundown.is_locked
+    await supabase.from('rundowns').update({ is_locked: newLocked } as Record<string, unknown>).eq('id', rundown.id)
+    setRundown(prev => ({ ...prev, is_locked: newLocked }))
+    setLocking(false)
+  }, [rundown.id, rundown.is_locked, supabase])
+
+  // ── Snapshot aanmaken ────────────────────────────────────────────────────
+  const createSnapshot = useCallback(async () => {
+    setSnapshotting(true)
+    const label = `Snapshot ${new Date().toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('rundown_snapshots').insert({
+      rundown_id: rundown.id,
+      label,
+      cues_json: cues,
+    })
+    setSnapshotting(false)
+    setSnapshotDone(true)
+    setTimeout(() => setSnapshotDone(false), 2500)
+  }, [rundown.id, cues, supabase])
+
+  // ── Snapshot terugzetten ─────────────────────────────────────────────────
+  const restoreSnapshot = useCallback(async (snapCues: Cue[]) => {
+    // Delete all current cues
+    await supabase.from('cues').delete().eq('rundown_id', rundown.id)
+    // Re-insert snapshot cues with fresh positions
+    const toInsert = snapCues.map((c, i) => ({
+      rundown_id:      rundown.id,
+      position:        i,
+      title:           c.title,
+      type:            c.type,
+      duration_seconds: c.duration_seconds,
+      notes:           c.notes ?? null,
+      tech_notes:      c.tech_notes ?? null,
+      presenter:       c.presenter ?? null,
+      location:        c.location ?? null,
+      status:          'pending' as const,
+      color:           c.color ?? null,
+      auto_advance:    c.auto_advance ?? null,
+    }))
+    if (toInsert.length > 0) {
+      const { data } = await supabase.from('cues').insert(toInsert).select()
+      if (data) setCues(data as Cue[])
+    } else {
+      setCues([])
+    }
+  }, [rundown.id, supabase])
+
   // ── Rundown dupliceren ───────────────────────────────────────────────────
   const duplicateRundown = useCallback(async () => {
     const { data: newRundown, error: rundownErr } = await supabase
@@ -401,6 +455,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   async function handleDragEnd(event: DragEndEvent) {
+    if (rundown.is_locked) return
     const { active, over } = event
     if (!over || active.id === over.id) return
     const oldIndex  = cues.findIndex((c) => c.id === active.id)
@@ -699,6 +754,41 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               <History className="h-3.5 w-3.5" />
             </Button>
 
+            {/* Lock/Unlock rundown */}
+            <Button
+              size="sm" variant="outline"
+              onClick={toggleLock}
+              disabled={locking}
+              className={cn(
+                'gap-2',
+                rundown.is_locked
+                  ? 'text-orange-400 border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20'
+                  : 'text-muted-foreground'
+              )}
+              title={rundown.is_locked ? 'Rundown ontgrendelen' : 'Rundown vergrendelen (voorkomt bewerken)'}
+            >
+              {rundown.is_locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+            </Button>
+
+            {/* Snapshot / versie opslaan */}
+            <Button
+              size="sm" variant="outline"
+              onClick={createSnapshot}
+              disabled={snapshotting || cues.length === 0}
+              className={cn(
+                'gap-2',
+                snapshotDone
+                  ? 'text-green-400 border-green-500/40 bg-green-500/10'
+                  : 'text-muted-foreground'
+              )}
+              title="Versie opslaan (snapshot)"
+            >
+              {snapshotDone
+                ? <Check className="h-3.5 w-3.5" />
+                : <Camera className="h-3.5 w-3.5" />
+              }
+            </Button>
+
             {/* Nudge knop */}
             <Button
               size="sm" variant="outline"
@@ -758,7 +848,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
             </div>
 
             {/* Cue toevoegen */}
-            <Button size="sm" onClick={() => setShowAddModal(true)}>
+            <Button size="sm" onClick={() => setShowAddModal(true)} disabled={rundown.is_locked}>
               <Plus className="h-4 w-4" /> Cue
             </Button>
           </div>
@@ -774,6 +864,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           </div>
         )}
       </div>
+
+      {/* ── Vergrendeld banner ────────────────────────────────────────── */}
+      {rundown.is_locked && (
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-2.5 text-sm text-orange-300">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span className="font-medium">Rundown is vergrendeld</span>
+          <span className="text-orange-400/70">— bewerken is uitgeschakeld. Klik op het slotje in de toolbar om te ontgrendelen.</span>
+        </div>
+      )}
 
       {/* ── Kolom headers ─────────────────────────────────────────────── */}
       <div className="rundown-grid px-4 py-2 text-xs font-semibold text-muted-foreground border-b border-border/50 mb-1">
@@ -822,12 +921,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                     cue={cue}
                     index={globalIndex}
                     expectedTime={expectedTimes[globalIndex]}
-                    onEdit={() => setEditingCue(cue)}
-                    onDelete={() => deleteCue(cue.id)}
-                    onDuplicate={() => duplicateCue(cue)}
+                    onEdit={rundown.is_locked ? undefined : () => setEditingCue(cue)}
+                    onDelete={rundown.is_locked ? undefined : () => deleteCue(cue.id)}
+                    onDuplicate={rundown.is_locked ? undefined : () => duplicateCue(cue)}
                     onStart={() => startCue(cue.id)}
                     onSkip={() => skipCue(cue.id)}
                     onReset={() => resetCue(cue.id)}
+                    locked={rundown.is_locked}
                   />
                 )
               })}
@@ -864,9 +964,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onClose={() => setShowSettings(false)}
         rundown={rundown}
         show={show}
+        supabase={supabase}
         onSave={saveRundownSettings}
         onDelete={deleteRundown}
         onDuplicate={duplicateRundown}
+        onRestore={restoreSnapshot}
       />
 
       {showImportModal && (

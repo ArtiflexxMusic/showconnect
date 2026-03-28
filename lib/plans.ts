@@ -5,8 +5,9 @@
  * Twee bronnen:  free | gift (handmatig door admin) | paid (via Mollie)
  */
 
-export type Plan       = 'free' | 'pro' | 'team'
-export type PlanSource = 'free' | 'gift' | 'paid'
+export type Plan         = 'free' | 'pro' | 'team'
+export type PlanSource   = 'free' | 'gift' | 'paid'
+export type PlanInterval = 'monthly' | 'yearly'
 
 export interface PlanLimits {
   max_shows:              number   // Infinity = onbeperkt
@@ -58,10 +59,33 @@ export const PLAN_LABELS: Record<Plan, string> = {
   team: 'Team',
 }
 
+/** Prijs in euro's per plan + interval */
 export const PLAN_PRICES: Record<Plan, number | null> = {
   free: null,
   pro:  9.95,
-  team: 29.95,
+  team: 29.99,
+}
+
+export const PLAN_PRICES_MONTHLY: Partial<Record<Plan, number>> = {
+  pro:  9.95,
+  team: 29.99,
+}
+
+export const PLAN_PRICES_YEARLY: Partial<Record<Plan, number>> = {
+  pro:  99.99,
+  team: 299.99,
+}
+
+/** Geeft de prijs als formatted string: "9,95" */
+export function formatPrice(amount: number): string {
+  return amount.toFixed(2).replace('.', ',')
+}
+
+/** Geeft de besparing bij jaarabonnement t.o.v. 12 × maand */
+export function yearlySaving(plan: Plan): number {
+  const monthly = PLAN_PRICES_MONTHLY[plan] ?? 0
+  const yearly  = PLAN_PRICES_YEARLY[plan] ?? 0
+  return Math.round(monthly * 12 - yearly)
 }
 
 export const PLAN_COLORS: Record<Plan, string> = {

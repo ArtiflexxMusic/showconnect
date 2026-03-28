@@ -6,8 +6,9 @@ export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'cus
 export type CueStatus = 'pending' | 'running' | 'done' | 'skipped'
 export type UserRole = 'beheerder' | 'admin' | 'crew'
 export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'crew' | 'presenter' | 'viewer'
-export type UserPlan = 'free' | 'pro' | 'team'
-export type PlanSource = 'free' | 'gift' | 'paid'
+export type UserPlan     = 'free' | 'pro' | 'team'
+export type PlanSource   = 'free' | 'gift' | 'paid'
+export type PlanInterval = 'monthly' | 'yearly'
 
 export interface Profile {
   id: string
@@ -22,6 +23,9 @@ export interface Profile {
   plan_source: PlanSource
   plan_expires_at: string | null
   trial_ends_at: string | null
+  plan_interval: PlanInterval | null
+  mollie_customer_id: string | null
+  mollie_subscription_id: string | null
 }
 
 export interface Show {
@@ -280,6 +284,13 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           updated_at: string
+          plan: UserPlan
+          plan_source: PlanSource
+          plan_expires_at: string | null
+          trial_ends_at: string | null
+          plan_interval: PlanInterval | null
+          mollie_customer_id: string | null
+          mollie_subscription_id: string | null
         }
         Insert: {
           id: string
@@ -290,6 +301,13 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           updated_at?: string
+          plan?: UserPlan
+          plan_source?: PlanSource
+          plan_expires_at?: string | null
+          trial_ends_at?: string | null
+          plan_interval?: PlanInterval | null
+          mollie_customer_id?: string | null
+          mollie_subscription_id?: string | null
         }
         Update: {
           id?: string
@@ -299,6 +317,13 @@ export type Database = {
           role?: UserRole
           avatar_url?: string | null
           updated_at?: string
+          plan?: UserPlan
+          plan_source?: PlanSource
+          plan_expires_at?: string | null
+          trial_ends_at?: string | null
+          plan_interval?: PlanInterval | null
+          mollie_customer_id?: string | null
+          mollie_subscription_id?: string | null
         }
         Relationships: []
       }

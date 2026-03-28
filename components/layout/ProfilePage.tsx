@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, User, Shield, Check, KeyRound, LogOut, Phone } from 'lucide-react'
+import { Loader2, User, Shield, Check, KeyRound, LogOut, Phone, Zap, Users, CreditCard, AlertTriangle } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { useRouter } from 'next/navigation'
+import { PLAN_LABELS, PLAN_COLORS, isTrialActive } from '@/lib/plans'
+import { cn } from '@/lib/utils'
 
 interface ProfilePageProps {
   profile: Profile
@@ -45,6 +47,9 @@ export function ProfilePage({ profile }: ProfilePageProps) {
   const [pwSending, setPwSending]     = useState(false)
   const [pwSent, setPwSent]           = useState(false)
   const [loggingOut, setLoggingOut]   = useState(false)
+  const [cancelling, setCancelling]   = useState(false)
+  const [cancelDone, setCancelDone]   = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   const handleSave = async () => {
     setSaving(true)
@@ -79,6 +84,30 @@ export function ProfilePage({ profile }: ProfilePageProps) {
     router.push('/login')
   }
 
+  const handleCancelSubscription = async () => {
+    if (!confirm('Weet je zeker dat je je abonnement wilt opzeggen? Je plan blijft actief tot het einde van de betaalperiode.')) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      const res  = await fetch('/api/mollie/cancel', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Opzeggen mislukt')
+      setCancelDone(true)
+      router.refresh()
+    } catch (err: unknown) {
+      setCancelError(err instanceof Error ? err.message : 'Opzeggen mislukt')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const isPaidPlan    = profile.plan !== 'free' && profile.plan_source === 'paid'
+  const hasActiveSub  = !!profile.mollie_subscription_id
+  const trialActive   = isTrialActive(profile.trial_ends_at)
+  const planExpired   = profile.plan_expires_at ? new Date(profile.plan_expires_at) < new Date() : false
+  const planLabel     = PLAN_LABELS[profile.plan]
+  const planColor     = PLAN_COLORS[profile.plan]
+
   return (
     <div className="max-w-xl space-y-6">
       <div>
@@ -107,6 +136,130 @@ export function ProfilePage({ profile }: ProfilePageProps) {
             </div>
           </div>
         </CardHeader>
+      </Card>
+
+      {/* Plan & abonnement */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4" /> Abonnement
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Huidig plan */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Huidig plan</span>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={cn('capitalize', planColor)}>
+                {profile.plan === 'pro'  && <Zap   className="h-3 w-3 mr-1" />}
+                {profile.plan === 'team' && <Users className="h-3 w-3 mr-1" />}
+                {planLabel}
+              </Badge>
+              {trialActive && (
+                <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-xs">
+                  Trial
+                </Badge>
+              )}
+              {planExpired && profile.plan !== 'free' && (
+                <Badge variant="outline" className="text-destructive border-destructive/30 text-xs">
+                  Verlopen
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Interval */}
+          {isPaidPlan && profile.plan_interval && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Factuurperiode</span>
+              <span className="font-medium capitalize">
+                {profile.plan_interval === 'monthly' ? 'Maandelijks' : 'Jaarlijks'}
+              </span>
+            </div>
+          )}
+
+          {/* Verloopdatum */}
+          {profile.plan_expires_at && profile.plan !== 'free' && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {hasActiveSub ? 'Volgende verlenging' : 'Actief tot'}
+              </span>
+              <span className={cn('font-medium', planExpired && 'text-destructive')}>
+                {new Date(profile.plan_expires_at).toLocaleDateString('nl-NL', {
+                  day: 'numeric', month: 'long', year: 'numeric',
+                })}
+              </span>
+            </div>
+          )}
+
+          {/* Trial looptijd */}
+          {trialActive && profile.trial_ends_at && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Trial eindigt</span>
+              <span className="font-medium text-amber-400">
+                {new Date(profile.trial_ends_at).toLocaleDateString('nl-NL', {
+                  day: 'numeric', month: 'long', year: 'numeric',
+                })}
+              </span>
+            </div>
+          )}
+
+          {/* Acties */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {/* Upgrade knop – toon voor free/trial of verlopen plan */}
+            {(profile.plan === 'free' || planExpired || trialActive) && (
+              <Button
+                size="sm"
+                onClick={() => router.push('/upgrade')}
+                className="gap-1.5"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                {profile.plan === 'free' ? 'Upgraden' : 'Plan vernieuwen'}
+              </Button>
+            )}
+
+            {/* Abonnement beheren (upgrade naar ander plan) */}
+            {isPaidPlan && !planExpired && !cancelDone && (
+              <Button
+                size="sm" variant="outline"
+                onClick={() => router.push('/upgrade')}
+                className="gap-1.5"
+              >
+                Plan wijzigen
+              </Button>
+            )}
+
+            {/* Opzeggen */}
+            {isPaidPlan && hasActiveSub && !cancelDone && (
+              <Button
+                size="sm" variant="ghost"
+                className="gap-1.5 text-muted-foreground hover:text-destructive"
+                onClick={handleCancelSubscription}
+                disabled={cancelling}
+              >
+                {cancelling
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Opzeggen…</>
+                  : 'Abonnement opzeggen'}
+              </Button>
+            )}
+          </div>
+
+          {cancelDone && (
+            <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-300">
+                Je abonnement is opgezegd. Je hebt toegang tot{' '}
+                {profile.plan_expires_at
+                  ? `${new Date(profile.plan_expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })}.`
+                  : 'het einde van je betaalperiode.'}
+              </p>
+            </div>
+          )}
+
+          {cancelError && (
+            <p className="text-sm text-destructive">{cancelError}</p>
+          )}
+        </CardContent>
       </Card>
 
       {/* Naam en telefoon bewerken */}

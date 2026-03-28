@@ -20,6 +20,7 @@ import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/d
 import { EditShowModal } from './EditShowModal'
 import { ShowMembersPanel } from '@/components/team/ShowMembersPanel'
 import { CastMembersPanel } from '@/components/cast/CastMembersPanel'
+import { InfoButton } from '@/components/ui/info-button'
 
 interface RundownSummary {
   id: string
@@ -164,27 +165,36 @@ export function ShowDashboard({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline" size="sm"
-            onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
-            className="gap-2 text-primary border-primary/30 hover:bg-primary/10"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            Uitnodigen
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowCast(true)} className="gap-2">
-            <Radio className="h-3.5 w-3.5" />
-            Cast
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }} className="gap-2">
-            <Users className="h-3.5 w-3.5" />
-            Team
-            {members.length > 0 && (
-              <span className="ml-0.5 text-xs bg-muted rounded-full px-1.5 py-0.5 leading-none">
-                {members.length}
-              </span>
-            )}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
+              className="gap-2 text-primary border-primary/30 hover:bg-primary/10"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Uitnodigen
+            </Button>
+            <InfoButton section="uitnodigen" text="Nodig collega's uit om de rundown mee te bewerken of mee te kijken." />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => setShowCast(true)} className="gap-2">
+              <Radio className="h-3.5 w-3.5" />
+              Cast
+            </Button>
+            <InfoButton section="cast" text="Voeg sprekers of artiesten toe met een 6-cijferige PIN — zonder account." />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }} className="gap-2">
+              <Users className="h-3.5 w-3.5" />
+              Team
+              {members.length > 0 && (
+                <span className="ml-0.5 text-xs bg-muted rounded-full px-1.5 py-0.5 leading-none">
+                  {members.length}
+                </span>
+              )}
+            </Button>
+            <InfoButton section="uitnodigen" text="Bekijk en beheer alle teamleden en hun rollen." />
+          </div>
           <Button variant="outline" size="sm" onClick={handleDuplicateShow} disabled={duplicating} className="gap-2">
             {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
             Dupliceren
@@ -303,6 +313,7 @@ export function ShowDashboard({
                       onClick={() => showQr(`${window.location.origin}/status/${show.id}/${rundown.id}`, 'Publieke status')}>
                       <QrCode className="h-3 w-3" />
                     </Button>
+                    <InfoButton section="publiek" text="Live meekijkpagina — ideaal als backstage scherm voor wachtende sprekers." />
                   </div>
                   <div className="flex items-center gap-0.5">
                     <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" asChild>
@@ -315,6 +326,7 @@ export function ShowDashboard({
                       onClick={() => showQr(`${window.location.origin}/shows/${show.id}/rundown/${rundown.id}/output`, 'Presentatie output')}>
                       <QrCode className="h-3 w-3" />
                     </Button>
+                    <InfoButton section="presentatie" text="Fullscreen slide output voor je videomixer of beamer. Upload eerst een PDF in de rundown-instellingen." />
                   </div>
                 </div>
               </CardContent>

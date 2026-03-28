@@ -143,15 +143,8 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
     if (!rundownName.trim()) return
     setLoading(true)
     try {
-      // Bouw de correcte companion URL op basis van de gekozen modus
-      let finalWebhookUrl: string | null = null
-      if (companionMode === 'variable' && companionIp.trim()) {
-        const ip = companionIp.trim().includes(':') ? companionIp.trim() : companionIp.trim() + ':8888'
-        const varName = companionVar.trim() || 'cueboard_cue'
-        finalWebhookUrl = `http://${ip}/api/custom-variable/${varName}/value`
-      } else if (companionMode === 'custom' && webhookUrl.trim()) {
-        finalWebhookUrl = webhookUrl.trim()
-      }
+      // Sla alleen een webhook URL op als de gebruiker er een heeft ingevuld (geavanceerd)
+      const finalWebhookUrl = webhookUrl.trim() || null
 
       await onSave({
         name:                  rundownName.trim(),
@@ -436,118 +429,93 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <h3 className="text-sm font-semibold">Bitfocus Companion</h3>
             </div>
 
-            {/* Modus tabs */}
-            <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => { setCompanionMode('variable'); setTestStatus('idle') }}
-                className={`flex-1 py-2 transition-colors ${companionMode === 'variable' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Eenvoudig (aanbevolen)
-              </button>
-              <button
-                type="button"
-                onClick={() => { setCompanionMode('custom'); setTestStatus('idle') }}
-                className={`flex-1 py-2 transition-colors ${companionMode === 'custom' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Geavanceerd
-              </button>
+            {/* Polling URL — altijd zichtbaar */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Poll-URL voor Companion</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={`${baseUrl}/api/companion/status?rundownId=${rundown.id}`}
+                  className="text-[11px] font-mono h-7 text-muted-foreground bg-muted/40 flex-1"
+                />
+                <Button
+                  type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0"
+                  onClick={() => copyLink('companion-poll', `${baseUrl}/api/companion/status?rundownId=${rundown.id}`)}
+                  title="Kopieer URL"
+                >
+                  {copied === 'companion-poll'
+                    ? <Check className="h-3.5 w-3.5 text-green-400" />
+                    : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
             </div>
 
-            {companionMode === 'variable' ? (
-              <div className="space-y-3">
-                {/* Uitleg */}
-                <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
-                  <p className="font-semibold text-foreground/70">Hoe werkt dit?</p>
-                  <p>Bij elke GO stuurt CueBoard de naam van de actieve cue naar een <strong className="text-foreground/60">Custom Variable</strong> in Companion. Die variabele kun je vervolgens op elke knop of scherm tonen.</p>
-                  <p className="pt-0.5 font-medium text-foreground/60">In Companion (open via browser op poort 8888):</p>
-                  <ol className="space-y-1 pl-1">
-                    {[
-                      'Ga naar het tabblad Variables → Custom Variables',
-                      'Maak een nieuwe variabele aan, bijv. "cueboard_cue"',
-                      'Vul het IP-adres van die computer hieronder in',
-                      'Klik "Test verbinding" — de variabele wordt direct gevuld',
-                      'Gebruik $(internal:custom_cueboard_cue) in je knoppen',
-                    ].map((s, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                        {s}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+            {/* Stap-voor-stap gids */}
+            <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 text-xs text-muted-foreground space-y-2">
+              <p className="font-semibold text-foreground/70">Instellen in Companion</p>
+              <p>Companion haalt zelf de actieve cue op via bovenstaande URL. Zo werkt het ook als CueBoard in de cloud draait.</p>
+              <ol className="space-y-1.5 pl-1">
+                {[
+                  { step: 'Connections → Add connection → zoek "HTTP Variable"', sub: null },
+                  { step: 'Vul de Poll-URL hierboven in bij "URL"', sub: null },
+                  { step: 'Stel interval in op 500 ms voor bijna real-time updates', sub: null },
+                  { step: 'Gebruik in knoppen: $(http-variable:body_active_cue_title)', sub: 'Of: body_next_cue_title, body_active_cue_type, etc.' },
+                ].map((item, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                    <span>
+                      {item.step}
+                      {item.sub && <span className="block text-muted-foreground/60 mt-0.5">{item.sub}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <p className="text-muted-foreground/60 pt-1 border-t border-border/30">
+                Beschikbare velden: <span className="font-mono">active_cue_title</span>, <span className="font-mono">next_cue_title</span>, <span className="font-mono">active_cue_type</span>, <span className="font-mono">active_cue_notes</span>, <span className="font-mono">cues_done</span>, <span className="font-mono">cues_total</span>, <span className="font-mono">rundown_name</span>
+              </p>
+            </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="companion-ip" className="text-xs">IP-adres Companion</Label>
-                    <Input
-                      id="companion-ip"
-                      value={companionIp}
-                      onChange={(e) => { setCompanionIp(e.target.value); setTestStatus('idle') }}
-                      placeholder="192.168.1.x:8888"
-                      className="font-mono text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="companion-var" className="text-xs">Variabelenaam</Label>
-                    <Input
-                      id="companion-var"
-                      value={companionVar}
-                      onChange={(e) => { setCompanionVar(e.target.value.replace(/\s/g, '_')); setTestStatus('idle') }}
-                      placeholder="cueboard_cue"
-                      className="font-mono text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Gegenereerde URL preview */}
-                {companionIp.trim() && (
-                  <div className="text-[11px] font-mono text-muted-foreground/60 bg-muted/20 rounded px-2.5 py-1.5 border border-border/30 break-all">
-                    {(() => {
-                      const ip = companionIp.trim().includes(':') ? companionIp.trim() : companionIp.trim() + ':8888'
-                      return `http://${ip}/api/custom-variable/${companionVar.trim() || 'cueboard_cue'}/value`
-                    })()}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="webhook-url" className="text-xs">Webhook URL</Label>
-                <Input
-                  id="webhook-url"
-                  type="url"
-                  value={webhookUrl}
-                  onChange={(e) => { setWebhookUrl(e.target.value); setTestStatus('idle') }}
-                  placeholder="http://192.168.1.x:8888/api/trigger/xxxxxxxx"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Stuur een volledige JSON POST naar elk HTTP-endpoint bij elke GO.
-                </p>
-              </div>
-            )}
-
-            {/* Test knop */}
-            <div className="flex items-center gap-2">
-              <Button
-                type="button" variant="outline" size="sm"
-                onClick={handleTestWebhook}
-                disabled={!getTestUrl() || testStatus === 'testing'}
-                className="gap-2"
+            {/* Geavanceerd: eigen webhook (optioneel) */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowCompanionGuide(v => !v)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                {testStatus === 'testing'
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Testen...</>
-                  : <><ExternalLink className="h-3.5 w-3.5" /> Test verbinding</>
-                }
-              </Button>
-              {testStatus === 'ok' && (
-                <span className="flex items-center gap-1 text-xs text-green-400">
-                  <CheckCircle className="h-3.5 w-3.5" /> Verbinding OK
-                </span>
-              )}
-              {testStatus === 'error' && (
-                <span className="flex items-center gap-1 text-xs text-red-400">
-                  <AlertCircle className="h-3.5 w-3.5" /> Geen verbinding — controleer IP en poort
-                </span>
+                {showCompanionGuide ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRightIcon className="h-3.5 w-3.5" />}
+                Geavanceerd: eigen webhook (internet-bereikbaar)
+              </button>
+              {showCompanionGuide && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Vul een publiek bereikbare HTTPS-webhook URL in. CueBoard POST de cuenaam als <span className="font-mono">&#123;"event":"cue_started","cue":&#123;...&#125;&#125;</span> bij elke GO.
+                  </p>
+                  <Input
+                    id="webhook-url"
+                    type="url"
+                    value={webhookUrl}
+                    onChange={(e) => { setWebhookUrl(e.target.value); setCompanionMode('custom'); setTestStatus('idle') }}
+                    placeholder="https://mijn-server.nl/webhook/..."
+                    className="font-mono text-xs"
+                  />
+                  {webhookUrl.trim() && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        onClick={handleTestWebhook}
+                        disabled={testStatus === 'testing'}
+                        className="gap-2"
+                      >
+                        {testStatus === 'testing'
+                          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Testen...</>
+                          : <><ExternalLink className="h-3.5 w-3.5" /> Test webhook</>
+                        }
+                      </Button>
+                      {testStatus === 'ok' && <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="h-3.5 w-3.5" /> OK</span>}
+                      {testStatus === 'error' && <span className="flex items-center gap-1 text-xs text-red-400"><AlertCircle className="h-3.5 w-3.5" /> Geen verbinding</span>}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

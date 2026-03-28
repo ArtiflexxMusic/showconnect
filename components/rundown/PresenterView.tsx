@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, calculateCueStartTimes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Clock, ChevronRight, Mic, MapPin, Lock, Music, Video } from 'lucide-react'
+import { Clock, ChevronRight, Mic, MapPin, Lock, Music, Video, Monitor } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
+import { SlideViewer } from './SlideViewer'
 
 interface PresenterViewProps {
   rundown: Rundown
@@ -112,8 +113,11 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
   const supabase = createClient()
   const now = useWallClock()
 
-  const [cues, setCues]       = useState<Cue[]>(initialCues)
+  const [cues, setCues]         = useState<Cue[]>(initialCues)
   const [unlocked, setUnlocked] = useState(!rundown.presenter_pin)
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const slideChannelRef = useRef<any>(null)
 
   const activeCue   = cues.find((c) => c.status === 'running') ?? null
   const pendingCues = cues.filter((c) => c.status === 'pending')
@@ -168,6 +172,44 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
 
     return () => { supabase.removeChannel(channel) }
   }, [rundown.id, supabase])
+
+  // ── Slide sync ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    const ch = supabase
+      .channel(`slide:${rundown.id}`)
+      .on('broadcast', { event: 'slide_change' }, (payload) => {
+        if (payload.payload?.source === 'caller') {
+          setCurrentSlideIndex(payload.payload.index ?? 0)
+        }
+      })
+      .subscribe()
+    slideChannelRef.current = ch
+    return () => {
+      supabase.removeChannel(ch)
+      slideChannelRef.current = null
+    }
+  }, [rundown.id, supabase])
+
+  // Reset slide index when active cue changes
+  useEffect(() => {
+    setCurrentSlideIndex(activeCue?.current_slide_index ?? 0)
+  }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSlideChange = useCallback(async (index: number) => {
+    setCurrentSlideIndex(index)
+    if (slideChannelRef.current) {
+      slideChannelRef.current.send({
+        type: 'broadcast',
+        event: 'slide_change',
+        payload: { index, source: 'presenter' },
+      })
+    }
+    if (activeCue) {
+      await supabase.from('cues')
+        .update({ current_slide_index: index } as Record<string, unknown>)
+        .eq('id', activeCue.id)
+    }
+  }, [activeCue, supabase])
 
   // PIN-check
   if (!unlocked && rundown.presenter_pin) {
@@ -296,6 +338,28 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
             {activeCue.notes && (
               <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-white/70 text-lg leading-relaxed text-center">
                 {activeCue.notes}
+              </div>
+            )}
+
+            {/* Slide viewer */}
+            {activeCue.presentation_url && activeCue.presentation_type && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-white/30 mb-2 flex items-center gap-1.5">
+                  <Monitor className="h-3 w-3" /> Presentatie
+                  {activeCue.slide_control_mode === 'caller' && (
+                    <span className="normal-case font-normal text-white/20 ml-1">— caller bedient slides</span>
+                  )}
+                </p>
+                <SlideViewer
+                  url={activeCue.presentation_url}
+                  type={activeCue.presentation_type}
+                  slideIndex={currentSlideIndex}
+                  showControls
+                  canControl={activeCue.slide_control_mode !== 'caller'}
+                  onSlideChange={handleSlideChange}
+                  className="h-[360px]"
+                  allowFullscreen
+                />
               </div>
             )}
           </div>

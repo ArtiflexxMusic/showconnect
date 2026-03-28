@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, ChevronRight, SkipForward, Wifi, WifiOff,
   Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell, BellRing,
-  Music, Video, Volume2, VolumeX, StopCircle
+  Music, Video, Volume2, VolumeX, StopCircle, Monitor,
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 import Link from 'next/link'
+import { SlideViewer } from './SlideViewer'
 
 interface CallerViewProps {
   rundown: Rundown
@@ -96,6 +97,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [mediaPaused, setMediaPaused]           = useState(false)
   const [mediaCurrentTime, setMediaCurrentTime] = useState(0)
   const [mediaDuration, setMediaDuration]       = useState(0)
+
+  // Slide state
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const slideChannelRef = useRef<any>(null)
 
   // Media player ref — één element voor audio én video
   const mediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null)
@@ -185,6 +191,24 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     }
   }, [rundown.id, userId, supabase])
 
+  // ── Slide broadcast channel ──────────────────────────────────────────────
+  useEffect(() => {
+    const ch = supabase
+      .channel(`slide:${rundown.id}`)
+      .on('broadcast', { event: 'slide_change' }, (payload) => {
+        // Accept slide changes coming from the presenter
+        if (payload.payload?.source === 'presenter') {
+          setCurrentSlideIndex(payload.payload.index ?? 0)
+        }
+      })
+      .subscribe()
+    slideChannelRef.current = ch
+    return () => {
+      supabase.removeChannel(ch)
+      slideChannelRef.current = null
+    }
+  }, [rundown.id, supabase])
+
   // ── GO ───────────────────────────────────────────────────────────────────
   const handleGo = useCallback(async () => {
     if (isProcessing || showComplete) return
@@ -263,6 +287,30 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       setTimeout(() => setIsProcessing(false), 300)
     }
   }, [isProcessing, activeCue, nextCue, supabase])
+
+  // ── Slide navigatie ───────────────────────────────────────────────────────
+  const handleSlideChange = useCallback(async (index: number) => {
+    setCurrentSlideIndex(index)
+    // Broadcast naar presenter
+    if (slideChannelRef.current) {
+      slideChannelRef.current.send({
+        type: 'broadcast',
+        event: 'slide_change',
+        payload: { index, source: 'caller' },
+      })
+    }
+    // Persisteer in DB (zodat late joiners de juiste slide zien)
+    if (activeCue) {
+      await supabase.from('cues')
+        .update({ current_slide_index: index } as Record<string, unknown>)
+        .eq('id', activeCue.id)
+    }
+  }, [activeCue, supabase])
+
+  // Reset slide index als de actieve cue wisselt
+  useEffect(() => {
+    setCurrentSlideIndex(activeCue?.current_slide_index ?? 0)
+  }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Nudge sturen ─────────────────────────────────────────────────────────
   const sendNudge = useCallback(async () => {
@@ -595,6 +643,28 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                 </p>
               )}
             </div>
+
+            {/* ── Slide viewer ── */}
+            {activeCue.presentation_url && activeCue.presentation_type && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <Monitor className="h-3 w-3" /> Presentatie
+                  {activeCue.slide_control_mode === 'presenter' && (
+                    <span className="text-muted-foreground/50 normal-case font-normal ml-1">— presentator bedient slides</span>
+                  )}
+                </p>
+                <SlideViewer
+                  url={activeCue.presentation_url}
+                  type={activeCue.presentation_type}
+                  slideIndex={currentSlideIndex}
+                  showControls
+                  canControl={activeCue.slide_control_mode !== 'presenter'}
+                  onSlideChange={handleSlideChange}
+                  className="h-[300px]"
+                  allowFullscreen
+                />
+              </div>
+            )}
           </div>
 
         ) : (

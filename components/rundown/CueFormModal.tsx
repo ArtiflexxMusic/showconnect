@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Loader2, ChevronDown, ChevronUp, Upload, X, Music, Video, Volume2, Play, Square } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, Upload, X, Music, Video, Volume2, Play, Square, Presentation, Trash2 } from 'lucide-react'
 import { parseDuration, formatDuration } from '@/lib/utils'
 import type { CreateCueInput, Cue, CueType } from '@/lib/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -56,6 +56,17 @@ export function CueFormModal({
   const [color, setColor]           = useState<string | null>(null)
   const [autoAdvance, setAutoAdvance] = useState(false)
 
+  // Presentatie state
+  const [presentationFile, setPresentationFile]   = useState<File | null>(null)
+  const [presentationUrl, setPresentationUrl]     = useState<string | null>(null)
+  const [presentationPath, setPresentationPath]   = useState<string | null>(null)
+  const [presentationFilename, setPresentationFilename] = useState<string | null>(null)
+  const [presentationType, setPresentationType]   = useState<'pdf' | 'pptx' | null>(null)
+  const [slideControlMode, setSlideControlMode]   = useState<'caller' | 'presenter' | 'both'>('caller')
+  const [uploadingPresentation, setUploadingPresentation] = useState(false)
+  const [presentationError, setPresentationError] = useState<string | null>(null)
+  const presentationInputRef = useRef<HTMLInputElement>(null)
+
   // Media state
   const [mediaFile, setMediaFile]       = useState<File | null>(null)
   const [mediaUrl, setMediaUrl]         = useState<string | null>(null)
@@ -98,6 +109,13 @@ export function CueFormModal({
         )
         setColor(initialValues.color ?? null)
         setAutoAdvance(initialValues.auto_advance ?? false)
+        // Presentatie uit bestaande cue
+        setPresentationUrl(initialValues.presentation_url ?? null)
+        setPresentationPath(initialValues.presentation_path ?? null)
+        setPresentationFilename(initialValues.presentation_filename ?? null)
+        setPresentationType(initialValues.presentation_type ?? null)
+        setSlideControlMode(initialValues.slide_control_mode ?? 'caller')
+        setPresentationFile(null)
         // Media uit bestaande cue
         setMediaUrl(initialValues.media_url ?? null)
         setMediaPath(initialValues.media_path ?? null)
@@ -127,8 +145,15 @@ export function CueFormModal({
         setMediaVolume(1.0)
         setMediaLoop(false)
         setMediaAutoplay(true)
+        setPresentationFile(null)
+        setPresentationUrl(null)
+        setPresentationPath(null)
+        setPresentationFilename(null)
+        setPresentationType(null)
+        setSlideControlMode('caller')
       }
       setUploadError(null)
+      setPresentationError(null)
     }
   }, [initialValues, open])
 
@@ -218,6 +243,26 @@ export function CueFormModal({
     }
   }
 
+  async function uploadPresentation(cueId: string): Promise<{ url: string; path: string; type: 'pdf' | 'pptx'; filename: string } | null> {
+    if (!presentationFile) return null
+    setUploadingPresentation(true)
+    setPresentationError(null)
+    try {
+      const form = new FormData()
+      form.append('file', presentationFile)
+      form.append('cueId', cueId)
+      const res  = await fetch('/api/upload-presentation', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload mislukt')
+      return { url: data.url, path: data.path, type: data.type, filename: data.filename }
+    } catch (err: unknown) {
+      setPresentationError(err instanceof Error ? err.message : 'Upload mislukt')
+      return null
+    } finally {
+      setUploadingPresentation(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
@@ -225,12 +270,28 @@ export function CueFormModal({
     let finalMediaUrl = mediaUrl
     let finalMediaPath = mediaPath
 
-    // Upload nieuw bestand als dat geselecteerd is
+    // Upload nieuw mediabestand als dat geselecteerd is
     if (mediaFile && supabase && rundownId) {
       const result = await uploadMedia()
-      if (!result) return // upload mislukt
+      if (!result) return
       finalMediaUrl = result.url
       finalMediaPath = result.path
+    }
+
+    // Presentatie upload (cueId is nog niet bekend bij nieuwe cue, gebruik tijdstempel als placeholder)
+    let finalPresentationUrl  = presentationUrl
+    let finalPresentationPath = presentationPath
+    let finalPresentationType = presentationType
+    let finalPresentationFilename = presentationFilename
+
+    if (presentationFile) {
+      const tempId = initialValues?.id ?? `tmp_${Date.now()}`
+      const result = await uploadPresentation(tempId)
+      if (!result) return
+      finalPresentationUrl      = result.url
+      finalPresentationPath     = result.path
+      finalPresentationType     = result.type
+      finalPresentationFilename = result.filename
     }
 
     onSave({
@@ -251,6 +312,12 @@ export function CueFormModal({
       media_autoplay:   mediaAutoplay,
       color:            color,
       auto_advance:     autoAdvance,
+      presentation_url:      finalPresentationUrl,
+      presentation_path:     finalPresentationPath,
+      presentation_type:     finalPresentationType,
+      presentation_filename: finalPresentationFilename,
+      slide_control_mode:    slideControlMode,
+      current_slide_index:   0,
     })
   }
 
@@ -263,7 +330,7 @@ export function CueFormModal({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const isSubmitting = loading || uploading
+  const isSubmitting = loading || uploading || uploadingPresentation
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -541,6 +608,105 @@ export function CueFormModal({
               />
               <span>Auto-advance: volgende cue automatisch starten bij 0</span>
             </label>
+
+            {/* ── Presentatie / Slides ──────────────────────────────────── */}
+            <hr className="border-border/50" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Presentation className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Presentatie / Slides (optioneel)</Label>
+              </div>
+
+              {(presentationUrl || presentationFile) ? (
+                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                  <Presentation className="h-5 w-5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {presentationFile?.name ?? presentationFilename ?? 'Presentatie'}
+                    </p>
+                    <p className="text-xs text-muted-foreground uppercase">
+                      {presentationFile ? presentationType ?? (presentationFile.name.endsWith('.pptx') ? 'PPTX' : 'PDF') : (presentationType?.toUpperCase() ?? '')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPresentationFile(null)
+                      setPresentationUrl(null)
+                      setPresentationPath(null)
+                      setPresentationFilename(null)
+                      setPresentationType(null)
+                      if (presentationInputRef.current) presentationInputRef.current.value = ''
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Verwijderen"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    ref={presentationInputRef}
+                    type="file"
+                    accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const isPdf  = file.type === 'application/pdf' || file.name.endsWith('.pdf')
+                      const isPptx = file.name.endsWith('.pptx')
+                      if (!isPdf && !isPptx) {
+                        setPresentationError('Alleen PDF en PPTX zijn toegestaan')
+                        return
+                      }
+                      setPresentationFile(file)
+                      setPresentationFilename(file.name)
+                      setPresentationType(isPdf ? 'pdf' : 'pptx')
+                      setPresentationError(null)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => presentationInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 border border-dashed border-border/50 hover:border-primary/50 rounded-lg py-4 text-sm text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    <Upload className="h-4 w-4" />
+                    PDF of PPTX uploaden (max 50 MB)
+                  </button>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    PPTX tip: exporteer vanuit PowerPoint als PDF voor de beste weergave met slide-controle.
+                  </p>
+                </div>
+              )}
+
+              {presentationError && (
+                <p className="text-xs text-destructive">{presentationError}</p>
+              )}
+
+              {/* Bediening */}
+              {(presentationUrl || presentationFile) && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Wie bedient de slides?</Label>
+                  <div className="flex gap-2">
+                    {(['caller', 'presenter', 'both'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setSlideControlMode(mode)}
+                        className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                          slideControlMode === mode
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border/50 text-muted-foreground hover:border-border'
+                        }`}
+                      >
+                        {mode === 'caller' ? 'Caller' : mode === 'presenter' ? 'Presentator' : 'Beiden'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
           </div>
 

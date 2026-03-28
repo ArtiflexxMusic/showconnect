@@ -76,6 +76,13 @@ export interface Cue {
   // UI / UX uitbreidingen
   color: string | null           // Hex kleurcode voor visueel label (bijv. '#ef4444')
   auto_advance: boolean | null   // Automatisch volgende cue starten bij 0
+  // Presentatie / slides
+  presentation_url: string | null       // Publieke URL in Supabase Storage
+  presentation_path: string | null      // Pad in de bucket
+  presentation_type: 'pdf' | 'pptx' | null  // Bestandstype
+  presentation_filename: string | null  // Originele bestandsnaam
+  slide_control_mode: 'caller' | 'presenter' | 'both' | null  // Wie bedient de slides
+  current_slide_index: number | null    // Huidige slide (0-based)
   created_at: string
   updated_at: string
 }
@@ -153,6 +160,13 @@ export interface CreateCueInput {
   media_autoplay?: boolean | null
   color?: string | null
   auto_advance?: boolean | null
+  // Presentatie / slides
+  presentation_url?: string | null
+  presentation_path?: string | null
+  presentation_type?: 'pdf' | 'pptx' | null
+  presentation_filename?: string | null
+  slide_control_mode?: 'caller' | 'presenter' | 'both' | null
+  current_slide_index?: number | null
 }
 
 export interface UpdateCueInput extends Partial<CreateCueInput> {
@@ -324,6 +338,12 @@ export type Database = {
           media_autoplay: boolean | null
           color: string | null
           auto_advance: boolean | null
+          presentation_url: string | null
+          presentation_path: string | null
+          presentation_type: 'pdf' | 'pptx' | null
+          presentation_filename: string | null
+          slide_control_mode: 'caller' | 'presenter' | 'both' | null
+          current_slide_index: number | null
           created_at: string
           updated_at: string
         }
@@ -350,6 +370,12 @@ export type Database = {
           media_autoplay?: boolean | null
           color?: string | null
           auto_advance?: boolean | null
+          presentation_url?: string | null
+          presentation_path?: string | null
+          presentation_type?: 'pdf' | 'pptx' | null
+          presentation_filename?: string | null
+          slide_control_mode?: 'caller' | 'presenter' | 'both' | null
+          current_slide_index?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -376,6 +402,12 @@ export type Database = {
           media_autoplay?: boolean | null
           color?: string | null
           auto_advance?: boolean | null
+          presentation_url?: string | null
+          presentation_path?: string | null
+          presentation_type?: 'pdf' | 'pptx' | null
+          presentation_filename?: string | null
+          slide_control_mode?: 'caller' | 'presenter' | 'both' | null
+          current_slide_index?: number | null
           updated_at?: string
         }
         Relationships: [

@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => null)
     const variantKey = body?.variant as string | undefined
+    const method     = body?.method  as string | undefined   // optioneel: 'ideal', 'bancontact', etc.
 
     if (!variantKey || !PLAN_VARIANTS[variantKey]) {
       return NextResponse.json({ error: 'Ongeldig plan' }, { status: 400 })
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
       redirectUrl: `${baseUrl}/dashboard?payment=success&plan=${variant.plan}&interval=${variant.interval}`,
       webhookUrl:  `${baseUrl}/api/mollie/webhook`,
       userId:      user.id,
+      method,
     })
 
     const checkoutUrl = payment._links.checkout?.href

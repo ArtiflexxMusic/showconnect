@@ -8,6 +8,7 @@ import {
   Check, Zap, Users, Loader2, ArrowLeft, X,
   Gift, CalendarClock, AlertTriangle,
 } from 'lucide-react'
+// Loader2 wordt gebruikt in het opzeg-dialoog
 import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -96,9 +97,8 @@ export function UpgradeClient({
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>(
     planInterval ?? 'monthly'
   )
-  const [loading,       setLoading]       = useState<string | null>(null)
-  const [error,         setError]         = useState<string | null>(null)
-  const [cancelling,    setCancelling]    = useState(false)
+  const [error,             setError]             = useState<string | null>(null)
+  const [cancelling,        setCancelling]        = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const isPaid        = planSource === 'paid'
@@ -108,22 +108,8 @@ export function UpgradeClient({
   const isActiveGift  = isGift  && !planExpired
   const isActivePlan  = (isPaid || isGift) && !planExpired   // actief betaald óf cadeau
 
-  async function handleCheckout(variantKey: string) {
-    setLoading(variantKey)
-    setError(null)
-    try {
-      const res  = await fetch('/api/mollie/checkout', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ variant: variantKey }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Checkout mislukt')
-      window.location.href = data.url
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Er is iets misgegaan')
-      setLoading(null)
-    }
+  function handleCheckout(variantKey: string) {
+    router.push(`/checkout?variant=${variantKey}`)
   }
 
   async function handleCancel() {
@@ -254,8 +240,6 @@ export function UpgradeClient({
               ? billingInterval === 'monthly' ? plan.monthly! : plan.yearly!
               : null
 
-            const isLoading = chosen ? loading === chosen.variant : false
-
             const Icon = plan.icon
 
             return (
@@ -349,7 +333,7 @@ export function UpgradeClient({
                     variant="ghost"
                     className="w-full text-muted-foreground hover:text-destructive"
                     onClick={() => setShowCancelConfirm(true)}
-                    disabled={cancelling || loading !== null}
+                    disabled={cancelling}
                   >
                     Terugzetten naar Free
                   </Button>
@@ -359,15 +343,9 @@ export function UpgradeClient({
                       'w-full',
                       plan.key === 'team' && 'bg-violet-600 hover:bg-violet-500'
                     )}
-                    disabled={isLoading || loading !== null}
                     onClick={() => chosen && handleCheckout(chosen.variant)}
                   >
-                    {isLoading
-                      ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Betaling voorbereiden…</>
-                      : isCurrent
-                        ? 'Plan verlengen'
-                        : `${plan.name} activeren`
-                    }
+                    {isCurrent ? 'Plan verlengen' : `${plan.name} activeren`}
                   </Button>
                 ) : null}
               </div>

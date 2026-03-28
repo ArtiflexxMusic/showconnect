@@ -66,6 +66,18 @@ export interface MolliePayment {
   }
 }
 
+export interface MollieMethod {
+  id: string
+  description: string
+  image: {
+    size1x: string
+    size2x: string
+    svg:    string
+  }
+  minimumAmount?: { value: string; currency: string }
+  maximumAmount?: { value: string; currency: string } | null
+}
+
 export interface MollieSubscription {
   id: string
   customerId: string
@@ -110,6 +122,23 @@ export const PLAN_VARIANTS: Record<string, PlanVariant> = {
 
 // ─── API helpers ───────────────────────────────────────────────────────────────
 
+/**
+ * Haal beschikbare betaalmethoden op voor het Mollie-account.
+ * amount: bedrag als string, bijv. "9.95" – optioneel, geeft verfijnder resultaat.
+ */
+export async function getAvailableMethods(amount?: string): Promise<MollieMethod[]> {
+  const params = new URLSearchParams({ sequenceType: 'oneoff' })
+  if (amount) {
+    params.set('amount[value]', amount)
+    params.set('amount[currency]', 'EUR')
+  }
+  const data = await mollieRequest<{
+    _embedded?: { methods: MollieMethod[] }
+    count:      number
+  }>('GET', `/methods?${params.toString()}`)
+  return data._embedded?.methods ?? []
+}
+
 /** Maak of haal een Mollie klant op */
 export async function createCustomer(name: string, email: string): Promise<MollieCustomer> {
   return mollieRequest<MollieCustomer>('POST', '/customers', { name: name || email, email })
@@ -120,17 +149,17 @@ export async function createCustomer(name: string, email: string): Promise<Molli
  * Gebruikt sequenceType 'oneoff' zodat alle betaalmethoden werken (iDEAL, creditcard, etc.).
  */
 export async function createFirstPayment(opts: {
-  customerId: string
-  variant: PlanVariant
+  customerId:  string
+  variant:     PlanVariant
   redirectUrl: string
-  webhookUrl: string
-  userId: string
+  webhookUrl:  string
+  userId:      string
+  method?:     string   // bijv. 'ideal' | 'bancontact' | 'applepay' | 'in3' | 'directdebit' | 'creditcard'
 }): Promise<MolliePayment> {
-  return mollieRequest<MolliePayment>('POST', '/payments', {
+  const body: Record<string, unknown> = {
     amount:       { currency: 'EUR', value: opts.variant.amount },
     customerId:   opts.customerId,
     sequenceType: 'oneoff',
-    method:       'ideal',
     description:  opts.variant.description,
     redirectUrl:  opts.redirectUrl,
     webhookUrl:   opts.webhookUrl,
@@ -139,7 +168,9 @@ export async function createFirstPayment(opts: {
       plan:     opts.variant.plan,
       interval: opts.variant.interval,
     },
-  })
+  }
+  if (opts.method) body.method = opts.method
+  return mollieRequest<MolliePayment>('POST', '/payments', body)
 }
 
 /** Haal een betaling op */

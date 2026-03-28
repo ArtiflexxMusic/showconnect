@@ -362,6 +362,34 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   }
 
   return (
+    <>
+    {/* File inputs live OUTSIDE the Dialog so Radix's focus-trap never interferes
+        with the native OS file picker. The <label htmlFor> inside the dialog
+        still activates them because they share the same document. */}
+    <input
+      ref={slideInputRef}
+      id="slide-upload-input"
+      type="file"
+      accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pptx,application/vnd.ms-powerpoint,.ppt"
+      className="sr-only"
+      onChange={(e) => {
+        const f = e.target.files?.[0]
+        if (f) handleSlideUpload(f)
+        e.target.value = ''
+      }}
+    />
+    <input
+      ref={stillInputRef}
+      id="still-upload-input"
+      type="file"
+      accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp"
+      className="sr-only"
+      onChange={(e) => {
+        const f = e.target.files?.[0]
+        if (f) handleStillUpload(f)
+        e.target.value = ''
+      }}
+    />
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -610,18 +638,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
             {slideError && (
               <p className="text-xs text-destructive">{slideError}</p>
             )}
-            <input
-              ref={slideInputRef}
-              id="slide-upload-input"
-              type="file"
-              accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pptx,application/vnd.ms-powerpoint,.ppt"
-              className="sr-only"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) handleSlideUpload(f)
-                e.target.value = ''
-              }}
-            />
           </div>
 
           <hr className="border-border/50" />
@@ -672,18 +688,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
             {stillError && (
               <p className="text-xs text-destructive">{stillError}</p>
             )}
-            <input
-              ref={stillInputRef}
-              id="still-upload-input"
-              type="file"
-              accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp"
-              className="sr-only"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) handleStillUpload(f)
-                e.target.value = ''
-              }}
-            />
           </div>
 
           <hr className="border-border/50" />
@@ -884,5 +888,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   )
 }

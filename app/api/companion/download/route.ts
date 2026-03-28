@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const eventId      = randomId()
 
   const config = {
-    type: 'trigger_list',
+    type: 'full',
     version: 9,
     companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
     triggers: {
@@ -76,23 +76,23 @@ export async function GET(request: NextRequest) {
       },
     },
     triggerCollections: [],
+    custom_variables: {
+      cueboard_response: {
+        description: 'Actieve cue naam van CueBoard',
+        defaultValue: '',
+        persistCurrentValue: false,
+        sortOrder: 0,
+      },
+    },
+    customVariablesCollections: [],
     instances: {
       [connectionId]: {
-        moduleInstanceType: 'connection',
         instance_type: 'generic-http',
+        label: 'cueboard',
+        lastUpgradeIndex: 1,
         moduleVersionId: '2.7.0',
         updatePolicy: 'stable',
         sortOrder: 0,
-        label: 'cueboard',
-        isFirstInit: false,
-        config: {
-          prefix: '',
-          proxyAddress: '',
-          rejectUnauthorized: true,
-        },
-        secrets: {},
-        lastUpgradeIndex: 1,
-        enabled: true,
       },
     },
     connectionCollections: [],

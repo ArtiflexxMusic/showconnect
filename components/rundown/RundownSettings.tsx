@@ -453,7 +453,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <ol className="space-y-1 text-xs text-muted-foreground pl-1">
                 {[
                   'Download het bestand hierboven',
-                  'Companion → Import/Export → kies "Import triggers" → selecteer het bestand',
+                  'Companion → Import/Export → selecteer het bestand → klik "Import Preserving Unselected"',
                   'Maak een button met tekst: $(custom:cueboard_response)',
                 ].map((step, i) => (
                   <li key={i} className="flex gap-2">

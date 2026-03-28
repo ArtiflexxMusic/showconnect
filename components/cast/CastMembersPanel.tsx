@@ -55,6 +55,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
   const [editTarget, setEditTarget] = useState<CastMember | null>(null)
   const [addOpen, setAddOpen]     = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [qrToken, setQrToken]     = useState<string | null>(null)
 
   // Form state
   const [name, setName]   = useState('')
@@ -327,6 +328,14 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
                                       <ExternalLink className="h-3 w-3" />
                                     </Button>
                                   </a>
+                                  <Button
+                                    variant="ghost" size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-emerald-400"
+                                    title="Toon QR-code"
+                                    onClick={() => setQrToken(link.token)}
+                                  >
+                                    <QrCode className="h-3 w-3" />
+                                  </Button>
                                   {(member as any).email && member.pin && (
                                     <Button
                                       variant="ghost" size="icon"
@@ -361,6 +370,37 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR-code dialog */}
+      <Dialog open={!!qrToken} onOpenChange={(o) => { if (!o) setQrToken(null) }}>
+        <DialogContent className="max-w-xs text-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">QR-code cast portal</DialogTitle>
+          </DialogHeader>
+          {qrToken && (
+            <div className="flex flex-col items-center gap-4 py-2">
+              <div className="rounded-xl overflow-hidden border border-border/40 bg-white p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(portalUrl(qrToken))}`}
+                  alt="QR-code cast portal link"
+                  width={220}
+                  height={220}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Scan met de camera-app om de cast portal te openen.
+              </p>
+              <code className="text-[11px] text-emerald-400/70 font-mono break-all px-3 py-1.5 bg-muted/30 rounded-lg w-full text-center">
+                /cast-login?magic={qrToken.slice(0, 12)}…
+              </code>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" className="w-full" onClick={() => setQrToken(null)}>Sluiten</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { rateLimit, getIp } from '@/lib/rate-limit'
 
 const MAX_SIZE = 100 * 1024 * 1024 // 100 MB
 const BUCKET   = 'presentations'
@@ -16,6 +17,12 @@ export const config = {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: max 10 slide uploads per minute per IP
+  const rl = rateLimit(`slide-upload:${getIp(request)}`, { limit: 10, windowMs: 60_000 })
+  if (!rl.success) {
+    return NextResponse.json({ error: 'Te veel uploads. Probeer het over een minuut opnieuw.' }, { status: 429 })
+  }
+
   try {
     const cookieStore = await cookies()
     const supabase = createServerClient(

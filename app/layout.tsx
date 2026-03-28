@@ -36,6 +36,22 @@ export const metadata: Metadata = {
     description: 'Professioneel rundown-systeem. Caller, crew en cast realtime gesynchroniseerd.',
     type: 'website',
     locale: 'nl_NL',
+    url: 'https://cueboard-app.vercel.app',
+    siteName: 'CueBoard',
+    images: [
+      {
+        url: 'https://cueboard-app.vercel.app/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'CueBoard — Show OS voor live events',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CueBoard — Show OS voor live events',
+    description: 'Professioneel rundown-systeem. Caller, crew en cast realtime gesynchroniseerd.',
+    images: ['https://cueboard-app.vercel.app/opengraph-image'],
   },
 }
 

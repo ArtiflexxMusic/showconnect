@@ -27,7 +27,7 @@
     font-size="20" font-weight="700" fill="#6366f1" letter-spacing="2.5"
   >CUE</text>
   <text
-    x="124" y="35"
+    x="112" y="35"
     font-family="system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
     font-size="20" font-weight="300" fill="#1e1b4b" letter-spacing="2.5"
   >BOARD</text>

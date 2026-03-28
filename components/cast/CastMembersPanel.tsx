@@ -116,7 +116,12 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
       await load()
       setAddOpen(false)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+      // Supabase errors zijn geen instanceof Error maar hebben wel .message
+      const msg = err instanceof Error
+        ? err.message
+        : (typeof err === 'object' && err !== null && 'message' in err)
+          ? String((err as { message: unknown }).message)
+          : String(err)
       // Handige melding als tabel nog niet bestaat
       if (msg.includes('relation') && msg.includes('does not exist')) {
         setSaveError('De cast_members tabel bestaat nog niet in de database. Voer de SQL-migratie uit in Supabase.')

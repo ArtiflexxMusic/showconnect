@@ -18,12 +18,13 @@ import { ImportCuesModal } from './ImportCuesModal'
 import { SaveTemplateModal } from './SaveTemplateModal'
 import { LoadTemplateModal } from './LoadTemplateModal'
 import { CueLogPanel } from './CueLogPanel'
+import { ShortcutHelp } from './ShortcutHelp'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
-  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History
+  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -79,6 +80,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showSaveTemplate, setShowSaveTemplate]         = useState(false)
   const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
   const [showCueLog, setShowCueLog]                     = useState(false)
+  const [showShortcutHelp, setShowShortcutHelp]         = useState(false)
 
   // DnD sensors
   const sensors = useSensors(
@@ -322,6 +324,39 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     if (!error && data) setRundown(data as Rundown)
   }, [rundown.id, supabase])
 
+  // ── Rundown dupliceren ───────────────────────────────────────────────────
+  const duplicateRundown = useCallback(async () => {
+    const { data: newRundown, error: rundownErr } = await supabase
+      .from('rundowns')
+      .insert({
+        show_id:               show.id,
+        name:                  `${rundown.name} (kopie)`,
+        show_start_time:       rundown.show_start_time,
+        companion_webhook_url: rundown.companion_webhook_url,
+        presenter_pin:         rundown.presenter_pin,
+      } as Record<string, unknown>)
+      .select()
+      .single()
+    if (rundownErr || !newRundown) return
+    if (cues.length > 0) {
+      await supabase.from('cues').insert(
+        cues.map((c) => ({
+          rundown_id:       (newRundown as { id: string }).id,
+          position:         c.position,
+          title:            c.title,
+          type:             c.type,
+          duration_seconds: c.duration_seconds,
+          notes:            c.notes,
+          tech_notes:       c.tech_notes,
+          presenter:        c.presenter,
+          location:         c.location,
+          status:           'pending' as const,
+        }))
+      )
+    }
+    router.push(`/shows/${show.id}/rundown/${(newRundown as { id: string }).id}`)
+  }, [cues, rundown, show.id, supabase, router])
+
   // ── Rundown verwijderen ───────────────────────────────────────────────────
   const deleteRundown = useCallback(async () => {
     const { error } = await supabase.from('rundowns').delete().eq('id', rundown.id)
@@ -350,7 +385,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.key === 'a' || e.key === 'A') { e.preventDefault(); setShowAddModal(true) }
-      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null) }
+      if (e.key === '?') { e.preventDefault(); setShowShortcutHelp(v => !v) }
+      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null); setShowShortcutHelp(false) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -759,6 +795,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         show={show}
         onSave={saveRundownSettings}
         onDelete={deleteRundown}
+        onDuplicate={duplicateRundown}
       />
 
       {showImportModal && (
@@ -800,9 +837,19 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
       {/* Sneltoetsen hint */}
       <div className="mt-4 text-center text-xs text-muted-foreground/30">
-        <kbd className="px-1.5 rounded border border-border/30 font-mono">A</kbd> Cue toevoegen &nbsp;·&nbsp;
-        <kbd className="px-1.5 rounded border border-border/30 font-mono">Esc</kbd> Sluiten
+        <kbd className="px-1.5 rounded border border-border/30 font-mono">A</kbd> Toevoegen &nbsp;·&nbsp;
+        <kbd className="px-1.5 rounded border border-border/30 font-mono">Esc</kbd> Sluiten &nbsp;·&nbsp;
+        <button
+          className="hover:text-muted-foreground/60 transition-colors"
+          onClick={() => setShowShortcutHelp(true)}
+        >
+          <kbd className="px-1.5 rounded border border-border/30 font-mono">?</kbd> Alle sneltoetsen
+        </button>
       </div>
+
+      {showShortcutHelp && (
+        <ShortcutHelp onClose={() => setShowShortcutHelp(false)} />
+      )}
     </div>
   )
 }

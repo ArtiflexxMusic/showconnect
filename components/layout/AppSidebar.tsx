@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Plus, Shield } from 'lucide-react'
+import { LayoutDashboard, Plus, Shield, User } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Overzicht' },
   { href: '/shows/new', icon: Plus,            label: 'Nieuwe show' },
+  { href: '/profile',   icon: User,             label: 'Mijn profiel' },
 ]
 
 interface AppSidebarProps {

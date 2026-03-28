@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus } from 'lucide-react'
 import type { Rundown } from '@/lib/types/database'
 
 interface RundownSettingsProps {
@@ -22,9 +22,10 @@ interface RundownSettingsProps {
     presenter_pin: string | null
   }) => Promise<void>
   onDelete?: () => Promise<void>
+  onDuplicate?: () => Promise<void>
 }
 
-export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete }: RundownSettingsProps) {
+export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete, onDuplicate }: RundownSettingsProps) {
   const [rundownName, setRundownName] = useState('')
   const [startTime, setStartTime]     = useState('')
   const [webhookUrl, setWebhookUrl]   = useState('')
@@ -34,6 +35,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
   const [copied, setCopied]           = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting]       = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -278,6 +280,40 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
               Deel de juiste link met je team. Geen inlog vereist voor Presenter en Crew view.
             </p>
           </div>
+
+          {/* Rundown dupliceren */}
+          {onDuplicate && (
+            <>
+              <hr className="border-border/50" />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CopyPlus className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold">Rundown dupliceren</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Maak een kopie van deze rundown met alle cues. Handig als je een vergelijkbare show hebt.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    setDuplicating(true)
+                    await onDuplicate()
+                    setDuplicating(false)
+                    onClose()
+                  }}
+                  disabled={duplicating}
+                  className="gap-2"
+                >
+                  {duplicating
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Kopiëren…</>
+                    : <><CopyPlus className="h-3.5 w-3.5" /> Dupliceer rundown</>
+                  }
+                </Button>
+              </div>
+            </>
+          )}
 
           {/* Rundown verwijderen */}
           {onDelete && (

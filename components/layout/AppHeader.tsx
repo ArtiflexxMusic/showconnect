@@ -60,9 +60,9 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
           </Button>
 
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cueboard-logo-dark.svg" alt="CueBoard" className="h-8 w-auto" />
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
+            <span className="font-black text-base tracking-tight text-white uppercase">CueBoard</span>
           </Link>
 
           <div className="flex-1" />

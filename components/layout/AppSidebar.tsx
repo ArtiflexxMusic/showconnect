@@ -62,9 +62,10 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
       </nav>
 
       <div className="p-3 border-t border-border/50">
-        <p className="px-3 py-1 text-xs text-muted-foreground">
-          CueBoard – Real-time rundown
-        </p>
+        <div className="px-3 py-1 flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.7)]" />
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">CueBoard</p>
+        </div>
       </div>
     </aside>
   )

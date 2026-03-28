@@ -177,7 +177,11 @@ function ShowCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-base">{show.name}</CardTitle>
+            <CardTitle className="text-base">
+              <Link href={`/shows/${show.id}`} className="hover:text-primary transition-colors">
+                {show.name}
+              </Link>
+            </CardTitle>
             <CardDescription className="flex items-center gap-3 mt-1">
               {show.date && (
                 <span className="flex items-center gap-1">

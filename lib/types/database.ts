@@ -122,25 +122,107 @@ export interface UpdateRundownInput {
 }
 
 // ─── Supabase Database type definitie ───────────────────────────────────────
+// Formaat is gebaseerd op de door Supabase gegenereerde types (supabase gen types typescript)
+// id, created_at, updated_at zijn optioneel in Insert (niet omitted) – ze hebben database-defaults
+// Nullable velden zijn ook optioneel in Insert
+
 export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: Profile
-        Insert: Omit<Profile, 'created_at' | 'updated_at'>
-        Update: Partial<Omit<Profile, 'id' | 'created_at'>>
+        Row: {
+          id: string
+          email: string
+          full_name: string | null
+          role: UserRole
+          avatar_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          full_name?: string | null
+          role?: UserRole
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          full_name?: string | null
+          role?: UserRole
+          avatar_url?: string | null
+          updated_at?: string
+        }
         Relationships: []
       }
       shows: {
-        Row: Show
-        Insert: Omit<Show, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<Show, 'id' | 'created_at'>>
+        Row: {
+          id: string
+          name: string
+          date: string | null
+          venue: string | null
+          description: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          date?: string | null
+          venue?: string | null
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          date?: string | null
+          venue?: string | null
+          description?: string | null
+          created_by?: string | null
+          updated_at?: string
+        }
         Relationships: []
       }
       rundowns: {
-        Row: Rundown
-        Insert: Omit<Rundown, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<Rundown, 'id' | 'created_at'>>
+        Row: {
+          id: string
+          show_id: string
+          name: string
+          is_active: boolean
+          show_start_time: string | null
+          companion_webhook_url: string | null
+          presenter_pin: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          show_id: string
+          name: string
+          is_active?: boolean
+          show_start_time?: string | null
+          companion_webhook_url?: string | null
+          presenter_pin?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          show_id?: string
+          name?: string
+          is_active?: boolean
+          show_start_time?: string | null
+          companion_webhook_url?: string | null
+          presenter_pin?: string | null
+          updated_at?: string
+        }
         Relationships: [
           {
             foreignKeyName: 'rundowns_show_id_fkey'
@@ -152,9 +234,77 @@ export type Database = {
         ]
       }
       cues: {
-        Row: Cue
-        Insert: Omit<Cue, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<Cue, 'id' | 'created_at'>>
+        Row: {
+          id: string
+          rundown_id: string
+          position: number
+          title: string
+          type: CueType
+          duration_seconds: number
+          notes: string | null
+          tech_notes: string | null
+          presenter: string | null
+          location: string | null
+          status: CueStatus
+          started_at: string | null
+          media_url: string | null
+          media_path: string | null
+          media_type: string | null
+          media_filename: string | null
+          media_size: number | null
+          media_volume: number | null
+          media_loop: boolean | null
+          media_autoplay: boolean | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          rundown_id: string
+          position: number
+          title: string
+          type: CueType
+          duration_seconds: number
+          notes?: string | null
+          tech_notes?: string | null
+          presenter?: string | null
+          location?: string | null
+          status?: CueStatus
+          started_at?: string | null
+          media_url?: string | null
+          media_path?: string | null
+          media_type?: string | null
+          media_filename?: string | null
+          media_size?: number | null
+          media_volume?: number | null
+          media_loop?: boolean | null
+          media_autoplay?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          rundown_id?: string
+          position?: number
+          title?: string
+          type?: CueType
+          duration_seconds?: number
+          notes?: string | null
+          tech_notes?: string | null
+          presenter?: string | null
+          location?: string | null
+          status?: CueStatus
+          started_at?: string | null
+          media_url?: string | null
+          media_path?: string | null
+          media_type?: string | null
+          media_filename?: string | null
+          media_size?: number | null
+          media_volume?: number | null
+          media_loop?: boolean | null
+          media_autoplay?: boolean | null
+          updated_at?: string
+        }
         Relationships: [
           {
             foreignKeyName: 'cues_rundown_id_fkey'

@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
-  RotateCcw, AlertTriangle
+  RotateCcw, AlertTriangle, ListMusic
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -47,9 +47,10 @@ interface RundownEditorProps {
   show: { id: string; name: string; date: string | null; venue: string | null }
   initialCues: Cue[]
   userId: string
+  allRundowns?: Array<{ id: string; name: string }>
 }
 
-export function RundownEditor({ rundown: initialRundown, show, initialCues, userId }: RundownEditorProps) {
+export function RundownEditor({ rundown: initialRundown, show, initialCues, userId, allRundowns = [] }: RundownEditorProps) {
   const supabase = createClient()
   const router = useRouter()
 
@@ -66,8 +67,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
   const [nudgeActive, setNudgeActive]   = useState(false)
   const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
-  const [showFilterMenu, setShowFilterMenu] = useState(false)
-  const [showViewMenu, setShowViewMenu] = useState(false)
+  const [showFilterMenu, setShowFilterMenu]     = useState(false)
+  const [showViewMenu, setShowViewMenu]         = useState(false)
+  const [showRundownMenu, setShowRundownMenu]   = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // DnD sensors
@@ -155,7 +157,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       media_volume:     input.media_volume ?? 1.0,
       media_loop:       input.media_loop ?? false,
       media_autoplay:   input.media_autoplay ?? true,
-    } as Record<string, unknown>)
+    })
     if (error) console.error('Fout bij toevoegen cue:', error)
     setIsSaving(false)
     setShowAddModal(false)
@@ -163,7 +165,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   const updateCue = useCallback(async (id: string, updates: UpdateCueInput) => {
     setIsSaving(true)
-    const { error } = await supabase.from('cues').update(updates as Record<string, unknown>).eq('id', id)
+    const { error } = await supabase.from('cues').update(updates).eq('id', id)
     if (error) console.error('Fout bij updaten cue:', error)
     setIsSaving(false)
     setEditingCue(null)
@@ -181,7 +183,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     const toShift = cues.filter((c) => c.position >= maxPos)
     await Promise.all(
       toShift.map((c) =>
-        supabase.from('cues').update({ position: c.position + 1 } as Record<string, unknown>).eq('id', c.id)
+        supabase.from('cues').update({ position: c.position + 1 }).eq('id', c.id)
       )
     )
     await supabase.from('cues').insert({
@@ -195,7 +197,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       presenter:        cue.presenter,
       location:         cue.location,
       status:           'pending',
-    } as Record<string, unknown>)
+    })
   }, [cues, supabase])
 
   // ── Reset alle cues ──────────────────────────────────────────────────────
@@ -206,7 +208,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         supabase.from('cues').update({
           status: 'pending',
           started_at: null,
-        } as Record<string, unknown>).eq('id', c.id)
+        }).eq('id', c.id)
       )
     )
   }, [cues, supabase])
@@ -368,12 +370,57 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
             <ChevronLeft className="h-3.5 w-3.5" /> Dashboard
           </Link>
           <span>/</span>
-          <span>{show.name}</span>
+          <Link href={`/shows/${show.id}`} className="hover:text-foreground transition-colors">
+            {show.name}
+          </Link>
+          <span>/</span>
+          <span>{rundown.name}</span>
         </div>
 
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold">{rundown.name}</h1>
+            {/* Rundown naam — klikbaar dropdown als er meerdere rundowns zijn */}
+            {allRundowns.length > 1 ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowRundownMenu(!showRundownMenu)}
+                  className="flex items-center gap-1.5 text-2xl font-bold hover:text-primary transition-colors group"
+                >
+                  {rundown.name}
+                  <ChevronLeft className="h-5 w-5 -rotate-90 text-muted-foreground group-hover:text-primary transition-colors" />
+                </button>
+                {showRundownMenu && (
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[200px]">
+                    {allRundowns.map((r) => (
+                      <Link
+                        key={r.id}
+                        href={`/shows/${show.id}/rundown/${r.id}`}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors',
+                          r.id === rundown.id && 'text-primary font-medium'
+                        )}
+                        onClick={() => setShowRundownMenu(false)}
+                      >
+                        <ListMusic className="h-3.5 w-3.5 shrink-0" />
+                        {r.name}
+                        {r.id === rundown.id && <span className="ml-auto text-xs text-muted-foreground">Huidig</span>}
+                      </Link>
+                    ))}
+                    <hr className="border-border/50 my-1" />
+                    <Link
+                      href={`/shows/${show.id}/rundown/new`}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+                      onClick={() => setShowRundownMenu(false)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Nieuwe rundown
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <h1 className="text-2xl font-bold">{rundown.name}</h1>
+            )}
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
               {show.date && <span>{formatDate(show.date)}</span>}
               {show.venue && <span>· {show.venue}</span>}
@@ -621,10 +668,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       />
 
       {/* Sluit menu's bij klik buiten */}
-      {(showFilterMenu || showViewMenu) && (
+      {(showFilterMenu || showViewMenu || showRundownMenu) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => { setShowFilterMenu(false); setShowViewMenu(false) }}
+          onClick={() => { setShowFilterMenu(false); setShowViewMenu(false); setShowRundownMenu(false) }}
         />
       )}
 

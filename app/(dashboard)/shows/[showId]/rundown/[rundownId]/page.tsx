@@ -53,6 +53,13 @@ export default async function RundownPage({ params }: PageProps) {
     .eq('rundown_id', rundownId)
     .order('position', { ascending: true })
 
+  // Laad alle rundowns van deze show (voor navigatie)
+  const { data: allRundowns } = await supabase
+    .from('rundowns')
+    .select('id, name')
+    .eq('show_id', showId)
+    .order('created_at', { ascending: true })
+
   const rundown = rundownData as Rundown
   const show = showData as Show
 
@@ -62,6 +69,7 @@ export default async function RundownPage({ params }: PageProps) {
       show={show}
       initialCues={(cues ?? []) as Cue[]}
       userId={user.id}
+      allRundowns={(allRundowns ?? []) as Array<{ id: string; name: string }>}
     />
   )
 }

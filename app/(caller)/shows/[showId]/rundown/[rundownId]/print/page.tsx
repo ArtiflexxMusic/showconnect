@@ -100,7 +100,7 @@ export default async function PrintPage({ params }: PageProps) {
         {/* Print knop – niet zichtbaar bij printen */}
         <div className="no-print" style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
           <button
-            onClick="window.print()"
+            id="print-btn"
             style={{
               padding: '8px 16px', background: '#111', color: 'white', border: 'none',
               borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600
@@ -183,6 +183,8 @@ export default async function PrintPage({ params }: PageProps) {
           Afgedrukt via CueBoard · {printDate} {printTime}
           {rundown.show_start_time && ` · Aanvang ${rundown.show_start_time.slice(0, 5)}`}
         </div>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script dangerouslySetInnerHTML={{ __html: "document.getElementById('print-btn').onclick=function(){window.print()}" }} />
       </body>
     </html>
   )

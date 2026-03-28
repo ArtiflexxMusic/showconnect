@@ -42,9 +42,17 @@
 @layer utilities {
   .rundown-grid {
     display: grid;
-    grid-template-columns: 2.5rem 3rem 1fr 7rem 6rem 8rem 3rem;
+    /* Mobile: drag | # | title | actions */
+    grid-template-columns: 2.5rem 2.5rem 1fr 3rem;
     gap: 0;
     align-items: center;
+  }
+
+  @media (min-width: 640px) {
+    .rundown-grid {
+      /* Desktop: drag | # | title | type | duration | status | actions */
+      grid-template-columns: 2.5rem 3rem 1fr 7rem 6rem 8rem 3rem;
+    }
   }
 
   .cue-running {

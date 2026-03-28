@@ -178,6 +178,19 @@ export async function getPayment(id: string): Promise<MolliePayment> {
   return mollieRequest<MolliePayment>('GET', `/payments/${id}`)
 }
 
+/** Haal betalingsgeschiedenis op voor een klant (max 50 recentste) */
+export async function listPayments(customerId: string): Promise<MolliePayment[]> {
+  try {
+    const data = await mollieRequest<{
+      _embedded?: { payments: MolliePayment[] }
+      count: number
+    }>('GET', `/payments?customerId=${customerId}&limit=50&sort=desc`)
+    return data._embedded?.payments ?? []
+  } catch {
+    return []
+  }
+}
+
 /** Maak een terugkerend abonnement aan na de eerste betaling */
 export async function createSubscription(opts: {
   customerId: string

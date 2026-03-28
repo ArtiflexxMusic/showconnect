@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Plus, Shield, User, HelpCircle, Zap } from 'lucide-react'
+import { LayoutDashboard, Plus, Shield, User, HelpCircle, Zap, Receipt } from 'lucide-react'
 
 const showItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Overzicht' },
@@ -12,6 +12,7 @@ const showItems = [
 
 const accountItems = [
   { href: '/profile',  icon: User,        label: 'Mijn profiel' },
+  { href: '/billing',  icon: Receipt,     label: 'Facturen' },
   { href: '/upgrade',  icon: Zap,         label: 'Plannen' },
   { href: '/help',     icon: HelpCircle,  label: 'Help & Uitleg' },
 ]

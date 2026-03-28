@@ -136,6 +136,26 @@ export function SortableCueRow({
             )}
           </div>
 
+          {/* Type + duur inline op mobiel */}
+          <div className="flex items-center gap-2 mt-0.5 sm:hidden">
+            <span className={cn(
+              'inline-flex items-center rounded-full border px-1.5 py-px text-[10px] font-medium',
+              cueTypeColor(cue.type)
+            )}>
+              {cueTypeLabel(cue.type)}
+            </span>
+            {isRunning && cue.started_at ? (
+              <CueCountdown durationSeconds={cue.duration_seconds} startedAt={cue.started_at} />
+            ) : (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {formatDuration(cue.duration_seconds)}
+              </span>
+            )}
+            {isRunning  && <span className="text-[10px] font-semibold text-green-400">● Live</span>}
+            {isDone     && <span className="text-[10px] text-muted-foreground">✓ Klaar</span>}
+            {isSkipped  && <span className="text-[10px] text-red-400">Overgeslagen</span>}
+          </div>
+
           {/* Presenter + locatie inline badges */}
           {(cue.presenter || cue.location) && (
             <div className="flex items-center gap-2 mt-0.5">
@@ -155,8 +175,8 @@ export function SortableCueRow({
           )}
         </div>
 
-        {/* Type badge */}
-        <div>
+        {/* Type badge — verborgen op mobiel */}
+        <div className="hidden sm:block">
           <span className={cn(
             'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
             cueTypeColor(cue.type)
@@ -165,8 +185,8 @@ export function SortableCueRow({
           </span>
         </div>
 
-        {/* Duur / Countdown */}
-        <div className="text-right">
+        {/* Duur / Countdown — verborgen op mobiel */}
+        <div className="hidden sm:block text-right">
           {isRunning && cue.started_at ? (
             <CueCountdown
               durationSeconds={cue.duration_seconds}
@@ -179,8 +199,8 @@ export function SortableCueRow({
           )}
         </div>
 
-        {/* Status badge */}
-        <div>
+        {/* Status badge — verborgen op mobiel */}
+        <div className="hidden sm:block">
           {isRunning && (
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30 border text-xs">
               ● Live
@@ -198,8 +218,8 @@ export function SortableCueRow({
           )}
         </div>
 
-        {/* Acties (hover) */}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+        {/* Acties — altijd zichtbaar op mobiel, hover op desktop */}
+        <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity justify-end">
           {!isRunning && !isDone && !isSkipped && (
             <Button
               variant="ghost" size="icon"

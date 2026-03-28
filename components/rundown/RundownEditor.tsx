@@ -26,7 +26,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -44,9 +44,10 @@ const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: 'lighting', label: '💡 Licht' },
   { value: 'speech',   label: '🎤 Spreker' },
   { value: 'break',    label: '☕ Pauze' },
-  { value: 'intro',    label: '🎬 Intro' },
-  { value: 'outro',    label: '🏁 Outro' },
-  { value: 'custom',   label: '⚙️ Overig' },
+  { value: 'intro',        label: '🎬 Intro' },
+  { value: 'outro',        label: '🏁 Outro' },
+  { value: 'presentation', label: '📊 Presentatie' },
+  { value: 'custom',       label: '⚙️ Overig' },
 ]
 
 interface RundownEditorProps {
@@ -89,6 +90,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showShortcutHelp, setShowShortcutHelp]         = useState(false)
   const [showSharePanel, setShowSharePanel]             = useState(false)
   const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
+  const [showMoreMenu, setShowMoreMenu]                 = useState(false)
 
   // DnD sensors
   const sensors = useSensors(
@@ -747,117 +749,137 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               )}
             </div>
 
-            {/* Mic patch */}
-            <Button
-              size="sm" variant="outline"
-              onClick={() => setShowMicPatch(true)}
-              className="gap-2 text-muted-foreground"
-              title="Mic patch bekijken"
-            >
-              <Radio className="h-3.5 w-3.5" />
-            </Button>
-
-            {/* Cue log */}
-            <Button
-              size="sm" variant="outline"
-              onClick={() => setShowCueLog(true)}
-              className="gap-2 text-muted-foreground"
-              title="Cue log bekijken"
-            >
-              <History className="h-3.5 w-3.5" />
-            </Button>
-
-            {/* Lock/Unlock rundown */}
-            <Button
-              size="sm" variant="outline"
-              onClick={toggleLock}
-              disabled={locking}
-              className={cn(
-                'gap-2',
-                rundown.is_locked
-                  ? 'text-orange-400 border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20'
-                  : 'text-muted-foreground'
-              )}
-              title={rundown.is_locked ? 'Rundown ontgrendelen' : 'Rundown vergrendelen (voorkomt bewerken)'}
-            >
-              {rundown.is_locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-            </Button>
-
-            {/* Snapshot / versie opslaan */}
-            <Button
-              size="sm" variant="outline"
-              onClick={createSnapshot}
-              disabled={snapshotting || cues.length === 0}
-              className={cn(
-                'gap-2',
-                snapshotDone
-                  ? 'text-green-400 border-green-500/40 bg-green-500/10'
-                  : 'text-muted-foreground'
-              )}
-              title="Versie opslaan (snapshot)"
-            >
-              {snapshotDone
-                ? <Check className="h-3.5 w-3.5" />
-                : <Camera className="h-3.5 w-3.5" />
-              }
-            </Button>
-
-            {/* Nudge knop */}
-            <Button
-              size="sm" variant="outline"
-              onClick={sendNudge}
-              disabled={nudgeActive}
-              className={cn(
-                'gap-2',
-                nudgeActive ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10' : 'text-muted-foreground'
-              )}
-              title="Ping alle verbonden crew"
-            >
-              {nudgeActive ? <BellRing className="h-3.5 w-3.5 animate-bounce" /> : <Bell className="h-3.5 w-3.5" />}
-            </Button>
-
-            {/* Reset alles */}
-            {hasRunningOrDone && (
-              <Button
-                size="sm" variant="outline"
-                onClick={() => setShowResetConfirm(true)}
-                className="gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/30"
-                title="Reset alle cues"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
+            {/* ── Secundaire knoppen: zichtbaar op desktop, hidden op mobiel ── */}
+            <div className="hidden sm:contents">
+              {/* Mic patch */}
+              <Button size="sm" variant="outline" onClick={() => setShowMicPatch(true)}
+                className="gap-2 text-muted-foreground" title="Mic patch">
+                <Radio className="h-3.5 w-3.5" />
               </Button>
-            )}
 
-            {/* Instellingen */}
-            <Button
-              size="sm" variant="outline"
-              onClick={() => setShowSettings(true)}
-              className="gap-2 text-muted-foreground"
-              title="Rundown instellingen"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </Button>
+              {/* Cue log */}
+              <Button size="sm" variant="outline" onClick={() => setShowCueLog(true)}
+                className="gap-2 text-muted-foreground" title="Cue log">
+                <History className="h-3.5 w-3.5" />
+              </Button>
 
-            {/* Import */}
-            <Button
-              size="sm" variant="outline"
-              onClick={() => setShowImportModal(true)}
-              className="gap-2 text-muted-foreground"
-              title="Cues importeren vanuit CSV of Excel"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-            </Button>
+              {/* Lock/Unlock */}
+              <Button size="sm" variant="outline" onClick={toggleLock} disabled={locking}
+                className={cn('gap-2', rundown.is_locked
+                  ? 'text-orange-400 border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20'
+                  : 'text-muted-foreground')}
+                title={rundown.is_locked ? 'Ontgrendelen' : 'Vergrendelen'}>
+                {rundown.is_locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+              </Button>
 
-            {/* Templates */}
-            <div className="relative">
-              <Button
-                size="sm" variant="outline"
-                className="gap-2 text-muted-foreground"
-                title="Rundown templates"
-                onClick={() => setShowLoadTemplate(true)}
-              >
+              {/* Snapshot */}
+              <Button size="sm" variant="outline" onClick={createSnapshot}
+                disabled={snapshotting || cues.length === 0}
+                className={cn('gap-2', snapshotDone
+                  ? 'text-green-400 border-green-500/40 bg-green-500/10'
+                  : 'text-muted-foreground')}
+                title="Versie opslaan (snapshot)">
+                {snapshotDone ? <Check className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
+              </Button>
+
+              {/* Nudge */}
+              <Button size="sm" variant="outline" onClick={sendNudge} disabled={nudgeActive}
+                className={cn('gap-2', nudgeActive
+                  ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10'
+                  : 'text-muted-foreground')}
+                title="Ping crew">
+                {nudgeActive ? <BellRing className="h-3.5 w-3.5 animate-bounce" /> : <Bell className="h-3.5 w-3.5" />}
+              </Button>
+
+              {/* Reset */}
+              {hasRunningOrDone && (
+                <Button size="sm" variant="outline" onClick={() => setShowResetConfirm(true)}
+                  className="gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/30"
+                  title="Reset alle cues">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              )}
+
+              {/* Instellingen */}
+              <Button size="sm" variant="outline" onClick={() => setShowSettings(true)}
+                className="gap-2 text-muted-foreground" title="Instellingen">
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
+
+              {/* Import */}
+              <Button size="sm" variant="outline" onClick={() => setShowImportModal(true)}
+                className="gap-2 text-muted-foreground" title="Importeren uit CSV/Excel">
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+              </Button>
+
+              {/* Templates */}
+              <Button size="sm" variant="outline" onClick={() => setShowLoadTemplate(true)}
+                className="gap-2 text-muted-foreground" title="Templates">
                 <BookTemplate className="h-3.5 w-3.5" />
               </Button>
+            </div>
+
+            {/* ── Mobiel: ⋯ More menu ───────────────────────────────────── */}
+            <div className="relative sm:hidden">
+              <Button size="sm" variant="outline"
+                className={cn('gap-2 text-muted-foreground', showMoreMenu && 'border-primary/50 text-primary')}
+                onClick={() => { setShowMoreMenu(!showMoreMenu); setShowViewMenu(false); setShowFilterMenu(false); setShowSharePanel(false) }}
+                title="Meer opties">
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+              {showMoreMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[200px]">
+                    <button onClick={() => { setShowMoreMenu(false); setShowSettings(true) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      <Settings className="h-3.5 w-3.5 text-muted-foreground" /> Instellingen
+                    </button>
+                    <button onClick={() => { setShowMoreMenu(false); setShowMicPatch(true) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      <Radio className="h-3.5 w-3.5 text-muted-foreground" /> Mic Patch
+                    </button>
+                    <button onClick={() => { setShowMoreMenu(false); setShowCueLog(true) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      <History className="h-3.5 w-3.5 text-muted-foreground" /> Cue log
+                    </button>
+                    <button onClick={() => { setShowMoreMenu(false); toggleLock() }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      {rundown.is_locked
+                        ? <><Unlock className="h-3.5 w-3.5 text-orange-400" /> Ontgrendelen</>
+                        : <><Lock className="h-3.5 w-3.5 text-muted-foreground" /> Vergrendelen</>
+                      }
+                    </button>
+                    <button onClick={() => { setShowMoreMenu(false); createSnapshot() }}
+                      disabled={cues.length === 0}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left disabled:opacity-40">
+                      <Camera className="h-3.5 w-3.5 text-muted-foreground" /> Versie opslaan
+                    </button>
+                    <button onClick={() => { setShowMoreMenu(false); sendNudge() }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      <Bell className="h-3.5 w-3.5 text-muted-foreground" /> Ping crew
+                    </button>
+                    <hr className="border-border/50 my-1" />
+                    <button onClick={() => { setShowMoreMenu(false); setShowImportModal(true) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" /> Importeren
+                    </button>
+                    <button onClick={() => { setShowMoreMenu(false); setShowLoadTemplate(true) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      <BookTemplate className="h-3.5 w-3.5 text-muted-foreground" /> Templates
+                    </button>
+                    {hasRunningOrDone && (
+                      <>
+                        <hr className="border-border/50 my-1" />
+                        <button onClick={() => { setShowMoreMenu(false); setShowResetConfirm(true) }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left text-destructive/80">
+                          <RotateCcw className="h-3.5 w-3.5" /> Reset alle cues
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Cue toevoegen */}
@@ -892,9 +914,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         <span />
         <span className="pl-1">#</span>
         <span>Titel</span>
-        <span>Type</span>
-        <span className="text-right">Duur</span>
-        <span>Status</span>
+        <span className="hidden sm:block">Type</span>
+        <span className="hidden sm:block text-right">Duur</span>
+        <span className="hidden sm:block">Status</span>
         <span />
       </div>
 

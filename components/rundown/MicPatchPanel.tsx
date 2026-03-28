@@ -80,6 +80,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
 
   // Assignment state: { [cueId-deviceId-phase]: assignment }
   const [assignMap, setAssignMap] = useState<Record<string, Assignment>>({})
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -102,30 +103,40 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   function openAddDevice() {
     setEditDevice(null)
     setDName(''); setDType('handheld'); setDChannel(''); setDColor(COLORS[0]); setDNotes('')
+    setSaveError(null)
     setAddDeviceOpen(true)
   }
 
   function openEditDevice(d: AudioDevice) {
     setEditDevice(d)
     setDName(d.name); setDType(d.type); setDChannel(d.channel?.toString() ?? ''); setDColor(d.color); setDNotes(d.notes ?? '')
+    setSaveError(null)
     setAddDeviceOpen(true)
   }
 
   async function saveDevice() {
     if (!dName.trim()) return
     setSaving(true)
+    setSaveError(null)
     try {
       const payload = {
         show_id: showId, name: dName.trim(), type: dType,
         channel: dChannel ? parseInt(dChannel) : null,
         color: dColor, notes: dNotes.trim() || null,
       }
+      let error: { message: string } | null = null
       if (editDevice) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('audio_devices').update(payload).eq('id', editDevice.id)
+        const result = await (supabase as any).from('audio_devices').update(payload).eq('id', editDevice.id)
+        error = result.error
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('audio_devices').insert(payload)
+        const result = await (supabase as any).from('audio_devices').insert(payload)
+        error = result.error
+      }
+      if (error) {
+        setSaveError(error.message ?? 'Opslaan mislukt')
+        return
       }
       await load()
       setAddDeviceOpen(false)
@@ -166,14 +177,15 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-4 border-b border-border/30">
             <DialogTitle className="flex items-center gap-2">
               <Mic className="h-5 w-5 text-blue-400" />
               Mic Patch
             </DialogTitle>
           </DialogHeader>
 
+          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Laden…
@@ -302,6 +314,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
               )}
             </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -358,6 +371,12 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
               <Input value={dNotes} onChange={e => setDNotes(e.target.value)} placeholder="Bijv. frequentie, reserve voor…" />
             </div>
           </div>
+          {saveError && (
+            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 -mb-1">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {saveError}
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddDeviceOpen(false)}>Annuleren</Button>
             <Button onClick={saveDevice} disabled={saving || !dName.trim()} className="bg-blue-600 hover:bg-blue-500 text-white font-bold">

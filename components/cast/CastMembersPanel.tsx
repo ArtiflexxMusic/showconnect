@@ -163,15 +163,15 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-4 border-b border-border/30">
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-emerald-400" />
               Cast beheer
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4 space-y-4">
             {/* Add button */}
             <div className="flex justify-end">
               <Button size="sm" onClick={openAdd} className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold">

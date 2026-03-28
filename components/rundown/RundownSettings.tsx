@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X, Image } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import type { Rundown, RundownSnapshot, Cue } from '@/lib/types/database'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,6 +59,14 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [slideError, setSlideError]       = useState<string | null>(null)
   const slideInputRef = useRef<HTMLInputElement>(null)
 
+  // Still image state
+  const [stillUrl, setStillUrl]           = useState<string | null>(null)
+  const [stillPath, setStillPath]         = useState<string | null>(null)
+  const [stillFilename, setStillFilename] = useState<string | null>(null)
+  const [uploadingStill, setUploadingStill] = useState(false)
+  const [stillError, setStillError]       = useState<string | null>(null)
+  const stillInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (open) {
       setRundownName(rundown.name)
@@ -72,6 +80,10 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       setSlideFilename(rundown.slide_filename ?? null)
       setSlideFile(null)
       setSlideError(null)
+      setStillUrl(rundown.still_url ?? null)
+      setStillPath(rundown.still_path ?? null)
+      setStillFilename(null)
+      setStillError(null)
       setTestStatus('idle')
       setCopied(null)
       setShowDeleteConfirm(false)
@@ -214,6 +226,55 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
     setSlideUrl(null)
     setSlidePath(null)
     setSlideFilename(null)
+    if (updated) onRundownUpdated?.(updated as Rundown)
+  }
+
+  // ── Still image upload ──────────────────────────────────────────────────
+  async function handleStillUpload(file: File) {
+    setStillFilename(file.name)
+    setStillError(null)
+    setUploadingStill(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('rundownId', rundown.id)
+      const res  = await fetch('/api/upload-rundown-still', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload mislukt')
+      const { data: updated, error } = await supabase
+        .from('rundowns')
+        .update({ still_url: data.url, still_path: data.path })
+        .eq('id', rundown.id)
+        .select()
+        .single()
+      if (error) throw error
+      setStillUrl(data.url)
+      setStillPath(data.path)
+      setStillFilename(file.name)
+      if (updated) onRundownUpdated?.(updated as Rundown)
+    } catch (err: unknown) {
+      setStillError(err instanceof Error ? err.message : 'Upload mislukt')
+    } finally {
+      setUploadingStill(false)
+    }
+  }
+
+  async function handleStillRemove() {
+    if (stillPath) {
+      await fetch('/api/upload-rundown-still', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: stillPath }),
+      }).catch(() => {})
+    }
+    const { data: updated } = await supabase
+      .from('rundowns')
+      .update({ still_url: null, still_path: null })
+      .eq('id', rundown.id)
+      .select()
+      .single()
+    setStillUrl(null)
+    setStillPath(null)
+    setStillFilename(null)
     if (updated) onRundownUpdated?.(updated as Rundown)
   }
 
@@ -455,6 +516,67 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
 
           <hr className="border-border/50" />
 
+          {/* Still image voor output scherm */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Image className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Still image (fallback)</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Optionele achtergrondafbeelding voor het output-scherm — getoond als er geen actieve presentatie is.
+              Gebruik bijvoorbeeld een logo-slide of sponsor-scherm om een zwart beeld te voorkomen.
+            </p>
+            {stillUrl ? (
+              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-blue-500/5 px-3 py-2">
+                <Image className="h-4 w-4 text-blue-400 shrink-0" />
+                <span className="text-sm text-blue-300 truncate flex-1">
+                  {stillFilename ?? 'still.png'}
+                </span>
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={handleStillRemove}
+                  title="Verwijderen"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div
+                className="rounded-lg border border-dashed border-white/15 bg-white/2 p-4 text-center cursor-pointer hover:border-blue-400/40 hover:bg-blue-500/5 transition-colors"
+                onClick={() => stillInputRef.current?.click()}
+              >
+                {uploadingStill ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Uploaden...
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-sm text-muted-foreground">Klik om afbeelding te uploaden</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">PNG, JPG of WebP · Max 20 MB</p>
+                  </>
+                )}
+              </div>
+            )}
+            {stillError && (
+              <p className="text-xs text-destructive">{stillError}</p>
+            )}
+            <input
+              ref={stillInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) handleStillUpload(f)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
+          <hr className="border-border/50" />
+
           {/* View links */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold">View-links</h3>
@@ -463,7 +585,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <LinkRow label="Presenter" url={presenterUrl} linkKey="presenter" />
               <LinkRow label="Crew" url={crewUrl} linkKey="crew" />
               <LinkRow label="Afdrukken" url={printUrl} linkKey="print" />
-              {slideUrl && <LinkRow label="🖥️ Output" url={outputUrl} linkKey="output" />}
+              <LinkRow label="🖥️ Output" url={outputUrl} linkKey="output" />
             </div>
             <p className="text-xs text-muted-foreground">
               Deel de juiste link met je team. Geen inlog vereist voor Presenter en Crew view.

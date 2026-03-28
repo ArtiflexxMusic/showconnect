@@ -43,6 +43,9 @@ export interface Rundown {
   slide_path: string | null
   slide_type: 'pdf' | 'pptx' | 'ppt' | null
   slide_filename: string | null
+  // Still image (fallback achtergrond op stage output tussen sprekers)
+  still_url: string | null
+  still_path: string | null
   created_at: string
   updated_at: string
 }
@@ -335,6 +338,8 @@ export type Database = {
           slide_path: string | null
           slide_type: 'pdf' | 'pptx' | 'ppt' | null
           slide_filename: string | null
+          still_url: string | null
+          still_path: string | null
           created_at: string
           updated_at: string
         }
@@ -350,8 +355,10 @@ export type Database = {
           notes?: string | null
           slide_url?: string | null
           slide_path?: string | null
-          slide_type?: 'pdf' | null
+          slide_type?: 'pdf' | 'pptx' | 'ppt' | null
           slide_filename?: string | null
+          still_url?: string | null
+          still_path?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -367,8 +374,10 @@ export type Database = {
           notes?: string | null
           slide_url?: string | null
           slide_path?: string | null
-          slide_type?: 'pdf' | null
+          slide_type?: 'pdf' | 'pptx' | 'ppt' | null
           slide_filename?: string | null
+          still_url?: string | null
+          still_path?: string | null
           updated_at?: string
         }
         Relationships: [

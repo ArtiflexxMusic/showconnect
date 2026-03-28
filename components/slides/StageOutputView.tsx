@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Rundown } from '@/lib/types/database'
+import type { Cue, Rundown } from '@/lib/types/database'
 
 // pdf.js types
 declare global {
@@ -22,16 +22,13 @@ interface StageOutputViewProps {
 
 // ── PPTX viewer via Microsoft Office Online ───────────────────────────────────
 function PptxOutputView({ url, rundownId }: { url: string; rundownId: string }) {
-  const supabase  = createClient()
-  const embedUrl  = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
+  const supabase = createClient()
+  const embedUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
 
-  // Realtime luisteren — voor PPTX doen we een page-reload bij slide change
-  // (Office Online heeft geen API voor externe navigatie)
   useEffect(() => {
     const channel = supabase
       .channel(`slide:${rundownId}`)
       .on('broadcast', { event: 'slide_change' }, () => {
-        // Reload de iframe zodat Office Online de eerste dia toont
         const iframe = document.getElementById('pptx-frame') as HTMLIFrameElement | null
         if (iframe) iframe.src = embedUrl
       })
@@ -55,14 +52,22 @@ function PptxOutputView({ url, rundownId }: { url: string; rundownId: string }) 
 }
 
 // ── PDF viewer via pdf.js ─────────────────────────────────────────────────────
-function PdfOutputView({ url, rundownId }: { url: string; rundownId: string }) {
+function PdfOutputView({
+  url,
+  rundownId,
+  initialSlideIndex = 0,
+}: {
+  url: string
+  rundownId: string
+  initialSlideIndex?: number
+}) {
   const supabase      = createClient()
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfRef        = useRef<any>(null)
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null)
 
-  const [slideIndex, setSlideIndex] = useState(0)
+  const [slideIndex, setSlideIndex] = useState(initialSlideIndex)
   const [totalPages, setTotalPages] = useState(0)
   const [loaded, setLoaded]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
@@ -90,7 +95,6 @@ function PdfOutputView({ url, rundownId }: { url: string; rundownId: string }) {
         }
         if (cancelled) return
 
-        // Cache-busting zodat Supabase public URL altijd vers is
         const urlWithCacheBust = `${url}?t=${Date.now()}`
         const pdf = await window.pdfjsLib.getDocument({
           url: urlWithCacheBust,
@@ -175,7 +179,6 @@ function PdfOutputView({ url, rundownId }: { url: string; rundownId: string }) {
 
   return (
     <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
-      {/* Spinner tijdens laden */}
       {!loaded && (
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 rounded-full border-2 border-white/10 border-t-white/50 animate-spin" />
@@ -183,14 +186,12 @@ function PdfOutputView({ url, rundownId }: { url: string; rundownId: string }) {
         </div>
       )}
 
-      {/* De canvas */}
       <canvas
         ref={canvasRef}
         className="max-w-full max-h-full"
         style={{ display: loaded ? 'block' : 'none' }}
       />
 
-      {/* Subtiele slide-teller */}
       {loaded && totalPages > 1 && (
         <div className="fixed bottom-2 right-3 text-white/10 text-[10px] font-mono tabular-nums pointer-events-none select-none">
           {slideIndex + 1} / {totalPages}
@@ -200,29 +201,121 @@ function PdfOutputView({ url, rundownId }: { url: string; rundownId: string }) {
   )
 }
 
+// ── Still image weergave ───────────────────────────────────────────────────────
+function StillImageView({ url, showName }: { url: string; showName: string }) {
+  return (
+    <div className="fixed inset-0 bg-black flex items-center justify-center">
+      <img
+        src={url}
+        alt={showName}
+        className="max-w-full max-h-full object-contain"
+        style={{ imageRendering: 'auto' }}
+      />
+    </div>
+  )
+}
+
+// ── Leeg scherm (geen inhoud geconfigureerd) ───────────────────────────────────
+function NoContentView({ showName }: { showName: string }) {
+  return (
+    <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-4">
+      <div className="text-center space-y-2">
+        <p className="text-white/20 text-sm font-mono tracking-widest uppercase">
+          {showName}
+        </p>
+        <p className="text-white/10 text-xs font-mono">
+          Geen presentatie geladen — upload een PDF, PPTX of still in de rundown instellingen
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Hoofd component ───────────────────────────────────────────────────────────
 export function StageOutputView({ rundown, showName }: StageOutputViewProps) {
-  // Geen slide deck
-  if (!rundown.slide_url) {
+  const supabase = createClient()
+
+  // Track de actieve cue (om per-cue presentaties te tonen)
+  const [activeCue, setActiveCue] = useState<Cue | null>(null)
+  const activeCueRef = useRef<Cue | null>(null)
+
+  useEffect(() => {
+    // Haal direct de actieve cue op
+    async function fetchActiveCue() {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('cues')
+        .select('*')
+        .eq('rundown_id', rundown.id)
+        .eq('status', 'running')
+        .maybeSingle()
+      activeCueRef.current = data ?? null
+      setActiveCue(data ?? null)
+    }
+    fetchActiveCue()
+
+    // Luister naar cue-statuswijzigingen
+    const channel = supabase
+      .channel(`stage_cues:${rundown.id}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on('postgres_changes' as any, {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'cues',
+        filter: `rundown_id=eq.${rundown.id}`,
+      }, (payload: { new: Cue }) => {
+        const updated = payload.new
+        if (updated.status === 'running') {
+          activeCueRef.current = updated
+          setActiveCue(updated)
+        } else if (activeCueRef.current?.id === updated.id) {
+          activeCueRef.current = null
+          setActiveCue(null)
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [rundown.id, supabase])
+
+  // ── Prioriteit: per-cue presentatie > rundown deck > still > leeg ─────────
+
+  // 1. Per-cue presentatie (als de actieve cue een eigen presentatie heeft)
+  if (activeCue?.presentation_url && activeCue.presentation_type) {
+    const isPptx = activeCue.presentation_type === 'pptx'
+    if (isPptx) {
+      return (
+        <PptxOutputView
+          key={`cue-${activeCue.id}`}
+          url={activeCue.presentation_url}
+          rundownId={rundown.id}
+        />
+      )
+    }
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-4">
-        <div className="text-center space-y-2">
-          <p className="text-white/20 text-sm font-mono tracking-widest uppercase">
-            {showName}
-          </p>
-          <p className="text-white/10 text-xs font-mono">
-            Geen presentatie geladen — upload een PDF of PPTX in de rundown instellingen
-          </p>
-        </div>
-      </div>
+      <PdfOutputView
+        key={`cue-${activeCue.id}`}
+        url={activeCue.presentation_url}
+        rundownId={rundown.id}
+        initialSlideIndex={activeCue.current_slide_index ?? 0}
+      />
     )
   }
 
-  const isPptx = rundown.slide_type === 'pptx' || rundown.slide_type === 'ppt'
-
-  if (isPptx) {
-    return <PptxOutputView url={rundown.slide_url} rundownId={rundown.id} />
+  // 2. Rundown-breed slide deck
+  if (rundown.slide_url) {
+    const isPptx = rundown.slide_type === 'pptx' || rundown.slide_type === 'ppt'
+    if (isPptx) {
+      return <PptxOutputView key="rundown-pptx" url={rundown.slide_url} rundownId={rundown.id} />
+    }
+    return <PdfOutputView key="rundown-pdf" url={rundown.slide_url} rundownId={rundown.id} />
   }
 
-  return <PdfOutputView url={rundown.slide_url} rundownId={rundown.id} />
+  // 3. Still image (fallback tussen sprekers)
+  if (rundown.still_url) {
+    return <StillImageView url={rundown.still_url} showName={showName} />
+  }
+
+  // 4. Leeg scherm
+  return <NoContentView showName={showName} />
 }

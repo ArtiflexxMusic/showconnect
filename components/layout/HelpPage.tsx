@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import {
-  ListMusic, Radio, Mic2, Users, Globe, Monitor, Hash,
-  QrCode, Webhook, Clock, Play, ChevronRight, ChevronDown, Zap,
-  Lock, UserPlus, Printer, Eye, LayoutDashboard, ExternalLink,
+  ListMusic, Radio, Mic2, Users, Globe, Monitor,
+  QrCode, Webhook, Clock, ChevronRight, ChevronDown, Zap,
+  UserPlus, Printer, Eye, Presentation, Rocket,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,21 +106,37 @@ const sections: Section[] = [
   },
   {
     id: 'presentatie',
-    icon: Monitor,
+    icon: Presentation,
     color: 'rose',
-    title: 'Presentatie Output',
-    subtitle: 'Live slides voor de videomixer',
+    title: 'Slides per cue',
+    subtitle: 'PDF of PPTX koppelen aan een cue',
     badge: 'Nieuw',
     description:
-      'Upload een PDF van je presentatie in de rundown-instellingen. De Output-pagina toont de slides fullscreen op een zwarte achtergrond — perfect als bron voor een videomixer of beamer. Stel per cue in op welke slide gesprongen wordt bij GO.',
+      'Upload een PDF of PPTX direct bij een cue. Alle slides zijn dan onderdeel van die cue — de Caller en Presenter bladeren er handmatig doorheen. Pas op het laatste slide gaat GO door naar de volgende cue.',
     steps: [
-      'Ga naar Rundown Instellingen → upload een PDF onder "Slide deck".',
-      'De Output-link verschijnt automatisch. Klik op "Presentatie" in je dashboard.',
-      'Verbind de Output-pagina als source in je videomixer (OBS, vMix, Resolume, etc.).',
-      'In de cue-editor: voer bij "🖥️ Slide bij GO" het dianummer in (1-gebaseerd).',
-      'Wanneer de Caller op GO drukt, springt de slide automatisch mee.',
+      'Open de cue-editor en kies het type "Presentatie" (of een ander type).',
+      'Scroll naar "Presentatie / Slides" en upload een PDF of PPTX (max 50 MB).',
+      'Stel in wie de slides bedient: Caller, Presenter, of beide.',
+      'Tijdens de show: druk op GO om door de slides te bladeren. Pas bij de laatste slide gaat GO naar de volgende cue.',
+      'De Presenter kan ook bladeren met pijltjestoetsen of spatiebalk.',
     ],
-    tip: 'Open de Output-pagina in een aparte, schermvullende browser. De subtiele paginateller rechtsonder is zo transparant dat een chroma-key hem niet oppikt.',
+    tip: 'Voor de beste kwaliteit en volledige slide-controle: exporteer je PPTX vanuit PowerPoint als PDF. PPTX-bestanden worden als voorbeeld getoond maar hebben beperkte slide-controle.',
+  },
+  {
+    id: 'presentatie-output',
+    icon: Monitor,
+    color: 'violet',
+    title: 'Presentatie Output',
+    subtitle: 'Fullscreen slides voor videomixer',
+    description:
+      'De Output-pagina toont de actieve slide fullscreen op een zwarte achtergrond — ideaal als source voor een videomixer of beamer. De slides worden realtime gesynchroniseerd met de Caller.',
+    steps: [
+      'Klik op "Presentatie" in je show-dashboard om de Output-link te openen.',
+      'Open die pagina op de computer die op de beamer of mixer is aangesloten.',
+      'Verbind als bron in je videomixer (OBS, vMix, Resolume, etc.).',
+      'De slides schuiven automatisch mee zodra de Caller of Presenter verder gaat.',
+    ],
+    tip: 'Open de Output-pagina schermvullend (F11). De paginateller rechtsonder is bijna onzichtbaar en wordt niet opgepikt door chroma-key.',
   },
   {
     id: 'cast',
@@ -373,24 +389,24 @@ export function HelpPage() {
         </p>
       </div>
 
-      {/* Promo video banner */}
-      <a
-        href="/cueboard-promo.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors p-5 mb-8 group"
-      >
+      {/* Quick-start banner */}
+      <div className="flex items-center gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-8">
         <div className="h-12 w-12 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
-          <Play className="h-5 w-5 text-emerald-400 translate-x-0.5" />
+          <Rocket className="h-5 w-5 text-emerald-400" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-foreground text-sm">CueBoard in 2 minuten</p>
+          <p className="font-semibold text-foreground text-sm">Nieuw bij CueBoard?</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Bekijk de interactieve introductievideo — alle functies stap voor stap uitgelegd.
+            Ga naar je dashboard — daar staat een interactieve "Aan de slag"-gids die je stap voor stap door de eerste setup leidt.
           </p>
         </div>
-        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-emerald-400 transition-colors shrink-0" />
-      </a>
+        <a
+          href="/dashboard"
+          className="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold transition-colors"
+        >
+          Open dashboard →
+        </a>
+      </div>
 
       {/* Layout: inhoudsopgave + content */}
       <div className="flex gap-8 items-start">

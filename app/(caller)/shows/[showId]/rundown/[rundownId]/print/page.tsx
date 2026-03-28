@@ -15,9 +15,10 @@ function typeColor(type: string): string {
     lighting: '#eab308',
     speech:   '#22c55e',
     break:    '#6b7280',
-    intro:    '#f97316',
-    outro:    '#ef4444',
-    custom:   '#64748b',
+    intro:        '#f97316',
+    outro:        '#ef4444',
+    custom:       '#64748b',
+    presentation: '#10b981',
   }
   return map[type] ?? '#64748b'
 }
@@ -153,6 +154,9 @@ export default async function PrintPage({ params }: PageProps) {
                       {cue.presenter && cue.location && ' · '}
                       {cue.location && `📍 ${cue.location}`}
                     </div>
+                  )}
+                  {cue.presentation_filename && (
+                    <div className="notes">📊 {cue.presentation_filename}</div>
                   )}
                   {cue.notes && <div className="notes">💬 {cue.notes}</div>}
                   {cue.tech_notes && <div className="tech-notes">🔧 {cue.tech_notes}</div>}

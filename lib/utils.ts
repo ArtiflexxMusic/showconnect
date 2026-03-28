@@ -38,9 +38,10 @@ export function cueTypeColor(type: CueType): string {
     lighting: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     speech:   'bg-green-500/20 text-green-400 border-green-500/30',
     break:    'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    intro:    'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    outro:    'bg-red-500/20 text-red-400 border-red-500/30',
-    custom:   'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    intro:        'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    outro:        'bg-red-500/20 text-red-400 border-red-500/30',
+    custom:       'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    presentation: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   }
   return colors[type] ?? colors.custom
 }
@@ -64,9 +65,10 @@ export function cueTypeLabel(type: CueType): string {
     lighting: 'Licht',
     speech:   'Spreker',
     break:    'Pauze',
-    intro:    'Intro',
-    outro:    'Outro',
-    custom:   'Overig',
+    intro:        'Intro',
+    outro:        'Outro',
+    custom:       'Overig',
+    presentation: 'Presentatie',
   }
   return labels[type] ?? 'Overig'
 }

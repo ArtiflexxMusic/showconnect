@@ -2,7 +2,7 @@
 // CueBoard – Database Types
 // ============================================================
 
-export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'custom' | 'intro' | 'outro'
+export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'custom' | 'intro' | 'outro' | 'presentation'
 export type CueStatus = 'pending' | 'running' | 'done' | 'skipped'
 export type UserRole = 'beheerder' | 'admin' | 'crew'
 export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'crew' | 'presenter' | 'viewer'

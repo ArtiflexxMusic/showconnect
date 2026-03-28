@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload ?? {}),
-      // @ts-expect-error Node 18+ fetch signal
       signal: AbortSignal.timeout(5000),
     })
     return NextResponse.json({ status: response.status, ok: response.ok })

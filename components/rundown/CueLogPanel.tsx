@@ -37,14 +37,15 @@ const TYPE_COLORS: Partial<Record<CueType, string>> = {
 }
 
 const TYPE_LABELS: Record<CueType, string> = {
-  video:    'Video',
-  audio:    'Audio',
-  lighting: 'Licht',
-  speech:   'Spreker',
-  break:    'Pauze',
-  intro:    'Intro',
-  outro:    'Outro',
-  custom:   'Overig',
+  video:        'Video',
+  audio:        'Audio',
+  lighting:     'Licht',
+  speech:       'Spreker',
+  break:        'Pauze',
+  intro:        'Intro',
+  outro:        'Outro',
+  custom:       'Overig',
+  presentation: 'Presentatie',
 }
 
 function formatTime(iso: string) {

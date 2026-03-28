@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { CueCountdown } from './CueCountdown'
 import {
   GripVertical, Play, SkipForward, RotateCcw,
-  Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy, Music, Video, FastForward
+  Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy, Music, Video, FastForward, Presentation
 } from 'lucide-react'
 import type { Cue } from '@/lib/types/database'
 import { useState } from 'react'
@@ -43,7 +43,7 @@ export function SortableCueRow({
   const isRunning = cue.status === 'running'
   const isDone    = cue.status === 'done'
   const isSkipped = cue.status === 'skipped'
-  const hasDetails = !!(cue.notes || cue.tech_notes || cue.presenter || cue.location || cue.media_filename)
+  const hasDetails = !!(cue.notes || cue.tech_notes || cue.presenter || cue.location || cue.media_filename || cue.presentation_filename)
 
   return (
     <div
@@ -110,6 +110,14 @@ export function SortableCueRow({
                   ? <Video className="h-3 w-3" />
                   : <Music className="h-3 w-3" />
                 }
+              </span>
+            )}
+            {cue.presentation_url && (
+              <span
+                className="shrink-0 text-emerald-400/60"
+                title={cue.presentation_filename ?? 'Presentatie bijgevoegd'}
+              >
+                <Presentation className="h-3 w-3" />
               </span>
             )}
             {cue.auto_advance && (
@@ -267,6 +275,15 @@ export function SortableCueRow({
                 · Vol {Math.round((cue.media_volume ?? 1.0) * 100)}%
                 {cue.media_autoplay !== false && ' · Autoplay'}
                 {cue.media_loop && ' · Loop'}
+              </span>
+            </div>
+          )}
+          {cue.presentation_filename && (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400/70 border-l-2 border-emerald-500/20 pl-3 py-0.5">
+              <Presentation className="h-3 w-3 shrink-0" />
+              <span className="truncate">{cue.presentation_filename}</span>
+              <span className="text-muted-foreground/50 shrink-0 uppercase">
+                {cue.presentation_type ?? ''}
               </span>
             </div>
           )}

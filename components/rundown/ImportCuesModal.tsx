@@ -44,7 +44,7 @@ const TYPE_MAP: Record<string, CueType> = {
   custom: 'custom', overig: 'custom', other: 'custom', anders: 'custom',
 }
 
-const CUE_TYPES: CueType[] = ['video', 'audio', 'lighting', 'speech', 'break', 'intro', 'outro', 'custom']
+const CUE_TYPES: CueType[] = ['video', 'audio', 'lighting', 'speech', 'break', 'intro', 'outro', 'presentation', 'custom']
 
 // ─── Column detection ────────────────────────────────────────────────────────
 
@@ -222,9 +222,10 @@ const TYPE_COLORS: Record<CueType, string> = {
   lighting: 'bg-yellow-500/15 text-yellow-500',
   speech: 'bg-green-500/15 text-green-400',
   break: 'bg-gray-500/15 text-gray-400',
-  intro: 'bg-orange-500/15 text-orange-400',
-  outro: 'bg-red-500/15 text-red-400',
-  custom: 'bg-slate-500/15 text-slate-400',
+  intro:        'bg-orange-500/15 text-orange-400',
+  outro:        'bg-red-500/15 text-red-400',
+  presentation: 'bg-emerald-500/15 text-emerald-400',
+  custom:       'bg-slate-500/15 text-slate-400',
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

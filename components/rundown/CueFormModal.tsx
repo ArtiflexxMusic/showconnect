@@ -22,9 +22,10 @@ const CUE_TYPES: { value: CueType; label: string; emoji: string }[] = [
   { value: 'audio',    label: 'Audio',    emoji: '🎵' },
   { value: 'lighting', label: 'Licht',    emoji: '💡' },
   { value: 'speech',   label: 'Spreker',  emoji: '🎤' },
-  { value: 'break',    label: 'Pauze',    emoji: '☕' },
-  { value: 'outro',    label: 'Outro',    emoji: '🏁' },
-  { value: 'custom',   label: 'Overig',   emoji: '⚙️' },
+  { value: 'break',        label: 'Pauze',       emoji: '☕' },
+  { value: 'outro',        label: 'Outro',       emoji: '🏁' },
+  { value: 'presentation', label: 'Presentatie', emoji: '📊' },
+  { value: 'custom',       label: 'Overig',      emoji: '⚙️' },
 ]
 
 const MEDIA_TYPES: CueType[] = ['audio', 'video', 'intro', 'outro']

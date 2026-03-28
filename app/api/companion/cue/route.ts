@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         .from('cues').select('title')
         .eq('rundown_id', rundownId).eq('status', 'pending')
         .order('position', { ascending: true }).limit(1).single()
-      return new NextResponse(data?.title ?? '', {
+      return new NextResponse(data?.title ?? '–', {
         headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
       })
     }
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       .from('cues').select('title')
       .eq('rundown_id', rundownId).eq('status', 'running')
       .single()
-    return new NextResponse(data?.title ?? '', {
+    return new NextResponse(data?.title ?? '–', {
       headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
     })
 

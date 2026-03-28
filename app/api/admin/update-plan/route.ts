@@ -3,12 +3,15 @@
  *
  * Wijzigt het plan van een gebruiker. Alleen toegankelijk voor beheerders.
  * Body: { userId, plan, planSource, planExpiresAt? }
+ *
+ * Stuurt automatisch een mail als plan_source op 'paid' wordt gezet.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Plan, PlanSource } from '@/lib/plans'
+import { sendEmail, buildPaymentRequestEmail } from '@/lib/email'
 
 function createAdminClient() {
   return createClient(
@@ -49,10 +52,17 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Ongeldig plan of bron' }, { status: 400 })
   }
 
-  // plan_source moet 'free' zijn als plan 'free' is
   const resolvedSource: PlanSource = plan === 'free' ? 'free' : planSource
 
+  // Haal het huidige plan op (voor vergelijking)
   const admin = createAdminClient()
+  const { data: targetProfile } = await admin
+    .from('profiles')
+    .select('email, full_name, plan, plan_source')
+    .eq('id', userId)
+    .single()
+
+  // Plan opslaan
   const { error } = await admin
     .from('profiles')
     .update({
@@ -66,5 +76,24 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  // ── Mail versturen als plan_source op 'paid' wordt gezet ──────────────────
+  const isPaidActivation =
+    resolvedSource === 'paid' &&
+    targetProfile?.plan_source !== 'paid' &&
+    (plan === 'pro' || plan === 'team')
+
+  if (isPaidActivation && targetProfile?.email) {
+    const emailData = buildPaymentRequestEmail({
+      name:    targetProfile.full_name,
+      plan:    plan as 'pro' | 'team',
+    })
+
+    await sendEmail({
+      to:      targetProfile.email,
+      subject: emailData.subject,
+      html:    emailData.html,
+    })
+  }
+
+  return NextResponse.json({ success: true, emailSent: isPaidActivation })
 }

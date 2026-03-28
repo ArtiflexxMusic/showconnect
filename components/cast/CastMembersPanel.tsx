@@ -54,6 +54,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
   const [copied, setCopied]       = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<CastMember | null>(null)
   const [addOpen, setAddOpen]     = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Form state
   const [name, setName]   = useState('')
@@ -89,16 +90,27 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
   async function saveMember() {
     if (!name.trim()) return
     setSaving(true)
+    setSaveError(null)
     try {
       if (editTarget) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('cast_members').update({ name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null }).eq('id', editTarget.id)
+        const { error } = await (supabase as any).from('cast_members').update({ name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null }).eq('id', editTarget.id)
+        if (error) throw error
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('cast_members').insert({ show_id: showId, name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null })
+        const { error } = await (supabase as any).from('cast_members').insert({ show_id: showId, name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null })
+        if (error) throw error
       }
       await load()
       setAddOpen(false)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Handige melding als tabel nog niet bestaat
+      if (msg.includes('relation') && msg.includes('does not exist')) {
+        setSaveError('De cast_members tabel bestaat nog niet in de database. Voer de SQL-migratie uit in Supabase.')
+      } else {
+        setSaveError(msg)
+      }
     } finally {
       setSaving(false)
     }
@@ -289,6 +301,13 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
               <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Bijv. mobiel nummer, kleedkamer…" />
             </div>
           </div>
+          {saveError && (
+            <div className="px-1 pb-1">
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                ⚠️ {saveError}
+              </p>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Annuleren</Button>
             <Button onClick={saveMember} disabled={saving || !name.trim()} className="bg-emerald-600 hover:bg-emerald-500 text-black font-bold">

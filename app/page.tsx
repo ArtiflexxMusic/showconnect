@@ -77,8 +77,8 @@ function Hero() {
         {/* Headline */}
         <h1 className="font-extrabold uppercase text-white leading-[0.9] tracking-tight"
             style={{ fontSize: 'clamp(3.5rem, 9vw, 7.5rem)' }}>
-          De ruggengraat<br />
-          <span className="text-emerald-400">van je show.</span>
+          Alles op het moment<br />
+          <span className="text-emerald-400">dat het telt.</span>
         </h1>
 
         <p className="text-lg text-white/45 leading-relaxed max-w-2xl">

@@ -22,11 +22,26 @@ export default async function AdminPage() {
     .select('id, email, full_name, role, avatar_url, created_at')
     .order('created_at', { ascending: false })
 
-  // Alle shows met ledencount
-  const { data: shows } = await supabase
+  // Alle shows (twee queries om RLS-aggregatie-issue te vermijden)
+  const { data: showsRaw } = await supabase
     .from('shows')
-    .select('id, name, date, created_by, show_members(count)')
+    .select('id, name, date, created_by, created_at')
     .order('created_at', { ascending: false })
+
+  // Ledencount per show via aparte query
+  const { data: memberCounts } = await supabase
+    .from('show_members')
+    .select('show_id')
+
+  const countMap: Record<string, number> = {}
+  for (const m of (memberCounts ?? [])) {
+    countMap[m.show_id] = (countMap[m.show_id] ?? 0) + 1
+  }
+
+  const shows = (showsRaw ?? []).map(s => ({
+    ...s,
+    show_members: [{ count: countMap[s.id] ?? 0 }],
+  }))
 
   return (
     <AdminPanel

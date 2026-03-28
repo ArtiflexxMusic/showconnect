@@ -15,6 +15,7 @@ import {
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 import Link from 'next/link'
 import { SlideViewer } from './SlideViewer'
+import { MicPatchPanel } from './MicPatchPanel'
 
 interface CallerViewProps {
   rundown: Rundown
@@ -97,6 +98,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [mediaPaused, setMediaPaused]           = useState(false)
   const [mediaCurrentTime, setMediaCurrentTime] = useState(0)
   const [mediaDuration, setMediaDuration]       = useState(0)
+
+  const [showMicPatch, setShowMicPatch] = useState(false)
 
   // Slide state
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
@@ -496,6 +499,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Mic patch */}
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => setShowMicPatch(true)}
+            className="h-8 gap-1.5 text-muted-foreground"
+            title="Mic patch"
+          >
+            <Radio className="h-4 w-4" />
+          </Button>
+
           {/* Nudge knop */}
           <Button
             variant="ghost" size="sm"
@@ -866,6 +879,13 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
       </div>
 
+      <MicPatchPanel
+        showId={show.id}
+        rundownId={rundown.id}
+        cues={cues}
+        open={showMicPatch}
+        onClose={() => setShowMicPatch(false)}
+      />
     </div>
   )
 }

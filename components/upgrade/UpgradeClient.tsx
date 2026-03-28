@@ -101,9 +101,12 @@ export function UpgradeClient({
   const [cancelling,    setCancelling]    = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
-  const isPaid       = planSource === 'paid'
-  const planExpired  = planExpiresAt ? new Date(planExpiresAt) < new Date() : false
-  const isActivePaid = isPaid && !planExpired
+  const isPaid        = planSource === 'paid'
+  const isGift        = planSource === 'gift'
+  const planExpired   = planExpiresAt ? new Date(planExpiresAt) < new Date() : false
+  const isActivePaid  = isPaid  && !planExpired
+  const isActiveGift  = isGift  && !planExpired
+  const isActivePlan  = (isPaid || isGift) && !planExpired   // actief betaald óf cadeau
 
   async function handleCheckout(variantKey: string) {
     setLoading(variantKey)
@@ -155,29 +158,56 @@ export function UpgradeClient({
           </Button>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Plannen</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            {isActivePaid
-              ? `Je gebruikt het ${currentPlan === 'pro' ? 'Pro' : 'Team'} plan`
-              : 'Kies het plan dat bij jouw gebruik past'}
+            {isActiveGift
+              ? `Je hebt een cadeau ${currentPlan === 'pro' ? 'Pro' : 'Team'} plan`
+              : isActivePaid
+                ? `Je gebruikt het ${currentPlan === 'pro' ? 'Pro' : 'Team'} plan`
+                : 'Kies het plan dat bij jouw gebruik past'}
           </p>
         </div>
 
-        {/* Huidig plan info (indien betaald actief) */}
-        {isActivePaid && planExpiresAt && (
-          <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4 text-sm">
-            <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+        {/* Huidig plan info banner */}
+        {isActivePlan && planExpiresAt && (
+          <div className={cn(
+            'flex items-start gap-3 rounded-xl border p-4 text-sm',
+            isActiveGift
+              ? 'border-amber-500/30 bg-amber-500/10'
+              : 'border-border bg-muted/30'
+          )}>
+            {isActiveGift
+              ? <Gift className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              : <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+            }
             <div>
-              <p className="font-medium">
-                {hasSubscription ? 'Volgende verlenging' : 'Plan actief tot'}{' '}
-                <span className="text-foreground">
-                  {new Date(planExpiresAt).toLocaleDateString('nl-NL', {
-                    day: 'numeric', month: 'long', year: 'numeric',
-                  })}
-                </span>
-              </p>
-              {!hasSubscription && (
-                <p className="text-muted-foreground mt-0.5">
-                  Wordt niet automatisch verlengd — verleng hieronder als je wilt doorgaan.
-                </p>
+              {isActiveGift ? (
+                <>
+                  <p className="font-medium text-amber-300">Cadeau plan actief</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    Je gebruikt een cadeau-abonnement, geldig tot{' '}
+                    <span className="text-foreground">
+                      {new Date(planExpiresAt).toLocaleDateString('nl-NL', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                    </span>
+                    . Wil je daarna doorgaan? Kies dan een betaald plan hieronder.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">
+                    {hasSubscription ? 'Volgende verlenging' : 'Plan actief tot'}{' '}
+                    <span className="text-foreground">
+                      {new Date(planExpiresAt).toLocaleDateString('nl-NL', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                    </span>
+                  </p>
+                  {!hasSubscription && (
+                    <p className="text-muted-foreground mt-0.5">
+                      Wordt niet automatisch verlengd — verleng hieronder als je wilt doorgaan.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -215,10 +245,10 @@ export function UpgradeClient({
         {/* Plankaarten */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {PLANS.map((plan) => {
-            const isCurrent = plan.key === currentPlan && isActivePaid
-            const isCurrentFree = plan.key === 'free' && !isActivePaid
-            const isUpgrade = PLAN_ORDER[plan.key] > PLAN_ORDER[currentPlan]
-            const isDowngrade = PLAN_ORDER[plan.key] < PLAN_ORDER[currentPlan] && isActivePaid
+            const isCurrent     = plan.key === currentPlan && isActivePlan
+            const isCurrentFree = plan.key === 'free' && !isActivePlan
+            const isUpgrade     = PLAN_ORDER[plan.key] > PLAN_ORDER[currentPlan]
+            const isDowngrade   = PLAN_ORDER[plan.key] < PLAN_ORDER[currentPlan] && isActivePaid  // alleen bij betaald, niet cadeau
 
             const chosen = plan.key !== 'free'
               ? billingInterval === 'monthly' ? plan.monthly! : plan.yearly!
@@ -239,8 +269,14 @@ export function UpgradeClient({
               >
                 {/* Huidig plan badge */}
                 {(isCurrent || isCurrentFree) && (
-                  <Badge className={cn('absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap', plan.badge)}>
-                    Huidig plan
+                  <Badge className={cn(
+                    'absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap flex items-center gap-1',
+                    isActiveGift && isCurrent
+                      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                      : plan.badge
+                  )}>
+                    {isActiveGift && isCurrent && <Gift className="h-3 w-3" />}
+                    {isActiveGift && isCurrent ? 'Cadeau plan' : 'Huidig plan'}
                   </Badge>
                 )}
 
@@ -344,7 +380,7 @@ export function UpgradeClient({
           <p className="text-sm text-destructive text-center">{error}</p>
         )}
 
-        {/* Plan opzeggen sectie (indien betaald) */}
+        {/* Plan opzeggen sectie (alleen bij betaald — niet bij cadeau) */}
         {isActivePaid && (
           <div className="rounded-xl border border-border/50 p-4 sm:p-5 space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">

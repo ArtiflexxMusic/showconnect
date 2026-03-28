@@ -26,6 +26,8 @@ interface SlideViewerProps {
   /** Of de gebruiker hier mag navigeren */
   canControl?: boolean
   onSlideChange?: (index: number) => void
+  /** Callback zodra het totale aantal pagina's bekend is (alleen PDF) */
+  onPageCount?: (n: number) => void
   className?: string
   /** Fullscreen modus tonen */
   allowFullscreen?: boolean
@@ -220,11 +222,14 @@ function PptxViewer({ url, showControls, canControl, allowFullscreen }: {
 // ── SlideViewer (hoofd-export) ─────────────────────────────────────────────────
 export function SlideViewer({
   url, type, slideIndex, totalSlides, showControls = true,
-  canControl = false, onSlideChange, className, allowFullscreen = false,
+  canControl = false, onSlideChange, onPageCount, className, allowFullscreen = false,
 }: SlideViewerProps) {
   const [pageCount, setPageCount] = useState(totalSlides ?? 0)
 
-  const handlePageCount = useCallback((n: number) => setPageCount(n), [])
+  const handlePageCount = useCallback((n: number) => {
+    setPageCount(n)
+    onPageCount?.(n)
+  }, [onPageCount])
 
   return (
     <div className={cn('relative overflow-hidden rounded-xl border border-white/8 bg-[#080f0a]', className)}>

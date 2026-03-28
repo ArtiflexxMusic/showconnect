@@ -116,6 +116,7 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
   const [cues, setCues]         = useState<Cue[]>(initialCues)
   const [unlocked, setUnlocked] = useState(!rundown.presenter_pin)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [totalSlidesInCue, setTotalSlidesInCue] = useState(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const slideChannelRef = useRef<any>(null)
 
@@ -190,10 +191,50 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
     }
   }, [rundown.id, supabase])
 
-  // Reset slide index when active cue changes
+  // Reset slide index en totaal als de actieve cue wisselt
   useEffect(() => {
     setCurrentSlideIndex(activeCue?.current_slide_index ?? 0)
+    setTotalSlidesInCue(0)
   }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keyboard shortcuts voor de presentator om door slides te navigeren
+  useEffect(() => {
+    if (!activeCue?.presentation_url) return
+    if (activeCue.slide_control_mode === 'caller') return // Presenter mag niet bedienen
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'ArrowDown') {
+        e.preventDefault()
+        setCurrentSlideIndex((prev) => {
+          const next = Math.min(prev + 1, totalSlidesInCue > 0 ? totalSlidesInCue - 1 : prev + 1)
+          if (next !== prev) {
+            // Broadcast naar caller en persisteer
+            slideChannelRef.current?.send({
+              type: 'broadcast', event: 'slide_change',
+              payload: { index: next, source: 'presenter' },
+            })
+          }
+          return next
+        })
+      }
+      if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
+        e.preventDefault()
+        setCurrentSlideIndex((prev) => {
+          const next = Math.max(0, prev - 1)
+          if (next !== prev) {
+            slideChannelRef.current?.send({
+              type: 'broadcast', event: 'slide_change',
+              payload: { index: next, source: 'presenter' },
+            })
+          }
+          return next
+        })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeCue, totalSlidesInCue])
 
   const handleSlideChange = useCallback(async (index: number) => {
     setCurrentSlideIndex(index)
@@ -357,6 +398,7 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
                   showControls
                   canControl={activeCue.slide_control_mode !== 'caller'}
                   onSlideChange={handleSlideChange}
+                  onPageCount={setTotalSlidesInCue}
                   className="h-[360px]"
                   allowFullscreen
                 />

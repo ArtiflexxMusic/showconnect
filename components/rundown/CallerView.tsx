@@ -104,6 +104,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
   // Slide state
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [totalSlidesInCue, setTotalSlidesInCue] = useState(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const slideChannelRef = useRef<any>(null)
 
@@ -214,10 +215,38 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   }, [rundown.id, supabase])
 
   // ── GO ───────────────────────────────────────────────────────────────────
-  const handleGo = useCallback(async () => {
+  // forceCueAdvance = true slaat slide-navigatie over (gebruikt door auto-advance)
+  const handleGo = useCallback(async (forceCueAdvance = false) => {
     if (isProcessing || showComplete) return
     setIsProcessing(true)
     try {
+      // ── Slide-first: als de actieve cue een presentatie heeft en er nog
+      //    slides over zijn, gaan we naar de volgende slide i.p.v. de volgende cue.
+      //    Uitzondering: slide_control_mode === 'presenter' (dan mag de caller niet bedienen)
+      //    en forceCueAdvance (auto-advance timer).
+      if (
+        !forceCueAdvance &&
+        activeCue?.presentation_url &&
+        activeCue.slide_control_mode !== 'presenter' &&
+        totalSlidesInCue > 1 &&
+        currentSlideIndex < totalSlidesInCue - 1
+      ) {
+        const newIndex = currentSlideIndex + 1
+        setCurrentSlideIndex(newIndex)
+        if (slideChannelRef.current) {
+          slideChannelRef.current.send({
+            type: 'broadcast',
+            event: 'slide_change',
+            payload: { index: newIndex, source: 'caller' },
+          })
+        }
+        await supabase.from('cues')
+          .update({ current_slide_index: newIndex } as Record<string, unknown>)
+          .eq('id', activeCue.id)
+        return // Cue blijft actief, alleen slide gevorderd
+      }
+
+      // ── Cue advance ──────────────────────────────────────────────────────
       if (activeCue) {
         // Race condition bescherming: alleen updaten als de cue nog steeds 'running' is
         await supabase.from('cues')
@@ -268,7 +297,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     } finally {
       setTimeout(() => setIsProcessing(false), 300)
     }
-  }, [isProcessing, showComplete, activeCue, nextCue, rundown, supabase])
+  }, [isProcessing, showComplete, activeCue, nextCue, rundown, supabase, totalSlidesInCue, currentSlideIndex])
 
   // ── PREV ─────────────────────────────────────────────────────────────────
   const handlePrev = useCallback(async () => {
@@ -326,9 +355,10 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     }
   }, [activeCue, supabase])
 
-  // Reset slide index als de actieve cue wisselt
+  // Reset slide index en totaal als de actieve cue wisselt
   useEffect(() => {
     setCurrentSlideIndex(activeCue?.current_slide_index ?? 0)
+    setTotalSlidesInCue(0) // Wordt opnieuw ingesteld zodra SlideViewer de PDF heeft geladen
   }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Nudge sturen ─────────────────────────────────────────────────────────
@@ -448,7 +478,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     }
     if (countdown <= 0 && !autoAdvanceRef.current && !isProcessing && !showComplete) {
       autoAdvanceRef.current = true
-      handleGo()
+      handleGo(true) // forceCueAdvance: timer moet altijd de cue doorsturen, niet de slide
     }
     if (countdown > 0) {
       autoAdvanceRef.current = false
@@ -694,6 +724,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                   showControls
                   canControl={activeCue.slide_control_mode !== 'presenter'}
                   onSlideChange={handleSlideChange}
+                  onPageCount={setTotalSlidesInCue}
                   className="h-[300px]"
                   allowFullscreen
                 />
@@ -761,7 +792,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
           <Button
             size="lg"
-            onClick={handleGo}
+            onClick={() => handleGo()}
             disabled={isProcessing || showComplete}
             className={cn(
               'gap-2 min-w-[220px] text-xl font-black h-14 transition-all',
@@ -789,9 +820,9 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
 
         <p className="text-center text-xs text-muted-foreground/40 mt-2">
-          <kbd className="px-1.5 rounded border border-border/50 font-mono">SPATIE</kbd> GO &nbsp;·&nbsp;
+          <kbd className="px-1.5 rounded border border-border/50 font-mono">SPATIE</kbd> GO / volgende slide &nbsp;·&nbsp;
           <kbd className="px-1.5 rounded border border-border/50 font-mono">←</kbd> Vorige &nbsp;·&nbsp;
-          <kbd className="px-1.5 rounded border border-border/50 font-mono">S</kbd> Skip &nbsp;·&nbsp;
+          <kbd className="px-1.5 rounded border border-border/50 font-mono">S</kbd> Skip cue &nbsp;·&nbsp;
           <kbd className="px-1.5 rounded border border-border/50 font-mono">N</kbd> Nudge crew
         </p>
       </div>

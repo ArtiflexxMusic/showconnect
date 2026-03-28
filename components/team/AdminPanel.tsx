@@ -117,9 +117,14 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   // ── Gebruiker verwijderen (alleen beheerder) ─────────────────────────────
   const deleteUser = async (userId: string) => {
     setDeleteConfirm(null)
-    // Verwijder profiel — cascades door FK naar shows_members etc.
-    await supabase.from('profiles').delete().eq('id', userId)
-    setUsers(prev => prev.filter(u => u.id !== userId))
+    const res = await fetch('/api/admin/delete-user', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    if (res.ok) {
+      setUsers(prev => prev.filter(u => u.id !== userId))
+    }
   }
 
   const beheerderCount = users.filter(u => u.role === 'beheerder').length

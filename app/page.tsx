@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import {
   Radio, Users, Monitor, Smartphone, Zap, Lock,
-  CheckCircle, ArrowRight, Clock, QrCode, Copy,
+  CheckCircle, ArrowRight, Clock, QrCode,
   ChevronRight, Star, LayoutList, Mic, Link2,
   ShieldCheck, Layers, BarChart2, Volume2,
 } from 'lucide-react'
+import { FeatureSlideshow } from '@/components/landing/FeatureSlideshow'
 
 // ─────────────────────────────────────────────
 // LOGO COMPONENT (herbruikbaar)
@@ -40,6 +41,9 @@ function Navbar() {
           <Link href="/login" className="hidden sm:block text-xs text-white/40 hover:text-white transition-colors px-4 py-2 font-semibold uppercase tracking-wider">
             Inloggen
           </Link>
+          <a href="#pricing" className="md:hidden text-xs text-white/40 hover:text-emerald-400 transition-colors px-3 py-2 font-semibold uppercase tracking-wider">
+            Prijzen
+          </a>
           <Link href="/register" className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs px-5 py-2.5 rounded-lg transition-all uppercase tracking-wider">
             Gratis starten <ArrowRight className="h-3 w-3" />
           </Link>
@@ -549,7 +553,7 @@ const PLANS = [
   },
   {
     name: 'Pro',
-    price: '€12',
+    price: '€9,95',
     period: 'per maand',
     desc: 'Voor professionals die meerdere shows draaien.',
     highlight: true,
@@ -559,12 +563,12 @@ const PLANS = [
   },
   {
     name: 'Team',
-    price: '€39',
+    price: '€29,99',
     period: 'per maand',
     desc: 'Voor AV-bureaus en productieteams.',
     highlight: false,
-    cta: 'Contact opnemen',
-    href: 'mailto:info@artiflexx.nl',
+    cta: 'Team starten',
+    href: '/register?plan=team',
     features: ['Alles uit Pro', 'Tot 10 gebruikers', 'Teambeheerpaneel', 'Centrale show bibliotheek', 'Mic Patch & audio beheer', 'SSO', 'Dedicated support'],
   },
 ]
@@ -669,6 +673,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
         <Logo size="sm" />
         <div className="flex items-center gap-6 text-[11px] font-semibold text-white/25 uppercase tracking-[0.18em]">
+          <a href="#pricing"     className="hover:text-emerald-400 transition-colors">Prijzen</a>
           <Link href="/login"    className="hover:text-white transition-colors">Inloggen</Link>
           <Link href="/register" className="hover:text-white transition-colors">Registreren</Link>
           <a href="mailto:info@artiflexx.nl" className="hover:text-white transition-colors">Contact</a>
@@ -687,7 +692,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#050f09] text-white">
       <Navbar />
       <Hero />
-      <ViewsStrip />
+      <FeatureSlideshow />
       <CastPortal />
       <FeaturesGrid />
       <HowItWorks />

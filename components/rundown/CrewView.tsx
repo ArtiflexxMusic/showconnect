@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
+import { MicStatusBar } from './MicStatusBar'
 
 interface CrewAnnotation {
   id: string
@@ -221,23 +222,27 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
 
         {/* Actieve cue banner */}
         {activeCue && (
-          <div className="bg-green-500/10 border-t border-green-500/20 px-4 py-2.5 flex items-center gap-3">
-            <div className="h-2.5 w-2.5 rounded-full bg-green-400 shrink-0 animate-pulse" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-green-400 font-semibold uppercase tracking-wider">Nu live</p>
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-bold text-foreground truncate">{activeCue.title}</p>
-                {activeCue.media_url && (
-                  activeCue.media_type?.startsWith('video/')
-                    ? <Video className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
-                    : <Music className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
-                )}
+          <div className="bg-green-500/10 border-t border-green-500/20 px-4 py-2.5">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-2.5 w-2.5 rounded-full bg-green-400 shrink-0 animate-pulse" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-green-400 font-semibold uppercase tracking-wider">Nu live</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-foreground truncate">{activeCue.title}</p>
+                  {activeCue.media_url && (
+                    activeCue.media_type?.startsWith('video/')
+                      ? <Video className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
+                      : <Music className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
+                  )}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="font-mono font-bold text-green-400 text-sm">{countdownStr(activeCue)}</p>
+                <p className="text-xs text-muted-foreground">{formatDuration(activeCue.duration_seconds)} totaal</p>
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="font-mono font-bold text-green-400 text-sm">{countdownStr(activeCue)}</p>
-              <p className="text-xs text-muted-foreground">{formatDuration(activeCue.duration_seconds)} totaal</p>
-            </div>
+            {/* Mic status voor actieve cue */}
+            <MicStatusBar showId={show.id} cueId={activeCue.id} hideIfEmpty={true} />
           </div>
         )}
 
@@ -367,6 +372,11 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
                         <span>{cue.tech_notes}</span>
                       </div>
                     )}
+
+                    {/* Mic toewijzingen voor deze cue */}
+                    <div className="mt-2">
+                      <MicStatusBar showId={show.id} cueId={cue.id} hideIfEmpty={true} />
+                    </div>
                   </div>
 
                   {/* Duur */}

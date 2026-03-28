@@ -5,15 +5,47 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LayoutDashboard, Plus, Shield, User, HelpCircle } from 'lucide-react'
 
-const navItems = [
+const showItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Overzicht' },
   { href: '/shows/new', icon: Plus,            label: 'Nieuwe show' },
-  { href: '/profile',   icon: User,             label: 'Mijn profiel' },
-  { href: '/help',      icon: HelpCircle,       label: 'Help & Uitleg' },
+]
+
+const accountItems = [
+  { href: '/profile', icon: User,        label: 'Mijn profiel' },
+  { href: '/help',    icon: HelpCircle,  label: 'Help & Uitleg' },
 ]
 
 interface AppSidebarProps {
   isAdmin?: boolean
+}
+
+function NavGroup({ label, items, pathname }: {
+  label: string
+  items: { href: string; icon: React.ElementType; label: string }[]
+  pathname: string
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {label}
+      </p>
+      {items.map(({ href, icon: Icon, label: itemLabel }) => (
+        <Link
+          key={href}
+          href={href}
+          className={cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            pathname === href
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          {itemLabel}
+        </Link>
+      ))}
+    </div>
+  )
 }
 
 export function AppSidebar({ isAdmin }: AppSidebarProps) {
@@ -21,29 +53,13 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
 
   return (
     <aside className="w-56 shrink-0 border-r border-border/50 bg-background/50 hidden md:flex flex-col">
-      <nav className="flex-1 p-3 space-y-1">
-        <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Navigatie
-        </p>
-        {navItems.map(({ href, icon: Icon, label }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              pathname === href
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </Link>
-        ))}
+      <nav className="flex-1 p-3 space-y-4">
+        <NavGroup label="Shows" items={showItems} pathname={pathname} />
+        <NavGroup label="Account" items={accountItems} pathname={pathname} />
 
         {isAdmin && (
-          <>
-            <p className="px-3 pt-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <div className="space-y-1">
+            <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Beheer
             </p>
             <Link
@@ -58,7 +74,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
               <Shield className="h-4 w-4 shrink-0" />
               Admin
             </Link>
-          </>
+          </div>
         )}
       </nav>
 

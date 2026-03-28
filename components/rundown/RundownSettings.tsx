@@ -461,11 +461,13 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Monitor className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Slide deck (output scherm)</h3>
+              <h3 className="text-sm font-semibold">Standaard slide deck (show-breed)</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Upload de presentatie als PDF. Het output-scherm toont de slides live — koppel het via je videomixer.
-              Exporteer je PPTX vanuit PowerPoint als PDF voor de beste weergave.
+              Deze presentatie geldt voor de hele show en wordt getoond als er geen cue-specifieke presentatie actief is.
+              Wil je <strong className="text-foreground/70">per spreker/cue een eigen presentatie</strong>?
+              Bewerk dan de cue (klik op het potlood-icoon) en upload daar een presentatie onder het tabblad&nbsp;
+              <span className="font-medium text-foreground/70">Media & Slides</span>.
             </p>
             {slideUrl ? (
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-emerald-500/5 px-3 py-2">
@@ -520,11 +522,11 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Image className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Still image (fallback)</h3>
+              <h3 className="text-sm font-semibold">Still image (inloop / pauze)</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Optionele achtergrondafbeelding voor het output-scherm — getoond als er geen actieve presentatie is.
-              Gebruik bijvoorbeeld een logo-slide of sponsor-scherm om een zwart beeld te voorkomen.
+              Vaste afbeelding voor het output-scherm — zichtbaar als er géén actieve cue of presentatie loopt.
+              Ideaal voor inloop, pauze, of als wachtscherm met logo of sponsor. Voorkomt een zwart beeld.
             </p>
             {stillUrl ? (
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-blue-500/5 px-3 py-2">

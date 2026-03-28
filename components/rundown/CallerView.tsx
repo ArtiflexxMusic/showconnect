@@ -16,6 +16,7 @@ import type { Cue, Rundown, Show } from '@/lib/types/database'
 import Link from 'next/link'
 import { SlideViewer } from './SlideViewer'
 import { MicPatchPanel } from './MicPatchPanel'
+import { MicStatusBar } from './MicStatusBar'
 
 interface CallerViewProps {
   rundown: Rundown
@@ -665,6 +666,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                   🔧 {activeCue.tech_notes}
                 </p>
               )}
+
+              {/* Mic status */}
+              <div className="mt-3 pt-3 border-t border-border/20">
+                <MicStatusBar showId={show.id} cueId={activeCue.id} hideIfEmpty={false} />
+              </div>
             </div>
 
             {/* ── Slide viewer ── */}

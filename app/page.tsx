@@ -34,6 +34,9 @@ function Navbar() {
           <a href="#pricing"  className="hover:text-white transition-colors">Pricing</a>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/cast-login" className="hidden sm:flex items-center gap-1.5 text-xs text-white/40 hover:text-emerald-400 transition-colors px-4 py-2 font-semibold uppercase tracking-wider border border-white/10 hover:border-emerald-500/40 rounded-lg">
+            Cast Login
+          </Link>
           <Link href="/login" className="hidden sm:block text-xs text-white/40 hover:text-white transition-colors px-4 py-2 font-semibold uppercase tracking-wider">
             Inloggen
           </Link>

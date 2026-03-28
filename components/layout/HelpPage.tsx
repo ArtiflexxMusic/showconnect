@@ -3,7 +3,7 @@
 import {
   ListMusic, Radio, Mic2, Users, Globe, Monitor, Hash,
   QrCode, Webhook, Clock, Play, ChevronRight, Zap,
-  Lock, UserPlus, Printer, Eye, LayoutDashboard,
+  Lock, UserPlus, Printer, Eye, LayoutDashboard, ExternalLink,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -353,6 +353,25 @@ export function HelpPage() {
           Alles over de functies van CueBoard — van rundown tot Presenter, van Cast PIN tot videomixer output.
         </p>
       </div>
+
+      {/* Promo video banner */}
+      <a
+        href="/cueboard-promo.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors p-5 mb-8 group"
+      >
+        <div className="h-12 w-12 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
+          <Play className="h-5 w-5 text-emerald-400 translate-x-0.5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-foreground text-sm">CueBoard in 2 minuten</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Bekijk de interactieve introductievideo — alle functies stap voor stap uitgelegd.
+          </p>
+        </div>
+        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-emerald-400 transition-colors shrink-0" />
+      </a>
 
       {/* Layout: inhoudsopgave + content */}
       <div className="flex gap-8 items-start">

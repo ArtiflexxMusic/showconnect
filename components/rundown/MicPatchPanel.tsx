@@ -37,12 +37,6 @@ const COLORS = [
   '#ec4899','#14b8a6','#f97316','#84cc16','#6366f1',
 ]
 
-const PHASES: { value: string; label: string }[] = [
-  { value: 'before', label: 'Vóór' },
-  { value: 'during', label: 'Tijdens' },
-  { value: 'after',  label: 'Na' },
-]
-
 interface Assignment {
   id: string
   cue_id: string
@@ -78,7 +72,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   const [dColor, setDColor]   = useState(COLORS[0])
   const [dNotes, setDNotes]   = useState('')
 
-  // Assignment state: { [cueId-deviceId-phase]: assignment }
+  // Assignment state: { [cueId-deviceId]: assignment }  (één per cel, ongeacht fase)
   const [assignMap, setAssignMap] = useState<Record<string, Assignment>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -90,9 +84,11 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     const { data: asgns } = await (supabase as any).from('cue_audio_assignments').select('*').in('cue_id', cues.map(c => c.id))
     setDevices(devs ?? [])
     setAssignments(asgns ?? [])
+    // Gebruik cueId-deviceId als sleutel (fases samengevouwen)
     const map: Record<string, Assignment> = {}
     ;(asgns ?? []).forEach((a: Assignment) => {
-      map[`${a.cue_id}-${a.device_id}-${a.phase}`] = a
+      const key = `${a.cue_id}-${a.device_id}`
+      if (!map[key]) map[key] = a           // bewaar eerste match per device+cue
     })
     setAssignMap(map)
     setLoading(false)
@@ -151,15 +147,22 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     await load()
   }
 
-  async function toggleAssignment(cueId: string, deviceId: string, phase: string) {
-    const key = `${cueId}-${deviceId}-${phase}`
+  async function toggleAssignment(cueId: string, deviceId: string) {
+    const key = `${cueId}-${deviceId}`
     const existing = assignMap[key]
     if (existing) {
+      // Verwijder alle assignments voor dit apparaat + cue (ongeacht fase)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('cue_audio_assignments').delete().eq('id', existing.id)
+      await (supabase as any)
+        .from('cue_audio_assignments')
+        .delete()
+        .eq('cue_id', cueId)
+        .eq('device_id', deviceId)
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('cue_audio_assignments').insert({ cue_id: cueId, device_id: deviceId, phase })
+      await (supabase as any)
+        .from('cue_audio_assignments')
+        .insert({ cue_id: cueId, device_id: deviceId, phase: 'during' })
     }
     await load()
   }
@@ -241,29 +244,29 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
               {/* Cue × Device matrix */}
               {devices.length > 0 && cues.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Toewijzing per cue</h3>
-                  <p className="text-xs text-muted-foreground/60 mb-3">
-                    Klik op een cel om een apparaat toe te wijzen aan een cue.
-                    <span className="ml-2 inline-flex items-center gap-1"><span className="h-2 w-2 rounded bg-blue-500/30 border border-blue-500/50 inline-block" /> Vóór</span>
-                    <span className="ml-2 inline-flex items-center gap-1"><span className="h-2 w-2 rounded bg-emerald-500/30 border border-emerald-500/50 inline-block" /> Tijdens</span>
-                    <span className="ml-2 inline-flex items-center gap-1"><span className="h-2 w-2 rounded bg-orange-500/30 border border-orange-500/50 inline-block" /> Na</span>
-                  </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Toewijzing per cue</h3>
+                    <span className="text-xs text-muted-foreground/50">Klik op een cel om een mic aan of uit te zetten bij een cue</span>
+                  </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr>
-                          <th className="text-left p-2 text-muted-foreground font-medium w-40 min-w-[10rem]">Apparaat</th>
+                          <th className="text-left p-2 text-muted-foreground font-medium w-44 min-w-[11rem]">Apparaat</th>
                           {cues.map(cue => (
-                            <th key={cue.id} className="p-2 min-w-[5rem] max-w-[6rem]">
+                            <th key={cue.id} className="p-2 min-w-[4.5rem] max-w-[5.5rem]">
                               <div className={cn(
                                 'text-center leading-tight',
                                 cue.status === 'running' ? 'text-emerald-400' :
-                                cue.status === 'done'    ? 'text-muted-foreground/30' :
-                                'text-muted-foreground/70'
+                                cue.status === 'done'    ? 'text-muted-foreground/25' :
+                                'text-muted-foreground/60'
                               )}>
                                 <div className="font-mono text-[10px] opacity-60">#{cue.position + 1}</div>
-                                <div className="font-semibold truncate text-[11px] max-w-[5rem] mx-auto">{cue.title}</div>
+                                <div className="font-semibold truncate text-[11px] max-w-[4.5rem] mx-auto">{cue.title}</div>
+                                {cue.status === 'running' && (
+                                  <div className="text-[9px] text-emerald-400/70 mt-0.5">● live</div>
+                                )}
                               </div>
                             </th>
                           ))}
@@ -273,38 +276,40 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
                         {devices.map(dev => (
                           <tr key={dev.id} className="border-t border-border/20">
                             <td className="p-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: dev.color }} />
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: dev.color }} />
                                 <span className="font-medium truncate max-w-[8rem]">{dev.name}</span>
+                                {dev.channel && (
+                                  <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0">ch.{dev.channel}</span>
+                                )}
                               </div>
                             </td>
-                            {cues.map(cue => (
-                              <td key={cue.id} className="p-1">
-                                <div className="flex flex-col gap-0.5">
-                                  {PHASES.map(ph => {
-                                    const key = `${cue.id}-${dev.id}-${ph.value}`
-                                    const assigned = !!assignMap[key]
-                                    return (
-                                      <button
-                                        key={ph.value}
-                                        onClick={() => toggleAssignment(cue.id, dev.id, ph.value)}
-                                        title={`${ph.label}: ${dev.name} bij "${cue.title}"`}
-                                        className={cn(
-                                          'h-4 w-full rounded text-[9px] font-bold transition-all border',
-                                          assigned
-                                            ? ph.value === 'before'  ? 'bg-blue-500/30 border-blue-500/60 text-blue-300'
-                                            : ph.value === 'during'  ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300'
-                                            :                          'bg-orange-500/30 border-orange-500/60 text-orange-300'
-                                            : 'bg-transparent border-border/20 text-transparent hover:border-border/50'
-                                        )}
-                                      >
-                                        {assigned ? ph.label[0] : ''}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              </td>
-                            ))}
+                            {cues.map(cue => {
+                              const key = `${cue.id}-${dev.id}`
+                              const isOn = !!assignMap[key]
+                              return (
+                                <td key={cue.id} className="p-1 text-center">
+                                  <button
+                                    onClick={() => toggleAssignment(cue.id, dev.id)}
+                                    title={isOn ? `Uit: ${dev.name} bij "${cue.title}"` : `Aan: ${dev.name} bij "${cue.title}"`}
+                                    className={cn(
+                                      'h-7 w-full rounded-lg border transition-all duration-150 text-[11px] font-bold',
+                                      isOn
+                                        ? 'border-transparent text-white shadow-sm'
+                                        : 'bg-transparent border-border/20 hover:border-border/50 text-muted-foreground/30 hover:text-muted-foreground/50'
+                                    )}
+                                    style={isOn ? {
+                                      backgroundColor: dev.color + '30',
+                                      borderColor: dev.color + '70',
+                                      color: dev.color,
+                                      boxShadow: `0 0 6px ${dev.color}30`,
+                                    } : {}}
+                                  >
+                                    {isOn ? '●' : '○'}
+                                  </button>
+                                </td>
+                              )
+                            })}
                           </tr>
                         ))}
                       </tbody>

@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CueBoard — Promo Video</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #34d399;
+    --green-dim: #065f46;
+    --blue: #60a5fa;
+    --violet: #a78bfa;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --orange: #fb923c;
+    --sky: #38bdf8;
+    --bg: #050a06;
+    --card: #0d1a10;
+    --border: rgba(255,255,255,0.07);
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  /* ── Stage ── */
+  #stage {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Scenes ── */
+  .scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.7s ease;
+  }
+  .scene.active { opacity: 1; pointer-events: auto; }
+
+  /* ── Progress bar ── */
+  #progress-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.05);
+    z-index: 100;
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  /* ── Controls ── */
+  #controls {
+    position: fixed;
+    bottom: 16px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+    align-items: center;
+  }
+  #controls button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.6);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #controls button:hover { background: rgba(255,255,255,0.14); color: white; }
+  #timer {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  /* ── Noise overlay ── */
+  #stage::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 99;
+  }
+
+  /* ── Scene 1: Intro ── */
+  .s1-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 60%, rgba(52,211,153,0.12) 0%, transparent 70%);
+  }
+  .s1-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(52,211,153,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(52,211,153,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black, transparent);
+  }
+  .s1-content {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .s1-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(52,211,153,0.1);
+    border: 1px solid rgba(52,211,153,0.3);
+    border-radius: 999px;
+    padding: 5px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 24px;
+    animation: fadeUp 0.8s 0.2s both;
+  }
+  .s1-badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.6; transform:scale(1.3); } }
+  .s1-title {
+    font-size: clamp(48px, 7vw, 88px);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    animation: fadeUp 0.8s 0.4s both;
+    background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.5));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 20px;
+  }
+  .s1-sub {
+    font-size: clamp(16px, 2.2vw, 22px);
+    color: rgba(255,255,255,0.45);
+    font-weight: 400;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.5;
+    animation: fadeUp 0.8s 0.6s both;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+  /* ── Scene 2: Problem/Pitch ── */
+  .s2-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    max-width: 820px;
+    width: 90%;
+  }
+  .s2-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--green);
+    animation: fadeIn 0.6s 0.2s both;
+  }
+  .s2-heading {
+    font-size: clamp(28px, 4.5vw, 52px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    text-align: center;
+    line-height: 1.15;
+    animation: fadeUp 0.7s 0.3s both;
+  }
+  .s2-heading em { font-style: normal; color: var(--green); }
+  .s2-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    animation: fadeUp 0.7s 0.5s both;
+  }
+  .pill {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    padding: 7px 18px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+  }
+  .pill.green { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.25); color: var(--green); }
+  .pill.blue  { background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.25); color: var(--blue); }
+  .pill.violet{ background: rgba(167,139,250,0.1);border-color: rgba(167,139,250,0.25);color: var(--violet); }
+  .pill.amber { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: var(--amber); }
+  .pill.rose  { background: rgba(251,113,133,0.1);border-color: rgba(251,113,133,0.25);color: var(--rose); }
+
+  /* ── Mock UI Cards ── */
+  .mock-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+  .mock-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+  }
+  .mock-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .mock-header-title { font-size: 12px; color: rgba(255,255,255,0.35); font-weight: 500; margin-left: 4px; }
+
+  /* ── Scene 3: Rundown ── */
+  .s3-layout {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    max-width: 980px;
+    width: 90%;
+  }
+  .s3-text { flex: 1; }
+  .s3-mock { flex: 1.2; animation: fadeUp 0.7s 0.4s both; }
+  .cue-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .cue-row:last-child { border-bottom: none; }
+  .cue-row.active { background: rgba(52,211,153,0.08); }
+  .cue-num { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 20px; }
+  .cue-color { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .cue-title { flex: 1; font-weight: 500; }
+  .cue-dur { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cue-tag {
+    font-size: 10px; font-weight: 600; padding: 2px 7px;
+    border-radius: 4px; letter-spacing: 0.05em;
+  }
+  .tag-speech { background: rgba(96,165,250,0.15); color: var(--blue); }
+  .tag-music  { background: rgba(167,139,250,0.15); color: var(--violet); }
+  .tag-break  { background: rgba(251,191,36,0.15);  color: var(--amber); }
+  .tag-video  { background: rgba(251,113,133,0.15); color: var(--rose); }
+  .tag-intro  { background: rgba(52,211,153,0.15);  color: var(--green); }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .status-running { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-done    { background: var(--muted); }
+  .status-pending { background: transparent; border: 1px solid var(--muted); }
+
+  /* ── Scene 4: Caller ── */
+  .s4-layout {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    max-width: 980px;
+    width: 90%;
+  }
+  .s4-mock { flex: 1.3; animation: fadeUp 0.7s 0.3s both; }
+  .s4-text { flex: 1; }
+  .go-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--green), #059669);
+    color: #000;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    box-shadow: 0 0 0 8px rgba(52,211,153,0.15), 0 0 32px rgba(52,211,153,0.4);
+    animation: goPulse 2s infinite;
+  }
+  @keyframes goPulse {
+    0%,100% { box-shadow: 0 0 0 8px rgba(52,211,153,0.15), 0 0 32px rgba(52,211,153,0.3); }
+    50%      { box-shadow: 0 0 0 16px rgba(52,211,153,0.08), 0 0 48px rgba(52,211,153,0.5); }
+  }
+  .caller-mock-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .caller-active {
+    background: rgba(52,211,153,0.08);
+    border: 1px solid rgba(52,211,153,0.2);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .caller-active-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); margin-bottom: 4px; }
+  .caller-active-title { font-size: 16px; font-weight: 700; }
+  .caller-next {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .caller-next-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 3px; }
+  .caller-next-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); }
+
+  /* ── Scene 5: Multi-view ── */
+  .s5-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    max-width: 900px;
+    width: 90%;
+  }
+  .s5-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    animation: fadeUp 0.7s 0.3s both;
+  }
+  .view-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .view-card-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.04em;
+  }
+  .view-card-body { padding: 12px; }
+  .view-icon { width: 8px; height: 8px; border-radius: 50%; }
+  .view-caller .view-card-header  { color: var(--green); }
+  .view-caller .view-icon          { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .view-presenter .view-card-header{ color: var(--violet); }
+  .view-presenter .view-icon       { background: var(--violet); }
+  .view-crew .view-card-header     { color: var(--amber); }
+  .view-crew .view-icon            { background: var(--amber); }
+  .view-line { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; margin-bottom: 7px; }
+  .view-line.short { width: 60%; }
+  .view-line.med   { width: 80%; }
+  .view-line.long  { width: 95%; }
+  .view-line.highlight-green { background: rgba(52,211,153,0.3); }
+  .view-line.highlight-violet{ background: rgba(167,139,250,0.3); }
+  .view-line.highlight-amber { background: rgba(251,191,36,0.3); }
+  .sync-arrow {
+    font-size: 11px;
+    color: var(--green);
+    font-weight: 600;
+    text-align: center;
+    animation: fadeUp 0.7s 0.6s both;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sync-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(52,211,153,0.4), transparent); }
+
+  /* ── Scene 6: Slides / Output ── */
+  .s6-layout {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    max-width: 980px;
+    width: 90%;
+  }
+  .s6-text { flex: 1; }
+  .s6-mock { flex: 1.4; animation: fadeUp 0.7s 0.3s both; }
+  .slide-preview {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .slide-content {
+    text-align: center;
+    padding: 20px;
+  }
+  .slide-title { font-size: 22px; font-weight: 800; color: white; margin-bottom: 8px; }
+  .slide-sub   { font-size: 12px; color: rgba(255,255,255,0.4); }
+  .slide-num   { position: absolute; bottom: 8px; right: 10px; font-size: 10px; color: rgba(255,255,255,0.1); font-variant-numeric: tabular-nums; }
+  .slide-grad  { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 60% at 50% 40%, rgba(52,211,153,0.08), transparent); }
+  .slide-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+  }
+  .slide-btn {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: rgba(255,255,255,0.5);
+  }
+  .slide-counter { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex: 1; text-align: center; }
+  .cue-badge-go {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(52,211,153,0.12);
+    border: 1px solid rgba(52,211,153,0.25);
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    animation: fadeIn 1s 1s both;
+  }
+
+  /* ── Scene 7: Cast ── */
+  .s7-layout {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    max-width: 980px;
+    width: 90%;
+  }
+  .s7-text { flex: 1; }
+  .s7-mock { flex: 1; animation: fadeUp 0.7s 0.3s both; }
+  .pin-display {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 16px 0;
+  }
+  .pin-digit {
+    width: 42px; height: 52px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800;
+    color: white;
+    font-variant-numeric: tabular-nums;
+  }
+  .pin-digit.active {
+    border-color: rgba(52,211,153,0.5);
+    background: rgba(52,211,153,0.08);
+    color: var(--green);
+    box-shadow: 0 0 12px rgba(52,211,153,0.2);
+  }
+  .cast-member {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .cast-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .cast-name { font-size: 13px; font-weight: 600; }
+  .cast-role { font-size: 11px; color: var(--muted); }
+  .cast-pin  { font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); margin-left: auto; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 5px; }
+
+  /* ── Scene 8: Mic Patch + Webhook ── */
+  .s8-layout {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    max-width: 980px;
+    width: 90%;
+  }
+  .s8-text { flex: 1; }
+  .s8-mock { flex: 1.1; animation: fadeUp 0.7s 0.3s both; }
+  .mic-device {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mic-led {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .mic-led.on  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .mic-led.off { background: rgba(255,255,255,0.1); }
+  .mic-name  { flex: 1; font-size: 13px; font-weight: 500; }
+  .mic-ch    { font-size: 11px; color: var(--muted); }
+  .webhook-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-top: 12px;
+    background: rgba(251,113,133,0.07);
+    border: 1px solid rgba(251,113,133,0.15);
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  .webhook-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rose); animation: pulse 1.5s infinite; }
+  .webhook-label { color: var(--rose); font-weight: 600; }
+  .webhook-url   { color: var(--muted); font-family: monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+  /* ── Scene 9: QR / Share ── */
+  .s9-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    max-width: 820px;
+    width: 90%;
+  }
+  .qr-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    width: 100%;
+    animation: fadeUp 0.7s 0.3s both;
+  }
+  .qr-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 12px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .qr-box {
+    width: 52px; height: 52px;
+    background: white;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 3px;
+    padding: 6px;
+  }
+  .qr-px {
+    border-radius: 1px;
+  }
+  .qr-px.b { background: #000; }
+  .qr-px.w { background: transparent; }
+  .qr-label { font-size: 11px; font-weight: 600; }
+
+  /* ── Scene 10: Outro ── */
+  .s10-content {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .s10-title {
+    font-size: clamp(36px, 5.5vw, 68px);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    animation: fadeUp 0.8s 0.3s both;
+    background: linear-gradient(135deg, #fff 40%, rgba(255,255,255,0.45));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .s10-title span { color: var(--green); -webkit-text-fill-color: var(--green); }
+  .s10-sub {
+    font-size: clamp(15px, 2vw, 20px);
+    color: rgba(255,255,255,0.4);
+    animation: fadeUp 0.8s 0.5s both;
+    max-width: 480px;
+  }
+  .s10-url {
+    font-size: 14px;
+    color: var(--green);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    animation: fadeUp 0.8s 0.7s both;
+    background: rgba(52,211,153,0.1);
+    border: 1px solid rgba(52,211,153,0.25);
+    padding: 8px 24px;
+    border-radius: 999px;
+  }
+  .s10-features {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 0.8s 0.9s both;
+    margin-top: 8px;
+  }
+  .s10-feat {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .s10-feat::before { content: '✓'; color: var(--green); font-weight: 700; }
+
+  /* ── Shared scene text styles ── */
+  .scene-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    animation: fadeIn 0.6s 0.2s both;
+  }
+  .scene-title {
+    font-size: clamp(22px, 3.5vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 14px;
+    animation: fadeUp 0.6s 0.3s both;
+  }
+  .scene-body {
+    font-size: clamp(13px, 1.5vw, 16px);
+    color: rgba(255,255,255,0.5);
+    line-height: 1.65;
+    animation: fadeUp 0.6s 0.4s both;
+    margin-bottom: 18px;
+  }
+  .scene-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeUp 0.6s 0.5s both;
+  }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.65);
+  }
+  .step-num {
+    min-width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    flex-shrink: 0; margin-top: 1px;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 1 · INTRO  (0 – 8s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene active" id="s1">
+    <div class="s1-bg"></div>
+    <div class="s1-grid"></div>
+    <div class="s1-content">
+      <div class="s1-badge">
+        <span class="s1-badge-dot"></span>
+        Live show management
+      </div>
+      <div class="s1-title">CueBoard</div>
+      <div class="s1-sub">Realtime showregie voor events, conferenties & live producties</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 2 · WAT IS CUEBOARD  (8 – 22s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s2">
+    <div class="s2-layout">
+      <div class="s2-label">Één platform. Één GO-knop.</div>
+      <div class="s2-heading">
+        Alles gesynchroniseerd —<br><em>van regie tot podium</em>
+      </div>
+      <div class="s2-pills">
+        <span class="pill green">📋 Rundown &amp; Cues</span>
+        <span class="pill blue">🎙️ Caller — GO knop</span>
+        <span class="pill violet">👁️ Presenter view</span>
+        <span class="pill amber">🔧 Crew view</span>
+        <span class="pill rose">🖥️ Slide output</span>
+        <span class="pill">🎤 Mic patch</span>
+        <span class="pill">🪪 Cast portal</span>
+        <span class="pill">⚡ Companion webhook</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 3 · RUNDOWN & CUES  (22 – 40s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s3">
+    <div class="s3-layout">
+      <div class="s3-text">
+        <div class="scene-label" style="color:var(--green)">Rundown &amp; Cues</div>
+        <div class="scene-title">De agenda van je show</div>
+        <div class="scene-body">
+          Voeg cues toe — speeches, acts, pauzes, video's. Sleep ze in volgorde. CueBoard berekent automatisch de totale showduur en starttijden per blok.
+        </div>
+        <div class="scene-steps">
+          <div class="step">
+            <div class="step-num" style="background:rgba(52,211,153,0.15);color:var(--green)">1</div>
+            <span>Maak een rundown aan voor je event</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(52,211,153,0.15);color:var(--green)">2</div>
+            <span>Voeg cues toe met titel, type en duur</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(52,211,153,0.15);color:var(--green)">3</div>
+            <span>Sleep om volgorde te wijzigen</span>
+          </div>
+        </div>
+      </div>
+      <div class="s3-mock">
+        <div class="mock-card">
+          <div class="mock-header">
+            <div class="mock-dot" style="background:#ff5f56"></div>
+            <div class="mock-dot" style="background:#ffbd2e"></div>
+            <div class="mock-dot" style="background:#27c93f"></div>
+            <span class="mock-header-title">Jaarconferentie 2026 · Rundown</span>
+          </div>
+          <div style="padding:8px 0">
+            <div class="cue-row active">
+              <div class="status-dot status-running"></div>
+              <div class="cue-num">1</div>
+              <div class="cue-color" style="background:var(--green)"></div>
+              <div class="cue-title">Opening &amp; welkomst</div>
+              <div class="cue-tag tag-intro">Intro</div>
+              <div class="cue-dur">0:08</div>
+            </div>
+            <div class="cue-row">
+              <div class="status-dot status-pending"></div>
+              <div class="cue-num">2</div>
+              <div class="cue-color" style="background:var(--blue)"></div>
+              <div class="cue-title">Keynote: Thomas de Vries</div>
+              <div class="cue-tag tag-speech">Speech</div>
+              <div class="cue-dur">0:20</div>
+            </div>
+            <div class="cue-row">
+              <div class="status-dot status-pending"></div>
+              <div class="cue-num">3</div>
+              <div class="cue-color" style="background:var(--violet)"></div>
+              <div class="cue-title">Live band: opener</div>
+              <div class="cue-tag tag-music">Muziek</div>
+              <div class="cue-dur">0:05</div>
+            </div>
+            <div class="cue-row">
+              <div class="status-dot status-pending"></div>
+              <div class="cue-num">4</div>
+              <div class="cue-color" style="background:var(--amber)"></div>
+              <div class="cue-title">Pauze</div>
+              <div class="cue-tag tag-break">Pauze</div>
+              <div class="cue-dur">0:15</div>
+            </div>
+            <div class="cue-row">
+              <div class="status-dot status-pending"></div>
+              <div class="cue-num">5</div>
+              <div class="cue-color" style="background:var(--rose)"></div>
+              <div class="cue-title">Videoboodschap CEO</div>
+              <div class="cue-tag tag-video">Video</div>
+              <div class="cue-dur">0:04</div>
+            </div>
+            <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11px;color:var(--muted)">Totale duur</span>
+              <span style="font-size:12px;font-weight:700;color:var(--green)">0:52</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 4 · CALLER  (40 – 58s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s4">
+    <div class="s4-layout">
+      <div class="s4-mock">
+        <div class="mock-card">
+          <div class="mock-header">
+            <div class="mock-dot" style="background:#ff5f56"></div>
+            <div class="mock-dot" style="background:#ffbd2e"></div>
+            <div class="mock-dot" style="background:#27c93f"></div>
+            <span class="mock-header-title">Caller — Showregie</span>
+          </div>
+          <div class="caller-mock-body">
+            <div class="caller-active">
+              <div class="go-btn">GO</div>
+              <div>
+                <div class="caller-active-label">● Nu actief</div>
+                <div class="caller-active-title">Opening &amp; welkomst</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums">⏱ 00:08 · Gestart 14:01</div>
+              </div>
+            </div>
+            <div class="caller-next">
+              <div>
+                <div class="caller-next-label">Volgende</div>
+                <div class="caller-next-title">Keynote: Thomas de Vries</div>
+              </div>
+              <div style="font-size:11px;color:var(--muted)">0:20 →</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px">
+                <div style="color:var(--muted);margin-bottom:3px">Verstreken</div>
+                <div style="font-weight:700;font-variant-numeric:tabular-nums;color:white">00:08:23</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px">
+                <div style="color:var(--muted);margin-bottom:3px">Resterend</div>
+                <div style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--amber)">00:43:37</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="s4-text">
+        <div class="scene-label" style="color:var(--blue)">Caller View</div>
+        <div class="scene-title">Één knop.<br>Alles live.</div>
+        <div class="scene-body">
+          De Caller is het hart van de show. Druk op <strong style="color:var(--green)">GO</strong> — en alle schermen worden realtime bijgewerkt. Presenter, Crew, Publiek, Slides: allemaal gesynchroniseerd in milliseconden.
+        </div>
+        <div class="scene-steps">
+          <div class="step">
+            <div class="step-num" style="background:rgba(96,165,250,0.15);color:var(--blue)">✓</div>
+            <span>Rood = actief · Grijs = wacht · Groen = klaar</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(96,165,250,0.15);color:var(--blue)">✓</div>
+            <span>Realtime countdown per cue</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(96,165,250,0.15);color:var(--blue)">✓</div>
+            <span>Werkt op elk apparaat via browser</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 5 · MULTI-VIEW  (58 – 74s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s5">
+    <div class="s5-layout">
+      <div class="scene-label" style="color:var(--violet);text-align:center">Presenter · Crew · Publiek</div>
+      <div class="scene-title" style="text-align:center;animation:fadeUp 0.7s 0.3s both">Elke rol heeft zijn eigen view</div>
+      <div class="s5-grid">
+        <div class="view-card view-presenter">
+          <div class="view-card-header">
+            <div class="view-icon"></div>
+            Presenter
+          </div>
+          <div class="view-card-body" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px">
+            <div style="font-size:10px;color:var(--violet);letter-spacing:0.08em;text-transform:uppercase">Nu actief</div>
+            <div style="font-size:16px;font-weight:800;text-align:center;line-height:1.2">Opening &amp;<br>welkomst</div>
+            <div style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums">⏱ 00:08</div>
+            <div style="margin-top:6px;padding:8px;background:rgba(167,139,250,0.07);border:1px solid rgba(167,139,250,0.15);border-radius:8px;width:100%">
+              <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Volgende</div>
+              <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.6)">Keynote: Thomas</div>
+            </div>
+          </div>
+        </div>
+        <div class="view-card view-crew">
+          <div class="view-card-header">
+            <div class="view-icon"></div>
+            Crew
+          </div>
+          <div class="view-card-body" style="padding:10px">
+            <div class="view-line long highlight-amber"></div>
+            <div class="view-line med"></div>
+            <div class="view-line short"></div>
+            <div class="view-line long"></div>
+            <div class="view-line med"></div>
+            <div style="margin-top:6px;padding:7px 8px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.15);border-radius:6px">
+              <div style="font-size:10px;color:var(--amber)">Tech note</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Mic 1 open houden</div>
+            </div>
+          </div>
+        </div>
+        <div class="view-card" style="border-color:rgba(56,189,248,0.2)">
+          <div class="view-card-header" style="color:var(--sky)">
+            <div class="view-icon" style="background:var(--sky)"></div>
+            Publiek
+          </div>
+          <div class="view-card-body" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px">
+            <div style="font-size:10px;color:var(--sky);letter-spacing:0.08em;text-transform:uppercase">Live</div>
+            <div style="font-size:14px;font-weight:700;text-align:center">Opening &amp; welkomst</div>
+            <div style="width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:4px">
+              <div style="height:100%;width:45%;background:var(--sky);border-radius:2px;transition:width 0.3s"></div>
+            </div>
+            <div style="font-size:10px;color:var(--muted)">Geen login vereist</div>
+          </div>
+        </div>
+      </div>
+      <div class="sync-arrow">
+        <div class="sync-line"></div>
+        <span>⚡ Realtime gesynchroniseerd via Supabase</span>
+        <div class="sync-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 6 · SLIDE OUTPUT  (74 – 92s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s6">
+    <div class="s6-layout">
+      <div class="s6-text">
+        <div class="scene-label" style="color:var(--rose)">Presentatie Output</div>
+        <div class="scene-title">Slides die meelopen<br>met de show</div>
+        <div class="scene-body">
+          Upload een PDF of PPTX als slide deck. De Output-pagina toont de slides fullscreen — perfect als bron voor je videomixer, OBS of beamer. Stel per cue in op welke slide gesprongen wordt bij GO.
+        </div>
+        <div class="scene-steps">
+          <div class="step">
+            <div class="step-num" style="background:rgba(251,113,133,0.15);color:var(--rose)">1</div>
+            <span>Upload PDF/PPTX in rundown instellingen</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(251,113,133,0.15);color:var(--rose)">2</div>
+            <span>Stel per cue het dianummer in bij GO</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(251,113,133,0.15);color:var(--rose)">3</div>
+            <span>Verbind Output als source in OBS, vMix of Resolume</span>
+          </div>
+        </div>
+        <div class="cue-badge-go" style="margin-top:10px">
+          ⚡ GO → automatisch naar slide 3
+        </div>
+      </div>
+      <div class="s6-mock">
+        <div class="mock-card">
+          <div class="mock-header">
+            <div class="mock-dot" style="background:#ff5f56"></div>
+            <div class="mock-dot" style="background:#ffbd2e"></div>
+            <div class="mock-dot" style="background:#27c93f"></div>
+            <span class="mock-header-title">Output — Presentatie fullscreen</span>
+          </div>
+          <div style="padding:12px">
+            <div class="slide-preview">
+              <div class="slide-grad"></div>
+              <div class="slide-content">
+                <div class="slide-title">Welkom</div>
+                <div style="font-size:20px;color:rgba(255,255,255,0.6);margin:6px 0">Jaarconferentie 2026</div>
+                <div class="slide-sub">Artiflexx &amp; Partners</div>
+              </div>
+              <div class="slide-num">1 / 24</div>
+            </div>
+            <div class="slide-controls">
+              <div class="slide-btn">‹</div>
+              <div class="slide-counter">Slide 1 van 24</div>
+              <div class="slide-btn">›</div>
+              <div style="margin-left:8px;font-size:10px;color:rgba(52,211,153,0.6);font-weight:600">● LIVE</div>
+            </div>
+          </div>
+          <div style="margin:0 12px 12px;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Per cue: slide bij GO</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <div style="font-size:11px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.25);color:var(--green);padding:3px 8px;border-radius:5px;">Cue 1 → slide 1</div>
+              <div style="font-size:11px;background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.2);color:var(--blue);padding:3px 8px;border-radius:5px;">Cue 2 → slide 4</div>
+              <div style="font-size:11px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);color:var(--violet);padding:3px 8px;border-radius:5px;">Cue 3 → slide 11</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 7 · CAST PORTAL  (92 – 108s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s7">
+    <div class="s7-layout">
+      <div class="s7-text">
+        <div class="scene-label" style="color:var(--green)">Cast Portal</div>
+        <div class="scene-title">Sprekers inloggen<br>zonder account</div>
+        <div class="scene-body">
+          Voeg sprekers of artiesten toe als cast member. Ze krijgen een 6-cijferige PIN — log in via /cast-login en bekijk het programma live, zonder accountaanmaak.
+        </div>
+        <div class="scene-steps">
+          <div class="step">
+            <div class="step-num" style="background:rgba(52,211,153,0.15);color:var(--green)">1</div>
+            <span>Voeg cast member toe met naam + rol</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(52,211,153,0.15);color:var(--green)">2</div>
+            <span>Genereer PIN — of stuur een Magic Link</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(52,211,153,0.15);color:var(--green)">3</div>
+            <span>Cast member ziet live het programma</span>
+          </div>
+        </div>
+      </div>
+      <div class="s7-mock">
+        <div class="mock-card" style="max-width:320px">
+          <div class="mock-header">
+            <div class="mock-dot" style="background:#ff5f56"></div>
+            <div class="mock-dot" style="background:#ffbd2e"></div>
+            <div class="mock-dot" style="background:#27c93f"></div>
+            <span class="mock-header-title">Cast beheer</span>
+          </div>
+          <div style="padding:14px">
+            <div class="cast-member">
+              <div class="cast-avatar" style="background:rgba(96,165,250,0.15);color:var(--blue)">T</div>
+              <div>
+                <div class="cast-name">Thomas de Vries</div>
+                <div class="cast-role">Keynote spreker</div>
+              </div>
+              <div class="cast-pin">482917</div>
+            </div>
+            <div class="cast-member">
+              <div class="cast-avatar" style="background:rgba(167,139,250,0.15);color:var(--violet)">S</div>
+              <div>
+                <div class="cast-name">Sophie Bakker</div>
+                <div class="cast-role">Dagvoorzitter</div>
+              </div>
+              <div class="cast-pin">731042</div>
+            </div>
+            <div class="cast-member">
+              <div class="cast-avatar" style="background:rgba(251,113,133,0.15);color:var(--rose)">M</div>
+              <div>
+                <div class="cast-name">Mike Janssen</div>
+                <div class="cast-role">Artiest</div>
+              </div>
+              <div class="cast-pin">295864</div>
+            </div>
+            <div style="margin-top:12px;padding:12px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.15);border-radius:10px;text-align:center">
+              <div style="font-size:20px;font-weight:900;letter-spacing:0.15em;color:var(--green);margin-bottom:4px">482·917</div>
+              <div style="font-size:10px;color:var(--muted)">6-cijferige PIN · cueboard.app/cast-login</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 8 · MIC PATCH + WEBHOOK  (108 – 122s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s8">
+    <div class="s8-layout">
+      <div class="s8-mock">
+        <div class="mock-card">
+          <div class="mock-header">
+            <div class="mock-dot" style="background:#ff5f56"></div>
+            <div class="mock-dot" style="background:#ffbd2e"></div>
+            <div class="mock-dot" style="background:#27c93f"></div>
+            <span class="mock-header-title">Mic Patch — Kanaaloverzicht</span>
+          </div>
+          <div style="padding:4px 0">
+            <div class="mic-device">
+              <div class="mic-led on"></div>
+              <div class="mic-name">Lapelmicrofoon Thomas</div>
+              <div class="mic-ch">CH 1</div>
+            </div>
+            <div class="mic-device">
+              <div class="mic-led off"></div>
+              <div class="mic-name">Handheld podium</div>
+              <div class="mic-ch">CH 2</div>
+            </div>
+            <div class="mic-device">
+              <div class="mic-led on"></div>
+              <div class="mic-name">DI-box keyboard</div>
+              <div class="mic-ch">CH 5/6</div>
+            </div>
+            <div class="mic-device">
+              <div class="mic-led off"></div>
+              <div class="mic-name">Playback stereo</div>
+              <div class="mic-ch">CH 7/8</div>
+            </div>
+          </div>
+          <div style="padding:10px 12px">
+            <div class="webhook-row">
+              <div class="webhook-dot"></div>
+              <span class="webhook-label">Webhook</span>
+              <span class="webhook-url">http://companion:8888/api/press/1/2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="s8-text">
+        <div class="scene-label" style="color:var(--orange)">Mic Patch &amp; Automatisering</div>
+        <div class="scene-title">Elk kanaal op<br>het juiste moment</div>
+        <div class="scene-body">
+          Koppel microfoons en audio-apparaten aan cues. Zie per cue welke kanalen open zijn. Combineer met de Companion webhook om je StreamDeck automatisch te laten reageren op elke GO.
+        </div>
+        <div class="scene-steps">
+          <div class="step">
+            <div class="step-num" style="background:rgba(251,146,60,0.15);color:var(--orange)">🎤</div>
+            <span>Mic Patch zichtbaar in Caller en Crew view</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(251,146,60,0.15);color:var(--orange)">⚡</div>
+            <span>Companion webhook triggert bij elke GO</span>
+          </div>
+          <div class="step">
+            <div class="step-num" style="background:rgba(251,146,60,0.15);color:var(--orange)">🎛️</div>
+            <span>Ideaal met Behringer M32, Wing of QLab</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 9 · QR / SHARE  (122 – 132s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s9">
+    <div class="s9-layout">
+      <div class="scene-label" style="color:var(--sky);text-align:center">QR-codes &amp; Delen</div>
+      <div class="scene-title" style="text-align:center;animation:fadeUp 0.7s 0.3s both">Scan. Open. Klaar.</div>
+      <div class="qr-grid">
+        <div class="qr-card" style="border-color:rgba(52,211,153,0.2)">
+          <div class="qr-box">
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+          </div>
+          <div class="qr-label" style="color:var(--green)">Caller</div>
+        </div>
+        <div class="qr-card" style="border-color:rgba(167,139,250,0.2)">
+          <div class="qr-box">
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+            <div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div>
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+          </div>
+          <div class="qr-label" style="color:var(--violet)">Presenter</div>
+        </div>
+        <div class="qr-card" style="border-color:rgba(251,191,36,0.2)">
+          <div class="qr-box">
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px w"></div>
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+          </div>
+          <div class="qr-label" style="color:var(--amber)">Crew</div>
+        </div>
+        <div class="qr-card" style="border-color:rgba(56,189,248,0.2)">
+          <div class="qr-box">
+            <div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+            <div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div>
+            <div class="qr-px b"></div><div class="qr-px w"></div><div class="qr-px b"></div><div class="qr-px b"></div><div class="qr-px b"></div>
+          </div>
+          <div class="qr-label" style="color:var(--sky)">Publiek</div>
+        </div>
+      </div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.4);text-align:center;animation:fadeIn 1s 0.8s both">
+        Elke view heeft een eigen link én QR-code · Geen installatie vereist · Werkt op elke browser
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCENE 10 · OUTRO / CTA  (132 – 145s)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="scene" id="s10">
+    <div class="s1-bg"></div>
+    <div class="s1-grid"></div>
+    <div class="s10-content">
+      <div class="s1-badge" style="animation:fadeUp 0.7s 0.2s both">
+        <span class="s1-badge-dot"></span>
+        CueBoard
+      </div>
+      <div class="s10-title">
+        Je show.<br>
+        <span>Altijd in controle.</span>
+      </div>
+      <div class="s10-sub">
+        Realtime showregie voor professionele events, conferenties en live producties.
+      </div>
+      <div class="s10-url">cueboard.app</div>
+      <div class="s10-features">
+        <span class="s10-feat">Geen installatie</span>
+        <span class="s10-feat">Werkt op elk apparaat</span>
+        <span class="s10-feat">Realtime sync</span>
+        <span class="s10-feat">Gratis te proberen</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<!-- Progress + Controls -->
+<div id="progress-bar"><div id="progress-fill"></div></div>
+<div id="controls">
+  <span id="timer">0:00</span>
+  <button onclick="togglePlay()" id="play-btn">⏸ Pause</button>
+  <button onclick="prevScene()">‹ Vorige</button>
+  <button onclick="nextScene()">Volgende ›</button>
+</div>
+
+<script>
+  // ── Timeline ──────────────────────────────────────────────────────────────────
+  // [sceneId, startTime, endTime]  (in seconds)
+  const timeline = [
+    ['s1',   0,   8],
+    ['s2',   8,  22],
+    ['s3',  22,  40],
+    ['s4',  40,  58],
+    ['s5',  58,  74],
+    ['s6',  74,  92],
+    ['s7',  92, 108],
+    ['s8', 108, 122],
+    ['s9', 122, 132],
+    ['s10',132, 145],
+  ]
+  const TOTAL = 145
+
+  let elapsed = 0
+  let playing = true
+  let raf = null
+  let lastTimestamp = null
+  let currentSceneIdx = 0
+
+  function getSceneAtTime(t) {
+    for (let i = timeline.length - 1; i >= 0; i--) {
+      if (t >= timeline[i][1]) return i
+    }
+    return 0
+  }
+
+  function showScene(idx) {
+    timeline.forEach(([id], i) => {
+      const el = document.getElementById(id)
+      if (i === idx) {
+        el.classList.add('active')
+      } else {
+        el.classList.remove('active')
+      }
+    })
+    currentSceneIdx = idx
+  }
+
+  function updateUI(t) {
+    // Progress bar
+    const pct = Math.min(t / TOTAL * 100, 100)
+    document.getElementById('progress-fill').style.width = pct + '%'
+
+    // Timer
+    const m = Math.floor(t / 60)
+    const s = Math.floor(t % 60)
+    document.getElementById('timer').textContent = m + ':' + String(s).padStart(2,'0')
+
+    // Scene
+    const idx = getSceneAtTime(t)
+    if (idx !== currentSceneIdx) showScene(idx)
+  }
+
+  function tick(timestamp) {
+    if (!playing) return
+    if (lastTimestamp !== null) {
+      elapsed += (timestamp - lastTimestamp) / 1000
+    }
+    lastTimestamp = timestamp
+
+    if (elapsed >= TOTAL) {
+      elapsed = TOTAL
+      updateUI(elapsed)
+      playing = false
+      document.getElementById('play-btn').textContent = '▶ Play'
+      return
+    }
+
+    updateUI(elapsed)
+    raf = requestAnimationFrame(tick)
+  }
+
+  function togglePlay() {
+    if (elapsed >= TOTAL) { elapsed = 0; lastTimestamp = null; }
+    playing = !playing
+    document.getElementById('play-btn').textContent = playing ? '⏸ Pause' : '▶ Play'
+    if (playing) {
+      lastTimestamp = null
+      raf = requestAnimationFrame(tick)
+    }
+  }
+
+  function nextScene() {
+    const next = Math.min(currentSceneIdx + 1, timeline.length - 1)
+    elapsed = timeline[next][1]
+    lastTimestamp = null
+    updateUI(elapsed)
+    if (!playing) { playing = true; document.getElementById('play-btn').textContent = '⏸ Pause'; raf = requestAnimationFrame(tick); }
+  }
+
+  function prevScene() {
+    const prev = Math.max(currentSceneIdx - 1, 0)
+    elapsed = timeline[prev][1]
+    lastTimestamp = null
+    updateUI(elapsed)
+    if (!playing) { playing = true; document.getElementById('play-btn').textContent = '⏸ Pause'; raf = requestAnimationFrame(tick); }
+  }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    if (e.code === 'ArrowRight') nextScene()
+    if (e.code === 'ArrowLeft') prevScene()
+  })
+
+  // Start
+  showScene(0)
+  raf = requestAnimationFrame(tick)
+</script>
+</body>
+</html>

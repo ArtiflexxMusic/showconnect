@@ -158,6 +158,7 @@ export interface CastMember {
   role: string | null
   color: string
   notes: string | null
+  email: string | null
   pin: string | null
   created_at: string
 }

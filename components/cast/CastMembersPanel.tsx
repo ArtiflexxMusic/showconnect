@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   UserPlus, Trash2, Copy, Check, Link2, QrCode, Loader2,
-  Pencil, Plus, Users, ExternalLink, X, Hash, RefreshCw,
+  Pencil, Plus, Users, ExternalLink, X, Hash, RefreshCw, Mail,
 } from 'lucide-react'
 import type { CastMember, CastPortalLink } from '@/lib/types/database'
 
@@ -61,6 +61,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
   const [role, setRole]   = useState('')
   const [color, setColor] = useState(COLORS[0])
   const [notes, setNotes] = useState('')
+  const [email, setEmail] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -77,13 +78,15 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
 
   function openAdd() {
     setEditTarget(null)
-    setName(''); setRole(''); setColor(COLORS[0]); setNotes('')
+    setName(''); setRole(''); setColor(COLORS[0]); setNotes(''); setEmail('')
     setAddOpen(true)
   }
 
   function openEdit(m: CastMember) {
     setEditTarget(m)
     setName(m.name); setRole(m.role ?? ''); setColor(m.color); setNotes(m.notes ?? '')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setEmail((m as any).email ?? '')
     setAddOpen(true)
   }
 
@@ -105,12 +108,18 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
     try {
       if (editTarget) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('cast_members').update({ name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null }).eq('id', editTarget.id)
+        const { error } = await (supabase as any).from('cast_members').update({
+          name: name.trim(), role: role.trim() || null, color,
+          notes: notes.trim() || null, email: email.trim() || null,
+        }).eq('id', editTarget.id)
         if (error) throw error
       } else {
         const pin = generatePin()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('cast_members').insert({ show_id: showId, name: name.trim(), role: role.trim() || null, color, notes: notes.trim() || null, pin })
+        const { error } = await (supabase as any).from('cast_members').insert({
+          show_id: showId, name: name.trim(), role: role.trim() || null,
+          color, notes: notes.trim() || null, pin, email: email.trim() || null,
+        })
         if (error) throw error
       }
       await load()
@@ -151,8 +160,25 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
     await load()
   }
 
+  // Magic link: gaat naar cast-login pagina met token → toon naam + vraag PIN
   function portalUrl(token: string) {
-    return `${window.location.origin}/cast/${token}`
+    return `${window.location.origin}/cast-login?magic=${token}`
+  }
+
+  // Mailto: stuur uitnodiging met PIN + link
+  function sendInviteEmail(member: CastMember, token: string) {
+    if (!(member as any).email || !member.pin) return
+    const loginUrl = portalUrl(token)
+    const subject = encodeURIComponent(`Uitnodiging Cast Portal – ${member.name}`)
+    const body = encodeURIComponent(
+      `Hallo ${member.name},\n\n` +
+      `Je bent uitgenodigd als cast member.\n\n` +
+      (member.role ? `Rol: ${member.role}\n\n` : '') +
+      `Je kunt het programma bekijken via onderstaande link:\n${loginUrl}\n\n` +
+      `Of ga naar /cast-login en voer je PIN in:\n\nPIN: ${member.pin}\n\n` +
+      `Met vriendelijke groet`
+    )
+    window.open(`mailto:${(member as any).email}?subject=${subject}&body=${body}`)
   }
 
   async function copyLink(token: string) {
@@ -265,7 +291,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
                       <div className="px-4 py-3 space-y-2 border-t border-border/30">
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                            <Link2 className="h-3 w-3" /> Magic Links
+                            <Link2 className="h-3 w-3" /> Uitnodigingslink
                           </p>
                           <Button
                             variant="ghost" size="sm"
@@ -277,41 +303,54 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
                         </div>
 
                         {memberLinks.length === 0 ? (
-                          <p className="text-xs text-muted-foreground/50 italic">Nog geen links gegenereerd.</p>
+                          <p className="text-xs text-muted-foreground/50 italic">Nog geen link gegenereerd.</p>
                         ) : (
                           memberLinks.map((link) => (
-                            <div key={link.id} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 border border-border/30">
-                              <code className="text-[11px] text-emerald-400/80 flex-1 truncate font-mono">
-                                /cast/{link.token.slice(0, 16)}…
-                              </code>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button
-                                  variant="ghost" size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                  onClick={() => copyLink(link.token)}
-                                  title="Kopieer link"
-                                >
-                                  {copied === link.token
-                                    ? <Check className="h-3 w-3 text-emerald-400" />
-                                    : <Copy className="h-3 w-3" />}
-                                </Button>
-                                <a
-                                  href={portalUrl(link.token)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                                    <ExternalLink className="h-3 w-3" />
+                            <div key={link.id} className="space-y-1.5">
+                              <div className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 border border-border/30">
+                                <code className="text-[11px] text-emerald-400/80 flex-1 truncate font-mono">
+                                  /cast-login?magic={link.token.slice(0, 12)}…
+                                </code>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    variant="ghost" size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                    onClick={() => copyLink(link.token)}
+                                    title="Kopieer link"
+                                  >
+                                    {copied === link.token
+                                      ? <Check className="h-3 w-3 text-emerald-400" />
+                                      : <Copy className="h-3 w-3" />}
                                   </Button>
-                                </a>
-                                <Button
-                                  variant="ghost" size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                  onClick={() => deleteLink(link.id)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                                  <a href={portalUrl(link.token)} target="_blank" rel="noopener noreferrer">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                      <ExternalLink className="h-3 w-3" />
+                                    </Button>
+                                  </a>
+                                  {(member as any).email && member.pin && (
+                                    <Button
+                                      variant="ghost" size="icon"
+                                      className="h-6 w-6 text-blue-400 hover:text-blue-300"
+                                      title={`Stuur uitnodiging naar ${(member as any).email}`}
+                                      onClick={() => sendInviteEmail(member, link.token)}
+                                    >
+                                      <Mail className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost" size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                    onClick={() => deleteLink(link.id)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
+                              {!(member as any).email && (
+                                <p className="text-[10px] text-muted-foreground/40 italic px-1">
+                                  Voeg een e-mailadres toe om de uitnodiging te mailen.
+                                </p>
+                              )}
                             </div>
                           ))
                         )}
@@ -353,6 +392,11 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
                   />
                 ))}
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label>E-mailadres</Label>
+              <Input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="naam@email.com" />
+              <p className="text-xs text-muted-foreground/50">Optioneel — voor het sturen van een uitnodiging</p>
             </div>
             <div className="space-y-1">
               <Label>Notities (intern)</Label>

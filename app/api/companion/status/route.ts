@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Rundown info
     const { data: rundown, error: rErr } = await supabase
       .from('rundowns')
-      .select('id, name, show_id, is_active, show_complete')
+      .select('id, name, show_id, is_active')
       .eq('id', rundownId)
       .single()
 
@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
 
     const payload = {
       // Show state
-      show_complete: rundown.show_complete ?? false,
       rundown_name: rundown.name,
+      show_active: rundown.is_active ?? false,
 
       // Active cue (null if none)
       active_cue_title:    activeCue?.title    ?? '',

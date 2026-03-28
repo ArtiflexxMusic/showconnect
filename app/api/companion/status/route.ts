@@ -13,14 +13,18 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { rateLimit, getIp } from '@/lib/rate-limit'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function GET(request: NextRequest) {
+  // Rate limit: Companion mag maximaal 120x/min pollen (elke 0.5s)
+  const rl = rateLimit(`companion-status:${getIp(request)}`, { limit: 120, windowMs: 60_000 })
+  if (!rl.success) return NextResponse.json({ error: 'Te veel verzoeken' }, { status: 429 })
+
   const rundownId = request.nextUrl.searchParams.get('rundownId')
-  if (!rundownId) {
-    return NextResponse.json(
-      { error: 'rundownId vereist' },
-      { status: 400 }
-    )
+  if (!rundownId || !UUID_RE.test(rundownId)) {
+    return NextResponse.json({ error: 'Geldig rundownId vereist' }, { status: 400 })
   }
 
   try {
@@ -98,7 +102,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (err) {
-    console.error('[companion/status]', err)
+    console.error('[companion/status]', err instanceof Error ? err.message : err)
     return NextResponse.json({ error: 'Interne fout' }, { status: 500 })
   }
 }

@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     if (!emailResp.ok) {
       const errBody = await emailResp.json().catch(() => ({}))
       console.error('Resend error:', errBody)
-      return NextResponse.json({ error: 'E-mail versturen mislukt', details: errBody }, { status: 500 })
+      return NextResponse.json({ error: 'E-mail versturen mislukt' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

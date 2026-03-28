@@ -5,6 +5,7 @@ import { rateLimit, getIp } from '@/lib/rate-limit'
 
 const MAX_SIZE = 20 * 1024 * 1024 // 20 MB
 const BUCKET   = 'presentations'
+const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const ALLOWED_TYPES: Record<string, string> = {
   'image/png':  'png',
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
 
     if (!file)      return NextResponse.json({ error: 'Geen bestand gevonden' }, { status: 400 })
     if (!rundownId) return NextResponse.json({ error: 'Geen rundownId' }, { status: 400 })
+    if (!UUID_RE.test(rundownId)) return NextResponse.json({ error: 'Ongeldig rundownId' }, { status: 400 })
 
     const ext = ALLOWED_TYPES[file.type]
     if (!ext) {
@@ -81,15 +83,16 @@ export async function POST(request: NextRequest) {
       filename: file.name,
       size:     file.size,
     })
-  } catch (err) {
-    console.error('[upload-rundown-still]', err)
-    return NextResponse.json({
-      error: err instanceof Error ? err.message : 'Upload mislukt',
-    }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Upload mislukt' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
+  // Rate limit
+  const rl = rateLimit(`still-delete:${getIp(request)}`, { limit: 30, windowMs: 60_000 })
+  if (!rl.success) return NextResponse.json({ error: 'Te veel verzoeken' }, { status: 429 })
+
   try {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -101,13 +104,18 @@ export async function DELETE(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
-    const { path } = await request.json()
+    const body = await request.json().catch(() => null)
+    const path = typeof body?.path === 'string' ? body.path : null
     if (!path) return NextResponse.json({ error: 'Geen path' }, { status: 400 })
+
+    // Path traversal protection
+    if (!path.startsWith(`${user.id}/`) || path.includes('..')) {
+      return NextResponse.json({ error: 'Geen toegang tot dit bestand' }, { status: 403 })
+    }
 
     await supabase.storage.from(BUCKET).remove([path])
     return NextResponse.json({ ok: true })
-  } catch (err) {
-    console.error('[delete-rundown-still]', err)
+  } catch {
     return NextResponse.json({ error: 'Verwijderen mislukt' }, { status: 500 })
   }
 }

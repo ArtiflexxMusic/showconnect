@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ShowDashboard } from '@/components/dashboard/ShowDashboard'
-import type { Show } from '@/lib/types/database'
+import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 
 interface PageProps {
   params: Promise<{ showId: string }>
@@ -24,18 +24,34 @@ export default async function ShowPage({ params }: PageProps) {
   if (!user) redirect('/login')
 
   const { data: show } = await supabase
-    .from('shows')
-    .select('*')
-    .eq('id', showId)
-    .single()
-
+    .from('shows').select('*').eq('id', showId).single()
   if (!show) notFound()
 
+  // Rundowns met cue-count
   const { data: rundowns } = await supabase
     .from('rundowns')
     .select('*, cues(count)')
     .eq('show_id', showId)
     .order('created_at', { ascending: true })
+
+  // Leden met profiel
+  const { data: members } = await supabase
+    .from('show_members')
+    .select('*, profile:profiles(id, email, full_name, avatar_url)')
+    .eq('show_id', showId)
+    .order('created_at', { ascending: true })
+
+  // Openstaande uitnodigingen
+  const { data: invitations } = await supabase
+    .from('invitations')
+    .select('*')
+    .eq('show_id', showId)
+    .is('accepted_at', null)
+    .order('created_at', { ascending: false })
+
+  // Huidige gebruikersrol in deze show
+  const currentMember = (members ?? []).find(m => m.user_id === user.id)
+  const currentUserRole: ShowMemberRole = currentMember?.role ?? 'viewer'
 
   return (
     <ShowDashboard
@@ -47,6 +63,9 @@ export default async function ShowPage({ params }: PageProps) {
         created_at: string
         cues: { count: number }[]
       }>}
+      members={(members ?? []) as unknown as ShowMember[]}
+      invitations={(invitations ?? []) as unknown as Invitation[]}
+      currentUserRole={currentUserRole}
     />
   )
 }

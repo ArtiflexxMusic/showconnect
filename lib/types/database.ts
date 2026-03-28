@@ -5,6 +5,7 @@
 export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'custom' | 'intro' | 'outro'
 export type CueStatus = 'pending' | 'running' | 'done' | 'skipped'
 export type UserRole = 'admin' | 'crew'
+export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'viewer'
 
 export interface Profile {
   id: string
@@ -73,6 +74,29 @@ export interface ShowWithRundowns extends Show {
 export interface RundownWithCues extends Rundown {
   cues: Cue[]
   show: Show
+}
+
+export interface ShowMember {
+  id: string
+  show_id: string
+  user_id: string
+  role: ShowMemberRole
+  invited_by: string | null
+  created_at: string
+  // Joined
+  profile?: Pick<Profile, 'id' | 'email' | 'full_name' | 'avatar_url'>
+}
+
+export interface Invitation {
+  id: string
+  show_id: string
+  email: string
+  role: ShowMemberRole
+  token: string
+  invited_by: string | null
+  accepted_at: string | null
+  expires_at: string
+  created_at: string
 }
 
 // Form types
@@ -315,6 +339,84 @@ export type Database = {
           }
         ]
       }
+      show_members: {
+        Row: {
+          id: string
+          show_id: string
+          user_id: string
+          role: ShowMemberRole
+          invited_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          show_id: string
+          user_id: string
+          role: ShowMemberRole
+          invited_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          show_id?: string
+          user_id?: string
+          role?: ShowMemberRole
+          invited_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'show_members_show_id_fkey'
+            columns: ['show_id']
+            isOneToOne: false
+            referencedRelation: 'shows'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'show_members_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      invitations: {
+        Row: {
+          id: string
+          show_id: string
+          email: string
+          role: ShowMemberRole
+          token: string
+          invited_by: string | null
+          accepted_at: string | null
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          show_id: string
+          email: string
+          role: ShowMemberRole
+          token?: string
+          invited_by?: string | null
+          accepted_at?: string | null
+          expires_at?: string
+          created_at?: string
+        }
+        Update: {
+          role?: ShowMemberRole
+          accepted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'invitations_show_id_fkey'
+            columns: ['show_id']
+            isOneToOne: false
+            referencedRelation: 'shows'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -322,6 +424,7 @@ export type Database = {
       cue_status: CueStatus
       cue_type: CueType
       user_role: UserRole
+      show_member_role: ShowMemberRole
     }
     CompositeTypes: Record<string, never>
   }

@@ -6,6 +6,7 @@ import {
   ShieldCheck, Layers, BarChart2, Volume2,
 } from 'lucide-react'
 import { FeatureSlideshow } from '@/components/landing/FeatureSlideshow'
+import { PricingSection } from '@/components/landing/PricingSection'
 
 // ─────────────────────────────────────────────
 // LOGO COMPONENT (herbruikbaar)
@@ -696,7 +697,7 @@ export default function LandingPage() {
       <CastPortal />
       <FeaturesGrid />
       <HowItWorks />
-      <Pricing />
+      <PricingSection />
       <Cta />
       <Footer />
     </div>

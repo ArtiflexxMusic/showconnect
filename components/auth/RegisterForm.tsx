@@ -35,7 +35,8 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback${redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : ''}`,
+        // Nieuwe gebruikers gaan naar /welcome; invite-links of andere redirects hebben voorrang
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo ?? '/welcome')}`,
       },
     })
 

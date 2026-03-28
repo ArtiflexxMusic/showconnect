@@ -77,7 +77,7 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
   return (
     <>
       <div className="max-w-4xl">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Shows</h1>
             <p className="text-muted-foreground mt-1">
@@ -86,25 +86,29 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
                 : `${shows.length} show${shows.length !== 1 ? 's' : ''} gevonden`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Weergave-toggle */}
             <div className="flex items-center border border-border rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <LayoutList className="h-3.5 w-3.5" /> Lijst
+                <LayoutList className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Lijst</span>
               </button>
               <button
                 onClick={() => setViewMode('calendar')}
                 className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <CalendarDays className="h-3.5 w-3.5" /> Kalender
+                <CalendarDays className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Kalender</span>
               </button>
             </div>
-            <Button asChild>
+            <Button asChild size="sm">
               <Link href="/shows/new">
-                <Plus className="h-4 w-4" /> Nieuwe show
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nieuwe show</span>
+                <span className="sm:hidden">Nieuw</span>
               </Link>
             </Button>
           </div>
@@ -427,7 +431,7 @@ function CalendarView({
         {cells.map((day, i) => (
           <div
             key={i}
-            className={`min-h-[80px] border-r border-b border-border/40 p-1.5 ${!day ? 'bg-muted/10' : 'bg-card'}`}
+            className={`min-h-[48px] sm:min-h-[80px] border-r border-b border-border/40 p-1 sm:p-1.5 ${!day ? 'bg-muted/10' : 'bg-card'}`}
           >
             {day && (
               <>

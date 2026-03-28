@@ -705,6 +705,109 @@
     font-size: 11px; font-weight: 700;
     flex-shrink: 0; margin-top: 1px;
   }
+
+  /* ════════════════════════════════════════════
+     MOBILE & TABLET RESPONSIVE
+     ════════════════════════════════════════════ */
+
+  /* Tablet (≤1024px): kleinere gaps, scene 5 en 9 compacter */
+  @media (max-width: 1024px) {
+    .s3-layout, .s4-layout, .s6-layout, .s7-layout, .s8-layout {
+      gap: 28px;
+      max-width: 95%;
+    }
+    .s5-grid { gap: 12px; }
+    .qr-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .qr-card  { padding: 14px 10px; }
+  }
+
+  /* Mobiel & kleine tablet (≤767px) */
+  @media (max-width: 767px) {
+    /* Body: allow scroll binnen actieve scenes */
+    body { overflow: hidden; }
+
+    /* Scenes mogen intern scrollen */
+    .scene.active {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      align-items: flex-start;
+      padding: 16px 0 80px 0; /* ruimte onder voor controls */
+      overscroll-behavior: contain;
+    }
+
+    /* ── Alle zij-aan-zij layouts stapelen ── */
+    .s3-layout, .s4-layout, .s6-layout, .s7-layout, .s8-layout {
+      flex-direction: column;
+      gap: 16px;
+      width: 92%;
+      align-items: stretch;
+    }
+
+    /* Mock altijd bovenaan op mobiel */
+    .s3-mock { order: -1; }
+    .s4-mock { order: -1; }
+    .s6-mock { order: -1; }
+    .s7-mock { order: -1; }
+    .s8-mock { order: -1; }
+
+    /* Tekst-secties: volle breedte + gecentreerd */
+    .s3-text, .s4-text, .s6-text, .s7-text, .s8-text,
+    .s3-mock, .s4-mock, .s6-mock, .s7-mock, .s8-mock {
+      flex: unset;
+      width: 100%;
+    }
+
+    /* ── Scene-specifieke compressie ── */
+    .s2-layout  { width: 94%; gap: 16px; }
+    .s5-layout  { width: 94%; gap: 16px; }
+    .s9-layout  { width: 94%; gap: 16px; }
+
+    /* Scene 5: 3 kolommen → 1 kolom */
+    .s5-grid { grid-template-columns: 1fr; gap: 10px; }
+
+    /* Scene 9: 4 kolommen → 2 kolommen */
+    .qr-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    /* ── Controls: grotere tap-targets ── */
+    #controls {
+      bottom: 12px;
+      right: 12px;
+      gap: 6px;
+    }
+    #controls button {
+      padding: 10px 18px;
+      font-size: 13px;
+      min-height: 44px;
+      min-width: 44px;
+    }
+    #timer { font-size: 12px; min-width: 32px; }
+
+    /* ── Pills compacter ── */
+    .pill { font-size: 12px; padding: 5px 13px; }
+
+    /* ── Mock cards niet te groot ── */
+    .mock-card { font-size: 12px; }
+    .cue-row   { padding: 9px 10px; font-size: 12px; }
+    .caller-active-title { font-size: 14px; }
+    .go-btn { width: 60px; height: 60px; font-size: 14px; }
+
+    /* ── Scene 10 outro ── */
+    .s10-features { gap: 12px; }
+    .s10-feat { font-size: 12px; }
+  }
+
+  /* Kleine telefoons (≤480px) */
+  @media (max-width: 480px) {
+    .s3-layout, .s4-layout, .s6-layout, .s7-layout, .s8-layout,
+    .s2-layout, .s5-layout, .s9-layout {
+      width: 96%;
+    }
+    .s1-content  { padding: 0 12px; }
+    .s10-content { padding: 0 12px; }
+    .qr-grid     { grid-template-columns: 1fr; }
+    .pin-digit   { width: 36px; height: 44px; font-size: 18px; }
+    .s10-features{ flex-direction: column; align-items: center; gap: 8px; }
+  }
 </style>
 </head>
 <body>

@@ -17,12 +17,13 @@ import { RundownSettings } from './RundownSettings'
 import { ImportCuesModal } from './ImportCuesModal'
 import { SaveTemplateModal } from './SaveTemplateModal'
 import { LoadTemplateModal } from './LoadTemplateModal'
+import { CueLogPanel } from './CueLogPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
-  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate
+  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -77,6 +78,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showImportModal, setShowImportModal]           = useState(false)
   const [showSaveTemplate, setShowSaveTemplate]         = useState(false)
   const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
+  const [showCueLog, setShowCueLog]                     = useState(false)
 
   // DnD sensors
   const sensors = useSensors(
@@ -580,6 +582,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               )}
             </div>
 
+            {/* Cue log */}
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setShowCueLog(true)}
+              className="gap-2 text-muted-foreground"
+              title="Cue log bekijken"
+            >
+              <History className="h-3.5 w-3.5" />
+            </Button>
+
             {/* Nudge knop */}
             <Button
               size="sm" variant="outline"
@@ -769,6 +781,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onApply={applyTemplate}
         hasCues={cues.length > 0}
       />
+
+      {showCueLog && (
+        <CueLogPanel
+          rundownId={rundown.id}
+          rundownName={rundown.name}
+          onClose={() => setShowCueLog(false)}
+        />
+      )}
 
       {/* Sluit menu's bij klik buiten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (

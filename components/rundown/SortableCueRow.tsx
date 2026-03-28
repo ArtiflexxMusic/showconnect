@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { CueCountdown } from './CueCountdown'
 import {
   GripVertical, Play, SkipForward, RotateCcw,
-  Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy, Music, Video
+  Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy, Music, Video, FastForward
 } from 'lucide-react'
 import type { Cue } from '@/lib/types/database'
 import { useState } from 'react'
@@ -49,7 +49,7 @@ export function SortableCueRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-md border border-transparent transition-all duration-150',
+        'group relative rounded-md border border-transparent transition-all duration-150 overflow-hidden',
         isDragging  && 'shadow-2xl border-primary/50 bg-accent z-50',
         isRunning   && 'cue-running',
         isDone      && 'opacity-50',
@@ -57,6 +57,13 @@ export function SortableCueRow({
         !isDragging && 'hover:bg-accent/30'
       )}
     >
+      {/* Kleurlabel balk links */}
+      {cue.color && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md"
+          style={{ backgroundColor: cue.color }}
+        />
+      )}
       <div className="rundown-grid px-2 py-2 items-center">
 
         {/* Drag handle */}
@@ -98,6 +105,11 @@ export function SortableCueRow({
                   ? <Video className="h-3 w-3" />
                   : <Music className="h-3 w-3" />
                 }
+              </span>
+            )}
+            {cue.auto_advance && (
+              <span className="shrink-0 text-primary/50" title="Auto-advance aan">
+                <FastForward className="h-3 w-3" />
               </span>
             )}
             {hasDetails && (

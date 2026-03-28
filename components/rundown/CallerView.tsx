@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes
+  cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes, totalDuration
 } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -260,6 +260,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     setTimeout(() => setNudgeActive(false), 2000)
   }, [nudgeActive, rundown.id, userId, supabase])
 
+  const autoAdvanceRef = useRef(false)
+
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -349,6 +351,25 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const countdown = activeCue ? calcCountdown(activeCue, now) : 0
   const progress  = activeCue ? calcProgress(activeCue, now) : 0
 
+  // Totale resterende tijd (actieve cue countdown + pending cues)
+  const totalRemaining = (activeCue ? countdown : 0) +
+    pendingCues.reduce((sum, c) => sum + c.duration_seconds, 0)
+
+  // ── Auto-advance: automatisch GO als countdown 0 bereikt ─────────────────
+  useEffect(() => {
+    if (!activeCue?.auto_advance) {
+      autoAdvanceRef.current = false
+      return
+    }
+    if (countdown <= 0 && !autoAdvanceRef.current && !isProcessing && !showComplete) {
+      autoAdvanceRef.current = true
+      handleGo()
+    }
+    if (countdown > 0) {
+      autoAdvanceRef.current = false
+    }
+  }, [countdown, activeCue, isProcessing, showComplete, handleGo])
+
   // Media player helpers
   const hasMediaDisplay = !!(activeCue?.media_url && (mediaPlaying || mediaPaused))
   const mediaProgressPct = mediaDuration > 0 ? Math.min(100, (mediaCurrentTime / mediaDuration) * 100) : 0
@@ -425,6 +446,14 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             <Users className="h-3 w-3" /> {connectedUsers}
           </Badge>
 
+          {/* Resterende tijd */}
+          {!showComplete && (
+            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums text-muted-foreground border border-border/50 rounded px-2 py-0.5" title="Totale resterende tijd">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              -{formatDuration(totalRemaining)}
+            </div>
+          )}
+
           {/* Wall clock */}
           <div className="flex items-center gap-1.5 text-sm font-mono font-semibold tabular-nums">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -438,6 +467,15 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           </div>
         </div>
       </div>
+
+      {/* ── RUNDOWN NOTITIES ─────────────────────────────────────────── */}
+      {rundown.notes && (
+        <div className="shrink-0 px-6 py-2 bg-yellow-500/5 border-b border-yellow-500/20">
+          <p className="text-xs text-yellow-400/80 text-center">
+            📋 {rundown.notes}
+          </p>
+        </div>
+      )}
 
       {/* ── MAIN AREA ────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-4 gap-5 min-h-0">
@@ -461,9 +499,15 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                   (gepland {expectedTimes[activeCue.position]})
                 </span>
               )}
+              {activeCue.auto_advance && (
+                <span className="ml-2 text-primary/60" title="Auto-advance aan">⏩</span>
+              )}
             </p>
 
-            <div className="rounded-xl border-2 border-green-500/50 bg-green-500/5 p-6">
+            <div
+              className="rounded-xl border-2 border-green-500/50 bg-green-500/5 p-6 relative overflow-hidden"
+              style={activeCue.color ? { borderLeftColor: activeCue.color, borderLeftWidth: '4px' } : {}}
+            >
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <Badge className={cn('text-xs border', cueTypeColor(activeCue.type))}>
@@ -682,7 +726,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             <div
               key={cue.id}
               className={cn(
-                'shrink-0 rounded px-2.5 py-1.5 text-xs border transition-all',
+                'shrink-0 rounded px-2.5 py-1.5 text-xs border transition-all flex items-center gap-1.5',
                 cue.status === 'running'
                   ? 'bg-green-500/20 border-green-500/50 text-green-300 font-semibold'
                   : cue.status === 'done'
@@ -692,6 +736,12 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                   : 'border-border/30 text-muted-foreground hover:border-border/60'
               )}
             >
+              {cue.color && (
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: cue.color }}
+                />
+              )}
               <span className="opacity-50 font-mono">#{cue.position + 1}</span>
               {' '}
               <span className="max-w-[100px] truncate inline-block align-bottom">{cue.title}</span>

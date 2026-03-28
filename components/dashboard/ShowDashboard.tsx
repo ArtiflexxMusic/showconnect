@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
-  Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users,
+  Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -51,6 +51,7 @@ export function ShowDashboard({
   const [rundowns, setRundowns]   = useState<RundownSummary[]>(initialRundowns)
   const [editShowOpen, setEditShowOpen]     = useState(false)
   const [showMembers, setShowMembers]       = useState(false)
+  const [autoOpenInvite, setAutoOpenInvite] = useState(false)
   const [deleteTarget, setDeleteTarget]     = useState<RundownSummary | null>(null)
   const [deleting, setDeleting]             = useState(false)
   const [deleteError, setDeleteError]       = useState<string | null>(null)
@@ -104,7 +105,15 @@ export function ShowDashboard({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setShowMembers(true)} className="gap-2">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
+            className="gap-2 text-primary border-primary/30 hover:bg-primary/10"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Uitnodigen
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }} className="gap-2">
             <Users className="h-3.5 w-3.5" />
             Team
             {members.length > 0 && (
@@ -217,7 +226,8 @@ export function ShowDashboard({
           currentUserRole={currentUserRole}
           members={members}
           invitations={invitations}
-          onClose={() => setShowMembers(false)}
+          onClose={() => { setShowMembers(false); setAutoOpenInvite(false) }}
+          autoOpenInvite={autoOpenInvite}
         />
       )}
 

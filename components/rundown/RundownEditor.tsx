@@ -24,7 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
-  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard
+  RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
+  Share2, Copy, Check, ExternalLink
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -81,6 +82,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
   const [showCueLog, setShowCueLog]                     = useState(false)
   const [showShortcutHelp, setShowShortcutHelp]         = useState(false)
+  const [showSharePanel, setShowSharePanel]             = useState(false)
+  const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
 
   // DnD sensors
   const sensors = useSensors(
@@ -167,6 +170,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       media_volume:     input.media_volume ?? 1.0,
       media_loop:       input.media_loop ?? false,
       media_autoplay:   input.media_autoplay ?? true,
+      color:            input.color ?? null,
+      auto_advance:     input.auto_advance ?? false,
     })
     if (error) console.error('Fout bij toevoegen cue:', error)
     setIsSaving(false)
@@ -314,10 +319,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     show_start_time: string | null
     companion_webhook_url: string | null
     presenter_pin: string | null
+    notes: string | null
   }) => {
     const { data, error } = await supabase
       .from('rundowns')
-      .update(updates as Record<string, unknown>)
+      .update(updates)
       .eq('id', rundown.id)
       .select()
       .single()
@@ -334,7 +340,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         show_start_time:       rundown.show_start_time,
         companion_webhook_url: rundown.companion_webhook_url,
         presenter_pin:         rundown.presenter_pin,
-      } as Record<string, unknown>)
+        notes:                 rundown.notes,
+      })
       .select()
       .single()
     if (rundownErr || !newRundown) return
@@ -386,7 +393,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.key === 'a' || e.key === 'A') { e.preventDefault(); setShowAddModal(true) }
       if (e.key === '?') { e.preventDefault(); setShowShortcutHelp(v => !v) }
-      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null); setShowShortcutHelp(false) }
+      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null); setShowShortcutHelp(false); setShowSharePanel(false) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -419,6 +426,21 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const currentFilterLabel = FILTER_OPTIONS.find((f) => f.value === activeFilter)?.label ?? 'Alles'
 
   const hasRunningOrDone = cues.some((c) => c.status !== 'pending')
+
+  function copyShareLink(key: string, url: string) {
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopiedShareKey(key)
+    setTimeout(() => setCopiedShareKey(null), 2000)
+  }
+
+  const baseShareUrl   = typeof window !== 'undefined' ? window.location.origin : ''
+  const basePath       = `/shows/${show.id}/rundown/${rundown.id}`
+  const shareLinks = [
+    { key: 'caller',    label: '🎙 Caller',    url: `${baseShareUrl}${basePath}/caller`,    color: 'text-green-400' },
+    { key: 'presenter', label: '🖥 Presenter', url: `${baseShareUrl}${basePath}/presenter`, color: '' },
+    { key: 'crew',      label: '📱 Crew',      url: `${baseShareUrl}${basePath}/crew`,      color: '' },
+    { key: 'print',     label: '🖨 Afdrukken', url: `${baseShareUrl}${basePath}/print`,     color: 'text-muted-foreground' },
+  ]
 
   return (
     <div className="flex flex-col h-full gap-0 relative">
@@ -615,6 +637,55 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                     <BookTemplate className="h-3.5 w-3.5" /> Opslaan als template
                   </button>
                 </div>
+              )}
+            </div>
+
+            {/* Delen */}
+            <div className="relative">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => { setShowSharePanel(!showSharePanel); setShowViewMenu(false); setShowFilterMenu(false) }}
+                className={cn('gap-2', showSharePanel && 'border-primary/50 text-primary')}
+                title="Links delen"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+              </Button>
+              {showSharePanel && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowSharePanel(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-xl p-3 min-w-[300px]">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      Deel links
+                    </p>
+                    <div className="space-y-1.5">
+                      {shareLinks.map(({ key, label, url, color }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <span className={cn('text-xs flex-1 truncate font-medium', color)}>{label}</span>
+                          <span className="text-xs text-muted-foreground font-mono truncate max-w-[130px]">{url.replace(/^https?:\/\/[^/]+/, '')}</span>
+                          <button
+                            onClick={() => copyShareLink(key, url)}
+                            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                            title="Kopieer link"
+                          >
+                            {copiedShareKey === key
+                              ? <Check className="h-3.5 w-3.5 text-green-400" />
+                              : <Copy className="h-3.5 w-3.5" />
+                            }
+                          </button>
+                          <a href={url} target="_blank" rel="noopener noreferrer"
+                            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                            title="Openen"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-border/50">
+                      Presenter & Crew view vereisen geen inlog.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
 

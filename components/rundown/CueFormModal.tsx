@@ -53,6 +53,8 @@ export function CueFormModal({
   const [presenter, setPresenter]   = useState('')
   const [location, setLocation]     = useState('')
   const [showExtra, setShowExtra]   = useState(false)
+  const [color, setColor]           = useState<string | null>(null)
+  const [autoAdvance, setAutoAdvance] = useState(false)
 
   // Media state
   const [mediaFile, setMediaFile]       = useState<File | null>(null)
@@ -94,6 +96,8 @@ export function CueFormModal({
         setShowExtra(
           !!(initialValues.tech_notes || initialValues.presenter || initialValues.location)
         )
+        setColor(initialValues.color ?? null)
+        setAutoAdvance(initialValues.auto_advance ?? false)
         // Media uit bestaande cue
         setMediaUrl(initialValues.media_url ?? null)
         setMediaPath(initialValues.media_path ?? null)
@@ -112,6 +116,8 @@ export function CueFormModal({
         setPresenter('')
         setLocation('')
         setShowExtra(false)
+        setColor(null)
+        setAutoAdvance(false)
         setMediaFile(null)
         setMediaUrl(null)
         setMediaPath(null)
@@ -243,6 +249,8 @@ export function CueFormModal({
       media_volume:     mediaVolume,
       media_loop:       mediaLoop,
       media_autoplay:   mediaAutoplay,
+      color:            color,
+      auto_advance:     autoAdvance,
     })
   }
 
@@ -497,6 +505,43 @@ export function CueFormModal({
                 </div>
               )}
             </div>
+
+            {/* Kleur label */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Kleur label (optioneel)</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[null, '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'].map((c) => (
+                  <button
+                    key={c ?? 'none'}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    className={`h-6 w-6 rounded-full border-2 transition-all ${
+                      color === c
+                        ? 'border-foreground scale-110'
+                        : 'border-transparent hover:border-muted-foreground'
+                    }`}
+                    style={{ backgroundColor: c ?? 'transparent' }}
+                    title={c ?? 'Geen kleur'}
+                  >
+                    {c === null && (
+                      <span className="flex items-center justify-center w-full h-full text-muted-foreground text-xs border border-border rounded-full">✕</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Auto-advance */}
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoAdvance}
+                onChange={(e) => setAutoAdvance(e.target.checked)}
+                className="rounded accent-primary"
+              />
+              <span>Auto-advance: volgende cue automatisch starten bij 0</span>
+            </label>
+
           </div>
 
           <DialogFooter className="mt-4">

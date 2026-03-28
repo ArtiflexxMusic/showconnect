@@ -117,10 +117,14 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
 
   const activeCue   = cues.find((c) => c.status === 'running') ?? null
   const pendingCues = cues.filter((c) => c.status === 'pending')
+  const doneCues    = cues.filter((c) => c.status === 'done' || c.status === 'skipped')
   const nextCue     = activeCue
     ? cues.find((c) => c.position > activeCue.position && c.status === 'pending')
     : pendingCues[0] ?? null
   const showComplete = pendingCues.length === 0 && !activeCue
+  const showProgress = cues.length > 0
+    ? Math.round((doneCues.length / cues.length) * 100)
+    : 0
 
   const expectedTimes = calculateCueStartTimes(cues, rundown.show_start_time)
 
@@ -192,11 +196,27 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
           <p className="text-sm text-white/40 font-medium uppercase tracking-widest">{show.name}</p>
           <p className="text-xs text-white/20">{rundown.name}</p>
         </div>
-        <div className="font-mono text-2xl font-light tabular-nums text-white/60 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-white/30" />
-          {now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+        <div className="flex items-center gap-4">
+          {/* Show progress */}
+          <div className="text-xs text-white/25 font-mono hidden sm:block">
+            {doneCues.length}/{cues.length} cues
+          </div>
+          <div className="font-mono text-2xl font-light tabular-nums text-white/60 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-white/30" />
+            {now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </div>
         </div>
       </div>
+
+      {/* Show voortgangsbalk */}
+      {cues.length > 0 && (
+        <div className="h-0.5 bg-white/5">
+          <div
+            className="h-full bg-green-500/40 transition-all duration-1000"
+            style={{ width: `${showProgress}%` }}
+          />
+        </div>
+      )}
 
       {/* Hoofd content */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 gap-6 min-h-0">
@@ -216,8 +236,11 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
               Nu actief
             </p>
 
-            {/* Cue titel – GROOT */}
-            <h1 className="text-5xl md:text-7xl font-extrabold text-center leading-tight">
+            {/* Cue titel – GROOT met kleur accent */}
+            <h1
+              className="text-5xl md:text-7xl font-extrabold text-center leading-tight"
+              style={activeCue.color ? { borderBottom: `4px solid ${activeCue.color}`, paddingBottom: '0.25rem' } : {}}
+            >
               {activeCue.title}
             </h1>
 

@@ -15,6 +15,7 @@ interface ShowMembersPanelProps {
   members: ShowMember[]
   invitations: Invitation[]
   onClose: () => void
+  autoOpenInvite?: boolean   // Open het uitnodigingsformulier meteen
 }
 
 const ROLE_LABELS: Record<ShowMemberRole, string> = {
@@ -51,11 +52,11 @@ function Avatar({ name, email }: { name: string | null; email?: string }) {
 }
 
 export function ShowMembersPanel({
-  showId, showName, currentUserRole, members: initialMembers, invitations: initialInvitations, onClose
+  showId, showName, currentUserRole, members: initialMembers, invitations: initialInvitations, onClose, autoOpenInvite = false
 }: ShowMembersPanelProps) {
   const [members, setMembers] = useState(initialMembers)
   const [invitations, setInvitations] = useState(initialInvitations)
-  const [showInvite, setShowInvite] = useState(false)
+  const [showInvite, setShowInvite] = useState(autoOpenInvite && currentUserRole === 'owner')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<ShowMemberRole>('editor')
   const [inviting, setInviting] = useState(false)

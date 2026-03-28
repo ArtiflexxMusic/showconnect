@@ -7,7 +7,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
 import type { Rundown } from '@/lib/types/database'
 
 interface RundownSettingsProps {
@@ -20,6 +21,7 @@ interface RundownSettingsProps {
     show_start_time: string | null
     companion_webhook_url: string | null
     presenter_pin: string | null
+    notes: string | null
   }) => Promise<void>
   onDelete?: () => Promise<void>
   onDuplicate?: () => Promise<void>
@@ -30,6 +32,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
   const [startTime, setStartTime]     = useState('')
   const [webhookUrl, setWebhookUrl]   = useState('')
   const [presenterPin, setPresenterPin] = useState('')
+  const [notes, setNotes]             = useState('')
   const [loading, setLoading]         = useState(false)
   const [testStatus, setTestStatus]   = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [copied, setCopied]           = useState<string | null>(null)
@@ -44,6 +47,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
       setStartTime(raw.length >= 5 ? raw.slice(0, 5) : raw)
       setWebhookUrl(rundown.companion_webhook_url ?? '')
       setPresenterPin(rundown.presenter_pin ?? '')
+      setNotes(rundown.notes ?? '')
       setTestStatus('idle')
       setCopied(null)
       setShowDeleteConfirm(false)
@@ -70,6 +74,7 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
         show_start_time:       startTime ? startTime + ':00' : null,
         companion_webhook_url: webhookUrl.trim() || null,
         presenter_pin:         presenterPin.trim() || null,
+        notes:                 notes.trim() || null,
       })
       onClose()
     } finally {
@@ -161,6 +166,21 @@ export function RundownSettings({ open, onClose, rundown, show, onSave, onDelete
               onChange={(e) => setRundownName(e.target.value)}
               placeholder="Hoofdrundown"
               required
+            />
+          </div>
+
+          {/* Rundown notities */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              <Label htmlFor="rundown-notes">Rundown notities</Label>
+            </div>
+            <Textarea
+              id="rundown-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Algemene info voor de show (zichtbaar in caller & crew view)..."
+              rows={2}
             />
           </div>
 

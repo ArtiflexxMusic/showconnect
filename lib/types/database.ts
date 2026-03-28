@@ -36,6 +36,7 @@ export interface Rundown {
   show_start_time: string | null        // "HH:MM:SS" – configeerbare showstarttijd
   companion_webhook_url: string | null  // HTTP URL voor Bitfocus Companion
   presenter_pin: string | null          // 4-cijferige PIN voor presenter view
+  notes: string | null                  // Algemene notities zichtbaar in caller & crew
   created_at: string
   updated_at: string
 }
@@ -62,6 +63,9 @@ export interface Cue {
   media_volume: number | null   // Volume 0.0–1.0 (default 1.0)
   media_loop: boolean | null    // Herhalen
   media_autoplay: boolean | null // Automatisch afspelen bij GO
+  // UI / UX uitbreidingen
+  color: string | null           // Hex kleurcode voor visueel label (bijv. '#ef4444')
+  auto_advance: boolean | null   // Automatisch volgende cue starten bij 0
   created_at: string
   updated_at: string
 }
@@ -137,6 +141,8 @@ export interface CreateCueInput {
   media_volume?: number | null
   media_loop?: boolean | null
   media_autoplay?: boolean | null
+  color?: string | null
+  auto_advance?: boolean | null
 }
 
 export interface UpdateCueInput extends Partial<CreateCueInput> {
@@ -163,6 +169,7 @@ export interface UpdateRundownInput {
   show_start_time?: string | null
   companion_webhook_url?: string | null
   presenter_pin?: string | null
+  notes?: string | null
 }
 
 // ─── Supabase Database type definitie ───────────────────────────────────────
@@ -243,6 +250,7 @@ export type Database = {
           show_start_time: string | null
           companion_webhook_url: string | null
           presenter_pin: string | null
+          notes: string | null
           created_at: string
           updated_at: string
         }
@@ -254,6 +262,7 @@ export type Database = {
           show_start_time?: string | null
           companion_webhook_url?: string | null
           presenter_pin?: string | null
+          notes?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -265,6 +274,7 @@ export type Database = {
           show_start_time?: string | null
           companion_webhook_url?: string | null
           presenter_pin?: string | null
+          notes?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -299,6 +309,8 @@ export type Database = {
           media_volume: number | null
           media_loop: boolean | null
           media_autoplay: boolean | null
+          color: string | null
+          auto_advance: boolean | null
           created_at: string
           updated_at: string
         }
@@ -323,6 +335,8 @@ export type Database = {
           media_volume?: number | null
           media_loop?: boolean | null
           media_autoplay?: boolean | null
+          color?: string | null
+          auto_advance?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -347,6 +361,8 @@ export type Database = {
           media_volume?: number | null
           media_loop?: boolean | null
           media_autoplay?: boolean | null
+          color?: string | null
+          auto_advance?: boolean | null
           updated_at?: string
         }
         Relationships: [
@@ -436,6 +452,61 @@ export type Database = {
             referencedColumns: ['id']
           }
         ]
+      }
+      rundown_templates: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_by: string | null
+          cues_json: TemplateCue[]
+          is_public: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_by?: string | null
+          cues_json: TemplateCue[]
+          is_public?: boolean
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          cues_json?: TemplateCue[]
+          is_public?: boolean
+        }
+        Relationships: []
+      }
+      cue_log: {
+        Row: {
+          id: string
+          cue_id: string | null
+          rundown_id: string
+          show_id: string | null
+          cue_title: string
+          cue_type: string | null
+          cue_position: number | null
+          triggered_by: string | null
+          triggered_at: string
+          duration_seconds: number | null
+        }
+        Insert: {
+          id?: string
+          cue_id?: string | null
+          rundown_id: string
+          show_id?: string | null
+          cue_title: string
+          cue_type?: string | null
+          cue_position?: number | null
+          triggered_by?: string | null
+          triggered_at?: string
+          duration_seconds?: number | null
+        }
+        Update: Record<string, never>
+        Relationships: []
       }
     }
     Views: Record<string, never>

@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X, Image, ChevronDown, ChevronRight as ChevronRightIcon, Info } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X, Image, ChevronDown, ChevronRight as ChevronRightIcon, Info, Download } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import type { Rundown, RundownSnapshot, Cue } from '@/lib/types/database'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -429,18 +429,53 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <h3 className="text-sm font-semibold">Bitfocus Companion</h3>
             </div>
 
-            {/* Polling URL — altijd zichtbaar */}
+            {/* Download config — primaire actie */}
+            <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-3 space-y-2.5">
+              <p className="text-xs text-foreground/80">
+                Download een kant-en-klaar configuratiebestand en importeer het in Companion. De koppeling werkt daarna direct.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 w-full"
+                onClick={() => {
+                  const url = `${baseUrl}/api/companion/download?rundownId=${rundown.id}`
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'CueBoard Live Cue.companionconfig'
+                  a.click()
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Companion config
+              </Button>
+              <ol className="space-y-1 text-xs text-muted-foreground pl-1">
+                {[
+                  'Download het bestand hierboven',
+                  'Companion → Import/Export → kies "Import triggers" → selecteer het bestand',
+                  'Maak een button met tekst: $(custom:cueboard_response)',
+                ].map((step, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Poll-URL voor handmatige setup */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Poll-URL voor Companion</Label>
+              <Label className="text-xs text-muted-foreground">Poll-URL (handmatig instellen)</Label>
               <div className="flex items-center gap-2">
                 <Input
                   readOnly
-                  value={`${baseUrl}/api/companion/status?rundownId=${rundown.id}`}
+                  value={`${baseUrl}/api/companion/cue?rundownId=${rundown.id}`}
                   className="text-[11px] font-mono h-7 text-muted-foreground bg-muted/40 flex-1"
                 />
                 <Button
                   type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0"
-                  onClick={() => copyLink('companion-poll', `${baseUrl}/api/companion/status?rundownId=${rundown.id}`)}
+                  onClick={() => copyLink('companion-poll', `${baseUrl}/api/companion/cue?rundownId=${rundown.id}`)}
                   title="Kopieer URL"
                 >
                   {copied === 'companion-poll'
@@ -448,31 +483,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                     : <Copy className="h-3.5 w-3.5" />}
                 </Button>
               </div>
-            </div>
-
-            {/* Stap-voor-stap gids */}
-            <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 text-xs text-muted-foreground space-y-2">
-              <p className="font-semibold text-foreground/70">Instellen in Companion</p>
-              <p>Companion haalt zelf de actieve cue op via bovenstaande URL. Zo werkt het ook als CueBoard in de cloud draait.</p>
-              <ol className="space-y-1.5 pl-1">
-                {[
-                  { step: 'Triggers → Add trigger → Event type: "Time — Interval" → 1000 ms', sub: null },
-                  { step: 'Actie 1: Internal → HTTP Request → GET → plak de Poll-URL hierboven', sub: null },
-                  { step: 'Actie 2: Internal → Set custom variable → naam: cueboard_cue → waarde uit response body', sub: null },
-                  { step: 'Gebruik $(internal:custom_cueboard_cue) in je knoppen', sub: 'Of zoek in Connections → Add connection op "HTTP" voor een polling-module' },
-                ].map((item, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                    <span>
-                      {item.step}
-                      {item.sub && <span className="block text-muted-foreground/60 mt-0.5">{item.sub}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <p className="text-muted-foreground/60 pt-1 border-t border-border/30">
-                Beschikbare velden: <span className="font-mono">active_cue_title</span>, <span className="font-mono">next_cue_title</span>, <span className="font-mono">active_cue_type</span>, <span className="font-mono">active_cue_notes</span>, <span className="font-mono">cues_done</span>, <span className="font-mono">cues_total</span>, <span className="font-mono">rundown_name</span>
-              </p>
+              <p className="text-[10px] text-muted-foreground/60">Voeg <span className="font-mono">?field=next</span> toe voor de volgende cue</p>
             </div>
 
             {/* Geavanceerd: eigen webhook (optioneel) */}

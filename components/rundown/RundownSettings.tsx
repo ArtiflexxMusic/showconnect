@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X, Image } from 'lucide-react'
+import { Loader2, Clock, Radio, ExternalLink, CheckCircle, AlertCircle, Lock, Copy, Check, Trash2, AlertTriangle, CopyPlus, FileText, History, RotateCcw, Monitor, Upload, X, Image, ChevronDown, ChevronRight as ChevronRightIcon, Info } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import type { Rundown, RundownSnapshot, Cue } from '@/lib/types/database'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +66,8 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [uploadingStill, setUploadingStill] = useState(false)
   const [stillError, setStillError]       = useState<string | null>(null)
   const stillInputRef = useRef<HTMLInputElement>(null)
+  const [showCompanionGuide, setShowCompanionGuide] = useState(false)
+  const [showPayloadPreview, setShowPayloadPreview] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -383,8 +385,55 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Radio className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Bitfocus Companion webhook</h3>
+              <h3 className="text-sm font-semibold">Bitfocus Companion koppeling</h3>
             </div>
+
+            {/* Setup gids (uitklapbaar) */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-primary/10 transition-colors"
+                onClick={() => setShowCompanionGuide((v) => !v)}
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Info className="h-3.5 w-3.5 shrink-0" />
+                  Hoe stel ik dit in?
+                </span>
+                {showCompanionGuide
+                  ? <ChevronDown className="h-4 w-4 text-primary/60 shrink-0" />
+                  : <ChevronRightIcon className="h-4 w-4 text-primary/60 shrink-0" />}
+              </button>
+              {showCompanionGuide && (
+                <div className="px-3 pb-3 space-y-3 text-xs text-muted-foreground border-t border-primary/20">
+                  <div className="pt-2 space-y-2.5">
+                    <p className="font-semibold text-foreground/80">In Bitfocus Companion (op je Raspberry Pi):</p>
+                    <div className="space-y-2">
+                      {[
+                        { n: 1, t: 'Ga naar het tabblad Triggers', d: 'Klik op + om een nieuwe trigger aan te maken.' },
+                        { n: 2, t: 'Kies als trigger-type: "HTTP incoming"', d: 'Companion genereert automatisch een unieke URL, bijv. http://192.168.1.x:8888/api/trigger/abc123.' },
+                        { n: 3, t: 'Kopieer de gegenereerde URL', d: 'Dit is de webhook URL die je hieronder invult.' },
+                        { n: 4, t: 'Voeg een actie toe aan de trigger', d: 'Bijv. "Set custom variable" met waarde $(webhook:body_cue_title) — of koppel een button-press, scene recall, etc.' },
+                        { n: 5, t: 'Plak de URL hieronder en klik "Test verbinding"', d: 'CueBoard stuurt een test-POST zodat je de verbinding kunt bevestigen.' },
+                      ].map(({ n, t, d }) => (
+                        <div key={n} className="flex gap-2.5">
+                          <span className="h-5 w-5 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{n}</span>
+                          <div>
+                            <p className="text-foreground/80 font-medium">{t}</p>
+                            <p className="text-muted-foreground/70 mt-0.5">{d}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-muted-foreground/60 italic pt-1">
+                      💡 Wil je liever een Custom Variable updaten? Gebruik dan:<br />
+                      <code className="text-primary/80 font-mono not-italic">http://[ip]:8888/api/custom-variable/[naam]/value</code><br />
+                      en stuur de body als platte tekst (niet JSON).
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="webhook-url">Webhook URL</Label>
               <Input
@@ -392,11 +441,35 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                 type="url"
                 value={webhookUrl}
                 onChange={(e) => { setWebhookUrl(e.target.value); setTestStatus('idle') }}
-                placeholder="http://192.168.1.x:8888/api/custom-variable/..."
+                placeholder="http://192.168.1.x:8888/api/trigger/xxxxxxxx"
               />
               <p className="text-xs text-muted-foreground">
-                Bij elke GO wordt een POST gestuurd met cue-data.
+                Bij elke GO wordt automatisch een POST verstuurd met cue-informatie.
               </p>
+
+              {/* Payload preview */}
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setShowPayloadPreview((v) => !v)}
+              >
+                {showPayloadPreview
+                  ? <ChevronDown className="h-3 w-3" />
+                  : <ChevronRightIcon className="h-3 w-3" />}
+                Bekijk wat er verstuurd wordt (JSON payload)
+              </button>
+              {showPayloadPreview && (
+                <pre className="text-[11px] bg-muted/40 border border-border/40 rounded-lg p-3 overflow-x-auto font-mono text-muted-foreground leading-relaxed">{`{
+  "event": "cue_started",
+  "source": "CueBoard",
+  "cue": {
+    "title": "Openingsfilm",
+    "type": "video",
+    "position": 3
+  },
+  "timestamp": "2025-01-15T19:30:00.000Z"
+}`}</pre>
+              )}
 
               <div className="flex items-center gap-2 pt-1">
                 <Button
@@ -417,7 +490,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                 )}
                 {testStatus === 'error' && (
                   <span className="flex items-center gap-1 text-xs text-red-400">
-                    <AlertCircle className="h-3.5 w-3.5" /> Geen verbinding
+                    <AlertCircle className="h-3.5 w-3.5" /> Geen verbinding — controleer IP en poort
                   </span>
                 )}
               </div>

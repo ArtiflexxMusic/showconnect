@@ -37,7 +37,7 @@ export default async function ShowPage({ params }: PageProps) {
   // Leden met profiel
   const { data: members } = await supabase
     .from('show_members')
-    .select('*, profile:profiles(id, email, full_name, avatar_url)')
+    .select('*, profile:profiles!show_members_user_id_fkey(id, email, full_name, avatar_url)')
     .eq('show_id', showId)
     .order('created_at', { ascending: true })
 

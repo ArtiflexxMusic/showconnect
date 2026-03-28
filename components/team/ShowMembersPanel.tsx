@@ -73,13 +73,24 @@ export function ShowMembersPanel({
     if (!inviteEmail.trim()) return
     setInviting(true)
     setInviteError('')
+
+    // Haal de huidige user op zodat we invited_by kunnen meegeven
+    const { data: { user } } = await supabase.auth.getUser()
+
     const { data, error } = await supabase
       .from('invitations')
-      .insert({ show_id: showId, email: inviteEmail.trim().toLowerCase(), role: inviteRole })
+      .insert({
+        show_id:    showId,
+        email:      inviteEmail.trim().toLowerCase(),
+        role:       inviteRole,
+        invited_by: user?.id ?? null,
+      })
       .select()
       .single()
+
     if (error) {
-      setInviteError('Uitnodiging mislukt. Probeer opnieuw.')
+      console.error('Invite error:', error)
+      setInviteError(`Uitnodiging mislukt: ${error.message}`)
     } else if (data) {
       setInvitations(prev => [...prev, data as Invitation])
       setInviteEmail('')

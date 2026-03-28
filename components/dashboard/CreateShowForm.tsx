@@ -46,6 +46,13 @@ export function CreateShowForm() {
 
       if (showError) throw showError
 
+      // Creator als owner toevoegen aan show_members
+      await supabase.from('show_members').insert({
+        show_id: show.id,
+        user_id: user.id,
+        role:    'owner',
+      })
+
       // Hoofdrundown aanmaken
       const { data: rundown, error: rundownError } = await supabase
         .from('rundowns')

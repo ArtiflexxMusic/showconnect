@@ -4,7 +4,7 @@
 
 export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'custom' | 'intro' | 'outro'
 export type CueStatus = 'pending' | 'running' | 'done' | 'skipped'
-export type UserRole = 'admin' | 'crew'
+export type UserRole = 'beheerder' | 'admin' | 'crew'
 export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'viewer'
 
 export interface Profile {
@@ -514,7 +514,7 @@ export type Database = {
     Enums: {
       cue_status: CueStatus
       cue_type: CueType
-      user_role: UserRole
+      user_role: 'beheerder' | 'admin' | 'crew'
       show_member_role: ShowMemberRole
     }
     CompositeTypes: Record<string, never>

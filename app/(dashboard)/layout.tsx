@@ -18,9 +18,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <AppHeader user={profile} isAdmin={profile?.role === 'admin'} />
+      <AppHeader user={profile} isAdmin={profile?.role === 'admin' || profile?.role === 'beheerder'} />
       <div className="flex flex-1 overflow-hidden">
-        <AppSidebar isAdmin={profile?.role === 'admin'} />
+        <AppSidebar isAdmin={profile?.role === 'admin' || profile?.role === 'beheerder'} />
         <main className="flex-1 overflow-auto p-6">
           {children}
         </main>

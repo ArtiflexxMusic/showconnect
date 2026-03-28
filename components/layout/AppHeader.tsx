@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { LogOut, Radio, LayoutDashboard, Plus, Shield, User, Menu, X } from 'lucide-react'
+import { LogOut, LayoutDashboard, Plus, Shield, User, Menu, X } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -60,11 +60,9 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
           </Button>
 
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold">
-            <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
-              <Radio className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="tracking-tight">CueBoard</span>
+          <Link href="/dashboard" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/cueboard-logo.svg" alt="CueBoard" className="h-8 w-auto" />
           </Link>
 
           <div className="flex-1" />
@@ -81,7 +79,7 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium leading-none">{user.full_name ?? user.email}</p>
                   <p className="text-xs text-muted-foreground capitalize mt-0.5">
-                    {user.role === 'admin' ? 'Beheerder' : 'Gebruiker'}
+                    {user.role === 'beheerder' ? 'Beheerder' : user.role === 'admin' ? 'Admin' : 'Gebruiker'}
                   </p>
                 </div>
               </Link>

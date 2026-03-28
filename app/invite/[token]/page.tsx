@@ -74,10 +74,8 @@ export default async function InvitePage({ params }: PageProps) {
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-sm w-full text-center space-y-5">
           <div className="inline-flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">CB</span>
-            </div>
-            <span className="text-xl font-bold">CueBoard</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/cueboard-logo.svg" alt="CueBoard" className="h-9 w-auto" />
           </div>
           <div>
             <h1 className="text-xl font-semibold mb-1">Je bent uitgenodigd</h1>

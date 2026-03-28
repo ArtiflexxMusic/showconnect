@@ -40,8 +40,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Al ingelogd en naar login/root → redirect naar dashboard
-  if (user && (pathname === '/login' || pathname === '/')) {
+  // Al ingelogd en naar login → redirect naar dashboard
+  // / (landing page) is zichtbaar voor iedereen
+  if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

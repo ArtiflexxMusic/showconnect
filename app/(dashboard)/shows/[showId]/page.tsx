@@ -50,8 +50,11 @@ export default async function ShowPage({ params }: PageProps) {
     .order('created_at', { ascending: false })
 
   // Huidige gebruikersrol in deze show
+  // Platform-beheerder en admin krijgen altijd owner-rechten zodat ze shows kunnen beheren
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
   const currentMember = (members ?? []).find(m => m.user_id === user.id)
-  const currentUserRole: ShowMemberRole = currentMember?.role ?? 'viewer'
+  const currentUserRole: ShowMemberRole = isPlatformAdmin ? 'owner' : (currentMember?.role ?? 'viewer')
 
   return (
     <ShowDashboard

@@ -28,45 +28,22 @@ export function CreateShowForm() {
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Niet ingelogd')
-
-      // Show aanmaken
-      const { data: show, error: showError } = await supabase
-        .from('shows')
-        .insert({
-          name: name.trim(),
-          date:        date || null,
-          venue:       venue.trim() || null,
-          description: description.trim() || null,
-          created_by:  user.id,
-        })
-        .select()
-        .single()
-
-      if (showError) throw showError
-
-      // Creator als owner toevoegen aan show_members
-      await supabase.from('show_members').insert({
-        show_id: show.id,
-        user_id: user.id,
-        role:    'owner',
+      const res = await fetch('/api/shows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:         name.trim(),
+          date:         date || null,
+          venue:        venue.trim() || null,
+          description:  description.trim() || null,
+          rundownName:  rundownName.trim() || 'Hoofdrundown',
+        }),
       })
 
-      // Hoofdrundown aanmaken
-      const { data: rundown, error: rundownError } = await supabase
-        .from('rundowns')
-        .insert({
-          show_id: show.id,
-          name:    rundownName.trim() || 'Hoofdrundown',
-        })
-        .select()
-        .single()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Er is een fout opgetreden')
 
-      if (rundownError) throw rundownError
-
-      // Direct naar de rundown editor
-      router.push(`/shows/${show.id}/rundown/${rundown.id}`)
+      router.push(`/shows/${data.show.id}/rundown/${data.rundown.id}`)
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Er is een fout opgetreden')

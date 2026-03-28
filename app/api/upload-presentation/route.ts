@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { rateLimit, getIp } from '@/lib/rate-limit'
+import { checkFeatureAccess } from '@/lib/plan-gates'
 
 const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 const ALLOWED  = ['application/pdf', 'application/vnd.openxmlformats-officedocument.presentationml.presentation']
@@ -31,6 +32,12 @@ export async function POST(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+
+    // Plan gate: slide upload alleen voor Pro en Team
+    const access = await checkFeatureAccess(user.id, 'slide_upload')
+    if (!access.allowed) {
+      return NextResponse.json({ error: access.message, upgrade: true, plan: access.plan }, { status: 403 })
+    }
 
     const formData = await request.formData()
     const file     = formData.get('file') as File | null

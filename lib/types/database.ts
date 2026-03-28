@@ -6,6 +6,8 @@ export type CueType = 'video' | 'audio' | 'lighting' | 'speech' | 'break' | 'cus
 export type CueStatus = 'pending' | 'running' | 'done' | 'skipped'
 export type UserRole = 'beheerder' | 'admin' | 'crew'
 export type ShowMemberRole = 'owner' | 'editor' | 'caller' | 'crew' | 'presenter' | 'viewer'
+export type UserPlan = 'free' | 'pro' | 'team'
+export type PlanSource = 'free' | 'gift' | 'paid'
 
 export interface Profile {
   id: string
@@ -15,6 +17,9 @@ export interface Profile {
   avatar_url: string | null
   created_at: string
   updated_at: string
+  plan: UserPlan
+  plan_source: PlanSource
+  plan_expires_at: string | null
 }
 
 export interface Show {

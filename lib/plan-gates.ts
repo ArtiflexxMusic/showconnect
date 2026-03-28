@@ -21,7 +21,7 @@ interface GateResult {
   current: number
 }
 
-type GateFeature = 'max_shows' | 'max_rundowns_per_show' | 'max_cues_per_rundown' | 'max_members_per_show'
+type GateFeature = 'max_shows' | 'max_rundowns_per_show' | 'max_cues_per_rundown' | 'max_members_per_show' | 'max_cast_members'
 
 /**
  * Controleer of een gebruiker een nieuwe resource mag aanmaken
@@ -49,6 +49,7 @@ export async function checkPlanGate(
     max_rundowns_per_show: 'rundowns per show',
     max_cues_per_rundown:  'cues per rundown',
     max_members_per_show:  'teamleden per show',
+    max_cast_members:      'cast members',
   }
 
   const allowed = withinLimit(plan, expiresAt, feature, currentCount)
@@ -71,7 +72,7 @@ export async function checkPlanGate(
  */
 export async function checkFeatureAccess(
   userId: string,
-  feature: 'companion' | 'slide_upload'
+  feature: 'companion' | 'slide_upload' | 'mic_patch'
 ): Promise<{ allowed: boolean; plan: Plan; message: string }> {
   const supabase = await createClient()
 
@@ -89,6 +90,7 @@ export async function checkFeatureAccess(
   const FEATURE_LABELS: Record<string, string> = {
     companion:    'Bitfocus Companion integratie',
     slide_upload: 'presentatie-upload',
+    mic_patch:    'mic patch panel',
   }
 
   return {

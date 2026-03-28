@@ -81,10 +81,11 @@ function PlanDropdown({
   user: UserRow
   onUpdate: (userId: string, plan: Plan, source: PlanSource, expiresAt: string | null) => Promise<void>
 }) {
-  const [open, setOpen]           = useState(false)
-  const [saving, setSaving]       = useState(false)
-  const [editPlan, setEditPlan]   = useState<Plan>(user.plan as Plan)
+  const [open, setOpen]             = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [editPlan, setEditPlan]     = useState<Plan>(user.plan as Plan)
   const [editSource, setEditSource] = useState<PlanSource>(user.plan_source)
+  const [hasExpiry, setHasExpiry]   = useState(!!user.plan_expires_at)
   const [editExpiry, setEditExpiry] = useState(
     user.plan_expires_at ? user.plan_expires_at.slice(0, 10) : ''
   )
@@ -101,7 +102,7 @@ function PlanDropdown({
       user.id,
       editPlan,
       editPlan === 'free' ? 'free' : editSource,
-      editExpiry ? new Date(editExpiry).toISOString() : null
+      (hasExpiry && editExpiry) ? new Date(editExpiry).toISOString() : null
     )
     setSaving(false)
     setOpen(false)
@@ -180,16 +181,33 @@ function PlanDropdown({
 
             {/* Verloopdatum (optioneel) */}
             {editPlan !== 'free' && (
-              <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                  Verloopdatum <span className="normal-case">(leeg = nooit)</span>
-                </p>
-                <input
-                  type="date"
-                  value={editExpiry}
-                  onChange={e => setEditExpiry(e.target.value)}
-                  className="w-full text-xs bg-background border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasExpiry}
+                    onChange={e => {
+                      setHasExpiry(e.target.checked)
+                      if (!e.target.checked) setEditExpiry('')
+                    }}
+                    className="rounded border-border accent-primary h-3.5 w-3.5"
+                  />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Tijdelijk plan (met verloopdatum)
+                  </span>
+                </label>
+                {hasExpiry && (
+                  <input
+                    type="date"
+                    value={editExpiry}
+                    onChange={e => setEditExpiry(e.target.value)}
+                    min={new Date().toISOString().slice(0, 10)}
+                    className="w-full text-xs bg-background border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                )}
+                {!hasExpiry && (
+                  <p className="text-[10px] text-muted-foreground/60">Plan verloopt nooit</p>
+                )}
               </div>
             )}
 

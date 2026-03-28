@@ -13,8 +13,10 @@ export interface PlanLimits {
   max_rundowns_per_show:  number
   max_cues_per_rundown:   number
   max_members_per_show:   number
+  max_cast_members:       number   // 0 = cast panel niet beschikbaar
   companion:              boolean  // Bitfocus Companion integratie
   slide_upload:           boolean  // Presentatie-upload
+  mic_patch:              boolean  // Mic patch panel
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
@@ -23,24 +25,30 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     max_rundowns_per_show: 1,
     max_cues_per_rundown:  15,
     max_members_per_show:  2,
+    max_cast_members:      0,      // Cast panel niet beschikbaar
     companion:             false,
     slide_upload:          false,
+    mic_patch:             false,
   },
   pro: {
     max_shows:             5,
     max_rundowns_per_show: 3,
     max_cues_per_rundown:  Infinity,
     max_members_per_show:  5,
+    max_cast_members:      1,      // 1 cast member
     companion:             true,
     slide_upload:          true,
+    mic_patch:             true,
   },
   team: {
     max_shows:             Infinity,
     max_rundowns_per_show: Infinity,
     max_cues_per_rundown:  Infinity,
     max_members_per_show:  Infinity,
+    max_cast_members:      Infinity, // Onbeperkt
     companion:             true,
     slide_upload:          true,
+    mic_patch:             true,
   },
 }
 
@@ -105,7 +113,7 @@ export function canUse(
 export function withinLimit(
   plan: Plan,
   planExpiresAt: string | null,
-  feature: 'max_shows' | 'max_rundowns_per_show' | 'max_cues_per_rundown' | 'max_members_per_show',
+  feature: 'max_shows' | 'max_rundowns_per_show' | 'max_cues_per_rundown' | 'max_members_per_show' | 'max_cast_members',
   currentCount: number
 ): boolean {
   const limits = getPlanLimits(plan, planExpiresAt)

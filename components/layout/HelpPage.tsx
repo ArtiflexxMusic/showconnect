@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import {
   ListMusic, Radio, Mic2, Users, Globe, Monitor, Hash,
-  QrCode, Webhook, Clock, Play, ChevronRight, Zap,
+  QrCode, Webhook, Clock, Play, ChevronRight, ChevronDown, Zap,
   Lock, UserPlus, Printer, Eye, LayoutDashboard, ExternalLink,
 } from 'lucide-react'
 
@@ -220,20 +221,19 @@ const sections: Section[] = [
     id: 'webhook',
     icon: Webhook,
     color: 'pink',
-    title: 'Bitfocus Companion koppeling',
-    subtitle: 'StreamDeck & show control integratie',
+    title: 'Bitfocus Companion',
+    subtitle: 'StreamDeck & show control koppeling',
     description:
-      'Koppel CueBoard aan Bitfocus Companion op je Raspberry Pi. Bij elke GO stuurt CueBoard automatisch cue-informatie naar Companion — zo reageert je StreamDeck, lichtbediening, audio of switcher direct op de rundown.',
+      'Koppel CueBoard aan Bitfocus Companion. Bij elke GO stuurt CueBoard automatisch de naam van de actieve cue naar Companion — zo kun je die op een StreamDeck-knop tonen, of er acties aan koppelen zoals licht, audio of switcher.',
     steps: [
-      'Open Companion op je Raspberry Pi (http://[pi-ip]:8888 in je browser).',
-      'Ga naar het tabblad Triggers → klik op + voor een nieuwe trigger.',
-      'Kies trigger-type "HTTP incoming" — Companion genereert een unieke URL zoals http://[pi-ip]:8888/api/trigger/abc123.',
-      'Kopieer die URL en plak hem in CueBoard → Rundown Instellingen → "Bitfocus Companion koppeling".',
-      'Voeg een actie toe aan de trigger: bijv. "Set custom variable" of een button-press op je StreamDeck.',
-      'Klik op "Test verbinding" in CueBoard — als Companion "200 OK" teruggeeft, is de koppeling actief.',
-      'BONUS: Companion kan ook actief CueBoard pollen via GET /api/companion/status?rundownId=[id] voor live cue-info op je StreamDeck-display.',
+      'Open Companion in je browser: http://[ip-van-companion-computer]:8888',
+      'Ga naar Variables → Custom Variables en maak een nieuwe variabele aan, bijv. "cueboard_cue".',
+      'Ga in CueBoard naar Rundown Instellingen → Bitfocus Companion.',
+      'Vul het IP-adres van de Companion-computer in (bijv. 192.168.1.10) en de variabelenaam "cueboard_cue".',
+      'Klik "Test verbinding" — als het goed gaat staat "Verbinding OK" en is de variabele in Companion gevuld.',
+      'Gebruik $(internal:custom_cueboard_cue) in een knoplabel op je StreamDeck om de actieve cue live te tonen.',
     ],
-    tip: 'De JSON die CueBoard verstuurt bevat: event, cue.title, cue.type en cue.position. In Companion gebruik je $(webhook:body_cue_title) als variabele om de cuenaam op een knop te tonen.',
+    tip: 'Companion draait gewoon op een laptop of vaste computer — geen speciale hardware nodig. Zorg dat CueBoard en Companion op hetzelfde netwerk zitten.',
     badge: 'Integratie',
   },
 ]
@@ -255,16 +255,20 @@ const colorMap: Record<string, { bg: string; icon: string; border: string; badge
   gray:    { bg: 'bg-gray-500/10',    icon: 'text-gray-400',    border: 'border-gray-500/20',    badge: 'bg-gray-500/15 text-gray-300' },
 }
 
-// ─── Sectiekaart ──────────────────────────────────────────────────────────────
+// ─── Sectiekaart (accordion) ──────────────────────────────────────────────────
 
-function SectionCard({ section }: { section: Section }) {
+function SectionCard({ section, open, onToggle }: { section: Section; open: boolean; onToggle: () => void }) {
   const c = colorMap[section.color] ?? colorMap.slate
   const Icon = section.icon
 
   return (
-    <div id={section.id} className={`rounded-2xl border ${c.border} bg-card overflow-hidden`}>
-      {/* Header */}
-      <div className={`flex items-start gap-4 p-5 pb-4 ${c.bg}`}>
+    <div id={section.id} className={`rounded-2xl border ${c.border} bg-card overflow-hidden transition-all`}>
+      {/* Header — altijd zichtbaar, klikbaar */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-full flex items-center gap-4 p-5 text-left transition-colors ${open ? c.bg : 'hover:bg-accent/30'}`}
+      >
         <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${c.bg} border ${c.border}`}>
           <Icon className={`h-5 w-5 ${c.icon}`} />
         </div>
@@ -279,38 +283,43 @@ function SectionCard({ section }: { section: Section }) {
           </div>
           <p className={`text-sm ${c.icon} font-medium`}>{section.subtitle}</p>
         </div>
-      </div>
+        {open
+          ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+          : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+      </button>
 
-      {/* Body */}
-      <div className="p-5 pt-4 space-y-4">
-        <p className="text-sm text-muted-foreground leading-relaxed">{section.description}</p>
+      {/* Body — alleen zichtbaar als open */}
+      {open && (
+        <div className={`px-5 pb-5 pt-0 space-y-4 border-t ${c.border}`}>
+          <p className="text-sm text-muted-foreground leading-relaxed pt-4">{section.description}</p>
 
-        {section.steps && section.steps.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">Hoe gebruik je het?</p>
-            <ol className="space-y-1.5">
-              {section.steps.map((step, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
-                  <span className={`mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${c.bg} ${c.icon}`}>
-                    {i + 1}
-                  </span>
-                  {step}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+          {section.steps && section.steps.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">Hoe gebruik je het?</p>
+              <ol className="space-y-1.5">
+                {section.steps.map((step, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <span className={`mt-0.5 h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${c.bg} ${c.icon}`}>
+                      {i + 1}
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
-        {section.tip && (
-          <div className={`flex items-start gap-2.5 rounded-xl p-3 ${c.bg} border ${c.border}`}>
-            <Zap className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${c.icon}`} />
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              <span className="font-semibold text-foreground/70">Tip: </span>
-              {section.tip}
-            </p>
-          </div>
-        )}
-      </div>
+          {section.tip && (
+            <div className={`flex items-start gap-2.5 rounded-xl p-3 ${c.bg} border ${c.border}`}>
+              <Zap className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${c.icon}`} />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground/70">Tip: </span>
+                {section.tip}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -344,6 +353,12 @@ function TableOfContents() {
 // ─── Hoofd component ──────────────────────────────────────────────────────────
 
 export function HelpPage() {
+  const [openSection, setOpenSection] = useState<string | null>(null)
+
+  function toggle(id: string) {
+    setOpenSection((prev) => prev === id ? null : id)
+  }
+
   return (
     <div className="max-w-5xl mx-auto">
       {/* Kop */}
@@ -385,9 +400,14 @@ export function HelpPage() {
         </div>
 
         {/* Secties */}
-        <div className="flex-1 space-y-5">
+        <div className="flex-1 space-y-2">
           {sections.map((section) => (
-            <SectionCard key={section.id} section={section} />
+            <SectionCard
+              key={section.id}
+              section={section}
+              open={openSection === section.id}
+              onToggle={() => toggle(section.id)}
+            />
           ))}
 
           {/* Footer */}

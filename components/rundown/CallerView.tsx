@@ -247,16 +247,21 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           })
         }
 
-        // Companion webhook
+        // Companion koppeling
         if (rundown.companion_webhook_url) {
-          fetch(rundown.companion_webhook_url, {
+          const url = rundown.companion_webhook_url
+          // Companion Custom Variable modus: stuur {"value": "..."} formaat
+          const isCompanionVar = url.includes('/api/custom-variable/')
+          fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: 'cue_started', source: 'CueBoard',
-              cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
-              timestamp: new Date().toISOString(),
-            }),
+            body: isCompanionVar
+              ? JSON.stringify({ value: nextCue.title })
+              : JSON.stringify({
+                  event: 'cue_started', source: 'CueBoard',
+                  cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
+                  timestamp: new Date().toISOString(),
+                }),
           }).catch(() => {})
         }
       }

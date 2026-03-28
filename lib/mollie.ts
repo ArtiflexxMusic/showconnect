@@ -124,14 +124,14 @@ export const PLAN_VARIANTS: Record<string, PlanVariant> = {
 
 /**
  * Haal beschikbare betaalmethoden op voor het Mollie-account.
- * amount: bedrag als string, bijv. "9.95" – optioneel, geeft verfijnder resultaat.
+ * Geen bedragfilter zodat alle ingeschakelde methoden terugkomen (incl. IN3).
+ * locale=nl_NL zorgt voor Nederlandse namen.
  */
-export async function getAvailableMethods(amount?: string): Promise<MollieMethod[]> {
-  const params = new URLSearchParams({ sequenceType: 'oneoff' })
-  if (amount) {
-    params.set('amount[value]', amount)
-    params.set('amount[currency]', 'EUR')
-  }
+export async function getAvailableMethods(): Promise<MollieMethod[]> {
+  const params = new URLSearchParams({
+    sequenceType: 'oneoff',
+    locale:       'nl_NL',
+  })
   const data = await mollieRequest<{
     _embedded?: { methods: MollieMethod[] }
     count:      number

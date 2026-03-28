@@ -22,8 +22,8 @@ export default async function CheckoutPage({ searchParams }: Props) {
 
   const variant = PLAN_VARIANTS[variantKey]
 
-  // Haal beschikbare betaalmethoden op van Mollie (gebaseerd op plan-bedrag)
-  let methods = await getAvailableMethods(variant.amount).catch(() => [])
+  // Haal alle ingeschakelde betaalmethoden op (zonder bedragfilter = incl. IN3)
+  let methods = await getAvailableMethods().catch(() => [])
 
   // Fallback: lege lijst → toon alle bekende methoden
   if (methods.length === 0) methods = []

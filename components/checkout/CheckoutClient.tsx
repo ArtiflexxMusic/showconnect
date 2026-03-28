@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import {
   ArrowLeft, Zap, Users, Check, Loader2, ShieldCheck, Lock,
@@ -221,13 +220,13 @@ export function CheckoutClient({ variantKey, variant, methods }: CheckoutClientP
 
                     {/* Logo */}
                     <div className="h-9 flex items-center justify-center">
-                      <Image
-                        src={method.image.size2x || method.image.size1x}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={method.image.svg || method.image.size2x || method.image.size1x}
                         alt={method.description}
                         width={54}
                         height={36}
-                        className="object-contain max-h-9"
-                        unoptimized
+                        className="object-contain max-h-9 w-auto"
                       />
                     </div>
 

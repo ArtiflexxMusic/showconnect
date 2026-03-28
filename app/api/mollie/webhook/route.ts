@@ -4,10 +4,8 @@
  * Verwerkt Mollie betalingsnotificaties.
  *
  * Stroom:
- *  1. Eerste betaling (sequenceType: "first") → betaald:
+ *  1. Eenmalige betaling (sequenceType: "oneoff") → betaald:
  *     - Plan + plan_expires_at instellen in Supabase
- *     - Abonnement aanmaken in Mollie (startDate = einde huidige periode)
- *     - mollie_subscription_id opslaan
  *
  *  2. Terugkerende betaling (sequenceType: "recurring") → betaald:
  *     - plan_expires_at verlengen
@@ -22,9 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
   getPayment,
-  createSubscription,
   nextExpiryDate,
-  toMollieDate,
   PLAN_VARIANTS,
 } from '@/lib/mollie'
 import type { Plan, PlanInterval } from '@/lib/plans'
@@ -51,16 +47,14 @@ export async function POST(request: NextRequest) {
     }
 
     const variantKey = `${plan}_${interval}`
-    const variant = PLAN_VARIANTS[variantKey]
-    if (!variant) return NextResponse.json({ ok: true })
+    if (!PLAN_VARIANTS[variantKey]) return NextResponse.json({ ok: true })
 
     const supabase = await createClient()
 
-    if (payment.status === 'paid' && payment.sequenceType === 'first') {
-      // ── Eerste betaling geslaagd ─────────────────────────────────────────
+    if (payment.status === 'paid' && (payment.sequenceType === 'oneoff' || payment.sequenceType === 'first')) {
+      // ── Betaling geslaagd – plan activeren ──────────────────────────────
       const expiresAt = nextExpiryDate(interval)
 
-      // Plan activeren
       await supabase
         .from('profiles')
         .update({
@@ -70,30 +64,6 @@ export async function POST(request: NextRequest) {
           plan_expires_at: expiresAt.toISOString(),
         })
         .eq('id', userId)
-
-      // Abonnement aanmaken bij Mollie
-      // startDate = dag waarop de VOLGENDE periode begint
-      const customerId = payment.customerId
-      if (customerId) {
-        try {
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://cueboard.nl'
-          const subscription = await createSubscription({
-            customerId,
-            variant,
-            webhookUrl: `${baseUrl}/api/mollie/webhook`,
-            startDate:  toMollieDate(expiresAt),
-            userId,
-          })
-
-          await supabase
-            .from('profiles')
-            .update({ mollie_subscription_id: subscription.id })
-            .eq('id', userId)
-        } catch (subErr) {
-          // Abonnement aanmaken mislukt – plan is al actief, log de fout
-          console.error('[mollie/webhook] Subscription aanmaken mislukt:', subErr)
-        }
-      }
 
     } else if (payment.status === 'paid' && payment.sequenceType === 'recurring') {
       // ── Terugkerende betaling geslaagd – periode verlengen ───────────────

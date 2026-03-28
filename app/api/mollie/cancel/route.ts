@@ -1,8 +1,10 @@
 /**
  * POST /api/mollie/cancel
  *
- * Beëindigt het actieve Mollie-abonnement van de ingelogde gebruiker.
- * Het plan blijft actief tot het einde van de huidige betaalperiode (plan_expires_at).
+ * Beëindigt het actieve plan van de ingelogde gebruiker.
+ *
+ * - Als er een Mollie-abonnement actief is: opzeggen bij Mollie + plan actief tot plan_expires_at
+ * - Als er géén abonnement is (oneoff betaling): plan direct terugzetten naar free
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -28,23 +30,41 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile?.mollie_customer_id || !profile?.mollie_subscription_id) {
-      return NextResponse.json({ error: 'Geen actief abonnement gevonden' }, { status: 400 })
+    if (!profile) return NextResponse.json({ error: 'Profiel niet gevonden' }, { status: 404 })
+
+    if (profile.mollie_subscription_id && profile.mollie_customer_id) {
+      // ── Mollie-abonnement opzeggen ──────────────────────────────────────
+      // Plan blijft actief tot einde betaalperiode
+      await cancelSubscription(profile.mollie_customer_id, profile.mollie_subscription_id)
+
+      await supabase
+        .from('profiles')
+        .update({ mollie_subscription_id: null })
+        .eq('id', user.id)
+
+      return NextResponse.json({
+        ok:      true,
+        mode:    'subscription_cancelled',
+        expires_at: profile.plan_expires_at,
+      })
+    } else {
+      // ── Eenmalige betaling: plan direct terugzetten naar free ───────────
+      await supabase
+        .from('profiles')
+        .update({
+          plan:                  'free',
+          plan_source:           'free',
+          plan_interval:         null,
+          plan_expires_at:       null,
+          mollie_subscription_id: null,
+        })
+        .eq('id', user.id)
+
+      return NextResponse.json({
+        ok:   true,
+        mode: 'downgraded_to_free',
+      })
     }
-
-    // Opzeg abonnement bij Mollie
-    await cancelSubscription(profile.mollie_customer_id, profile.mollie_subscription_id)
-
-    // Verwijder subscription ID – plan blijft actief tot plan_expires_at
-    await supabase
-      .from('profiles')
-      .update({ mollie_subscription_id: null })
-      .eq('id', user.id)
-
-    return NextResponse.json({
-      ok: true,
-      expires_at: profile.plan_expires_at,
-    })
   } catch (err: unknown) {
     console.error('[mollie/cancel]', err)
     const message = err instanceof Error ? err.message : 'Annulering mislukt'

@@ -116,8 +116,8 @@ export async function createCustomer(name: string, email: string): Promise<Molli
 }
 
 /**
- * Maak een eerste betaling aan (sequenceType: first).
- * Na succesvolle betaling wordt een mandate aangemaakt die abonnementen mogelijk maakt.
+ * Maak een betaling aan voor planactivatie.
+ * Gebruikt sequenceType 'oneoff' zodat alle betaalmethoden werken (iDEAL, creditcard, etc.).
  */
 export async function createFirstPayment(opts: {
   customerId: string
@@ -129,7 +129,8 @@ export async function createFirstPayment(opts: {
   return mollieRequest<MolliePayment>('POST', '/payments', {
     amount:       { currency: 'EUR', value: opts.variant.amount },
     customerId:   opts.customerId,
-    sequenceType: 'first',
+    sequenceType: 'oneoff',
+    method:       'ideal',
     description:  opts.variant.description,
     redirectUrl:  opts.redirectUrl,
     webhookUrl:   opts.webhookUrl,

@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <AppHeader user={profile} isAdmin={profile?.role === 'admin' || profile?.role === 'beheerder'} />
       <div className="flex flex-1 overflow-hidden">
         <AppSidebar isAdmin={profile?.role === 'admin' || profile?.role === 'beheerder'} />
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-6">
           {children}
         </main>
       </div>

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { LogOut, LayoutDashboard, Plus, Shield, User, Menu, X } from 'lucide-react'
+import { LogOut, LayoutDashboard, Plus, Shield, User, Menu, X, HelpCircle, Zap } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -40,7 +40,9 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
   const mobileNavItems = [
     { href: '/dashboard',  icon: LayoutDashboard, label: 'Overzicht' },
     { href: '/shows/new',  icon: Plus,             label: 'Nieuwe show' },
-    { href: '/profile',    icon: User,              label: 'Mijn profiel' },
+    { href: '/profile',    icon: User,             label: 'Mijn profiel' },
+    { href: '/upgrade',    icon: Zap,              label: 'Plannen & betaling' },
+    { href: '/help',       icon: HelpCircle,       label: 'Help & Uitleg' },
     ...(isAdmin ? [{ href: '/admin', icon: Shield, label: 'Admin' }] : []),
   ]
 

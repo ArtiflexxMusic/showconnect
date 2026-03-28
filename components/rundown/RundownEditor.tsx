@@ -19,6 +19,7 @@ import { SaveTemplateModal } from './SaveTemplateModal'
 import { LoadTemplateModal } from './LoadTemplateModal'
 import { CueLogPanel } from './CueLogPanel'
 import { ShortcutHelp } from './ShortcutHelp'
+import { MicPatchPanel } from './MicPatchPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -84,6 +85,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showSaveTemplate, setShowSaveTemplate]         = useState(false)
   const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
   const [showCueLog, setShowCueLog]                     = useState(false)
+  const [showMicPatch, setShowMicPatch]                 = useState(false)
   const [showShortcutHelp, setShowShortcutHelp]         = useState(false)
   const [showSharePanel, setShowSharePanel]             = useState(false)
   const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
@@ -744,6 +746,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               )}
             </div>
 
+            {/* Mic patch */}
+            <Button
+              size="sm" variant="outline"
+              onClick={() => setShowMicPatch(true)}
+              className="gap-2 text-muted-foreground"
+              title="Mic patch bekijken"
+            >
+              <Radio className="h-3.5 w-3.5" />
+            </Button>
+
             {/* Cue log */}
             <Button
               size="sm" variant="outline"
@@ -999,6 +1011,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           onClose={() => setShowCueLog(false)}
         />
       )}
+
+      <MicPatchPanel
+        showId={show.id}
+        rundownId={rundown.id}
+        cues={cues}
+        open={showMicPatch}
+        onClose={() => setShowMicPatch(false)}
+      />
 
       {/* Sluit menu's bij klik buiten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (

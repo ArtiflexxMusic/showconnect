@@ -140,6 +140,52 @@ export interface Invitation {
   created_at: string
 }
 
+// ─── Cast Portal ──────────────────────────────────────────────────────────────
+export interface CastMember {
+  id: string
+  show_id: string
+  name: string
+  role: string | null
+  color: string
+  notes: string | null
+  created_at: string
+}
+
+export interface CastPortalLink {
+  id: string
+  cast_member_id: string | null
+  show_id: string
+  token: string
+  label: string | null
+  created_at: string
+  cast_member?: CastMember
+}
+
+// ─── Audio / Mic Patch ────────────────────────────────────────────────────────
+export type AudioDeviceType = 'handheld' | 'headset' | 'lapel' | 'table' | 'iem'
+export type AudioPhase = 'before' | 'during' | 'after'
+
+export interface AudioDevice {
+  id: string
+  show_id: string
+  name: string
+  type: AudioDeviceType
+  channel: number | null
+  color: string
+  notes: string | null
+  created_at: string
+}
+
+export interface CueAudioAssignment {
+  id: string
+  cue_id: string
+  device_id: string
+  person_name: string | null
+  phase: AudioPhase
+  created_at: string
+  device?: AudioDevice
+}
+
 // Form types
 export interface CreateCueInput {
   title: string

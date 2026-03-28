@@ -19,6 +19,7 @@ import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 import { EditShowModal } from './EditShowModal'
 import { ShowMembersPanel } from '@/components/team/ShowMembersPanel'
+import { CastMembersPanel } from '@/components/cast/CastMembersPanel'
 
 interface RundownSummary {
   id: string
@@ -52,6 +53,7 @@ export function ShowDashboard({
   const [rundowns, setRundowns]   = useState<RundownSummary[]>(initialRundowns)
   const [editShowOpen, setEditShowOpen]     = useState(false)
   const [showMembers, setShowMembers]       = useState(false)
+  const [showCast, setShowCast]             = useState(false)
   const [autoOpenInvite, setAutoOpenInvite] = useState(false)
   const [deleteTarget, setDeleteTarget]     = useState<RundownSummary | null>(null)
   const [deleting, setDeleting]             = useState(false)
@@ -169,6 +171,10 @@ export function ShowDashboard({
           >
             <UserPlus className="h-3.5 w-3.5" />
             Uitnodigen
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCast(true)} className="gap-2">
+            <Radio className="h-3.5 w-3.5" />
+            Cast
           </Button>
           <Button variant="outline" size="sm" onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }} className="gap-2">
             <Users className="h-3.5 w-3.5" />
@@ -304,6 +310,13 @@ export function ShowDashboard({
           ))
         )}
       </div>
+
+      {/* Cast panel */}
+      <CastMembersPanel
+        showId={show.id}
+        open={showCast}
+        onClose={() => setShowCast(false)}
+      />
 
       {/* Team leden panel */}
       {showMembers && (

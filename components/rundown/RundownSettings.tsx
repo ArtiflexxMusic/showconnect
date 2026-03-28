@@ -181,7 +181,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       // Direct in DB opslaan
       const { data: updated, error } = await supabase
         .from('rundowns')
-        .update({ slide_url: data.url, slide_path: data.path, slide_filename: data.filename, slide_type: 'pdf' })
+        .update({ slide_url: data.url, slide_path: data.path, slide_filename: data.filename, slide_type: data.type ?? 'pdf' })
         .eq('id', rundown.id)
         .select()
         .single()
@@ -431,8 +431,8 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                 ) : (
                   <>
                     <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
-                    <p className="text-sm text-muted-foreground">Klik om PDF te uploaden</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">Max 100 MB</p>
+                    <p className="text-sm text-muted-foreground">Klik om PDF of PPTX te uploaden</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">PDF of PowerPoint · Max 100 MB</p>
                   </>
                 )}
               </div>
@@ -443,7 +443,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
             <input
               ref={slideInputRef}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pptx,application/vnd.ms-powerpoint,.ppt"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]

@@ -41,7 +41,7 @@ export interface Rundown {
   // Show-breed slide deck (voor stage output)
   slide_url: string | null
   slide_path: string | null
-  slide_type: 'pdf' | null
+  slide_type: 'pdf' | 'pptx' | 'ppt' | null
   slide_filename: string | null
   created_at: string
   updated_at: string
@@ -333,7 +333,7 @@ export type Database = {
           notes: string | null
           slide_url: string | null
           slide_path: string | null
-          slide_type: 'pdf' | null
+          slide_type: 'pdf' | 'pptx' | 'ppt' | null
           slide_filename: string | null
           created_at: string
           updated_at: string

@@ -425,11 +425,11 @@ export function FeatureSlideshow() {
 
           {/* Rechts: beschrijving + mockup */}
           <div className="flex flex-col gap-5 min-h-0">
-            <div>
+            <div className="min-h-[72px]">
               <h3 className="font-extrabold text-white text-xl uppercase mb-2">{activeTab.tagline}</h3>
               <p className="text-white/45 text-sm leading-relaxed max-w-lg">{activeTab.desc}</p>
             </div>
-            <div className="min-h-[380px]">
+            <div className="h-[400px]">
               {activeTab.mockup}
             </div>
           </div>

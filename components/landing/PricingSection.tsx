@@ -187,7 +187,7 @@ export function PricingSection() {
         </div>
 
         <p className="text-xs text-white/15 mt-6 text-center font-mono uppercase tracking-widest">
-          Exclusief BTW · Jaarlijks betalen = 20% korting · Opzegbaar per periode
+          Inclusief BTW · Jaarlijks betalen = 20% korting · Opzegbaar per periode
         </p>
       </div>
     </section>

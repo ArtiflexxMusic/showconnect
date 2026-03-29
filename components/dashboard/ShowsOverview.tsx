@@ -12,7 +12,7 @@ import {
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
   Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft, Search, X,
-  Share2, Archive,
+  Share2, Archive, Copy, BookOpen,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EditShowModal } from './EditShowModal'
@@ -54,6 +54,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }
   })
   const [searchQuery, setSearchQuery] = useState('')
+  const [duplicating, setDuplicating] = useState<string | null>(null)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -91,6 +92,61 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
 
   function handleShowSaved(updated: { id: string; name: string; date: string | null; venue: string | null; description: string | null }) {
     setShows((prev) => prev.map((s) => s.id === updated.id ? { ...s, ...updated } : s))
+  }
+
+  async function handleDuplicate(show: ShowWithRundowns) {
+    setDuplicating(show.id)
+    try {
+      // 1. Maak de nieuwe show aan
+      const { data: newShow, error: showErr } = await supabase
+        .from('shows')
+        .insert({ name: `${show.name} (kopie)`, date: show.date, venue: show.venue, description: show.description })
+        .select('id')
+        .single()
+      if (showErr || !newShow) { setDuplicating(null); return }
+
+      const newRundowns: RundownSummary[] = []
+
+      // 2. Dupliceer elk rundown + bijbehorende cues
+      for (const rundown of show.rundowns) {
+        const { data: fullRundown } = await supabase
+          .from('rundowns')
+          .select('name, is_active')
+          .eq('id', rundown.id)
+          .single()
+        if (!fullRundown) continue
+
+        const { data: newRundown, error: rdErr } = await supabase
+          .from('rundowns')
+          .insert({ show_id: newShow.id, name: fullRundown.name, is_active: fullRundown.is_active })
+          .select('id, name, is_active')
+          .single()
+        if (rdErr || !newRundown) continue
+
+        newRundowns.push(newRundown)
+
+        // Haal cues op en kopieer ze
+        const { data: cues } = await supabase
+          .from('cues')
+          .select('*')
+          .eq('rundown_id', rundown.id)
+          .order('position', { ascending: true })
+
+        if (cues && cues.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const cuesToInsert = cues.map(({ id, rundown_id, created_at, ...rest }: Record<string, unknown>) => ({
+            ...rest,
+            rundown_id: newRundown.id,
+          }))
+          await supabase.from('cues').insert(cuesToInsert)
+        }
+      }
+
+      // 3. Voeg nieuw show toe aan lokale state
+      setShows((prev) => [{ ...show, id: newShow.id, name: `${show.name} (kopie)`, rundowns: newRundowns }, ...prev])
+    } finally {
+      setDuplicating(null)
+    }
   }
 
   return (
@@ -217,35 +273,41 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
 
         {/* Lege staat met onboarding-stappen */}
         {activeTab === 'mine' && shows.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-12">
-              <div className="text-center mb-8">
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="h-7 w-7 text-primary" />
+          <Card className="border-dashed border-2 border-primary/20 bg-gradient-to-b from-primary/5 to-transparent">
+            <CardContent className="py-14">
+              <div className="text-center mb-10">
+                <div className="h-16 w-16 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto mb-5 shadow-sm">
+                  <Sparkles className="h-8 w-8 text-primary" />
                 </div>
-                <p className="font-semibold text-lg">Welkom bij CueBoard!</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Beheer je live shows als een pro. Zo begin je:
+                <p className="font-bold text-xl">Welkom bij CueBoard!</p>
+                <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+                  Jouw platform voor professioneel showbeheer. Zet je eerste show op in 3 stappen.
                 </p>
               </div>
-              <div className="grid sm:grid-cols-3 gap-4 mb-8">
+              <div className="grid sm:grid-cols-3 gap-4 mb-10 max-w-2xl mx-auto">
                 {[
-                  { step: '1', title: 'Maak een show aan', desc: 'Geef je event een naam, datum en locatie.' },
-                  { step: '2', title: 'Voeg een rundown toe', desc: 'Maak cues: video, spraak, licht, pauze…' },
-                  { step: '3', title: 'Ga live', desc: 'Open de Caller mode en bestuur je show in realtime.' },
-                ].map(({ step, title, desc }) => (
-                  <div key={step} className="text-center p-4 rounded-lg bg-muted/30 border border-border/50">
-                    <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center mx-auto mb-2">
+                  { step: '1', icon: <Plus className="h-4 w-4" />, title: 'Maak een show aan', desc: 'Geef je event een naam, datum en locatie.' },
+                  { step: '2', icon: <ListMusic className="h-4 w-4" />, title: 'Voeg een rundown toe', desc: 'Maak cues aan: video, spraak, licht, pauze…' },
+                  { step: '3', icon: <Radio className="h-4 w-4" />, title: 'Ga live', desc: 'Open de Caller mode en bestuur je show realtime.' },
+                ].map(({ step, icon, title, desc }) => (
+                  <div key={step} className="text-center p-5 rounded-xl bg-card border border-border shadow-sm">
+                    <div className="h-9 w-9 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center mx-auto mb-3">
                       {step}
                     </div>
-                    <p className="font-medium text-sm">{title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+                    <div className="flex items-center justify-center gap-1.5 text-muted-foreground mb-1">
+                      {icon}
+                    </div>
+                    <p className="font-semibold text-sm">{title}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{desc}</p>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-center">
-                <Button asChild>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button size="lg" asChild>
                   <Link href="/shows/new"><Plus className="h-4 w-4" /> Eerste show aanmaken</Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link href="/welcome"><BookOpen className="h-4 w-4" /> Bekijk de gids</Link>
                 </Button>
               </div>
             </CardContent>
@@ -281,6 +343,8 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
                       show={show}
                       onDelete={() => setDeleteTarget(show)}
                       onEdit={() => setEditTarget(show)}
+                      onDuplicate={() => handleDuplicate(show)}
+                      isDuplicating={duplicating === show.id}
                     />
                   ))}
                 </div>
@@ -300,6 +364,8 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
                       past
                       onDelete={() => setDeleteTarget(show)}
                       onEdit={() => setEditTarget(show)}
+                      onDuplicate={() => handleDuplicate(show)}
+                      isDuplicating={duplicating === show.id}
                     />
                   ))}
                 </div>
@@ -416,7 +482,7 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 function ShowCard({
-  show, past = false, shared = false, sharedRole, onDelete, onEdit,
+  show, past = false, shared = false, sharedRole, onDelete, onEdit, onDuplicate, isDuplicating = false,
 }: {
   show: ShowWithRundowns
   past?: boolean
@@ -424,6 +490,8 @@ function ShowCard({
   sharedRole?: string
   onDelete: () => void
   onEdit: () => void
+  onDuplicate?: () => void
+  isDuplicating?: boolean
 }) {
   // Neem de eerste rundown als "actieve" rundown voor quick-go-live
   const primaryRundown = show.rundowns.find(r => r.is_active) ?? show.rundowns[0]
@@ -487,6 +555,18 @@ function ShowCard({
                 title="Show bewerken"
               >
                 <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {!shared && onDuplicate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-primary"
+                onClick={onDuplicate}
+                disabled={isDuplicating}
+                title="Show dupliceren"
+              >
+                {isDuplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
               </Button>
             )}
             {!shared && (

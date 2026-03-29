@@ -15,6 +15,7 @@ import {
   sendEmail,
   buildPlanExpiredEmail,
   buildTrialExpiringEmail,
+  buildTrialExpiring3DayEmail,
 } from '@/lib/email'
 
 export const runtime = 'nodejs'
@@ -33,6 +34,8 @@ export async function GET(request: NextRequest) {
 
   const now     = new Date()
   const in24h   = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  const in3d    = new Date(now.getTime() + 3  * 24 * 60 * 60 * 1000)
+  const in2d    = new Date(now.getTime() + 2  * 24 * 60 * 60 * 1000)
   const ago24h  = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
   let degraded = 0
@@ -113,15 +116,45 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── 3. Trial-herinnering 3 dagen van tevoren ──────────────────────────────
+  let reminded3d = 0
+  const { data: expiring3dTrials, error: trial3dErr } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, trial_ends_at, plan')
+    .eq('plan', 'free')
+    .eq('plan_source', 'free')
+    .gt('trial_ends_at', in2d.toISOString())    // Meer dan 2 dagen
+    .lte('trial_ends_at', in3d.toISOString())   // Maar binnen 3 dagen
+
+  if (trial3dErr) {
+    errors.push(`Ophalen 3d-verlopende trials: ${trial3dErr.message}`)
+  } else if (expiring3dTrials && expiring3dTrials.length > 0) {
+    for (const profile of expiring3dTrials) {
+      if (profile.email && profile.trial_ends_at) {
+        const mail = buildTrialExpiring3DayEmail({
+          name:        profile.full_name,
+          trialEndsAt: profile.trial_ends_at,
+        })
+        const result = await sendEmail({ to: profile.email, ...mail })
+        if (result.ok) {
+          reminded3d++
+        } else {
+          errors.push(`3d-trial-herinnering ${profile.email}: ${result.error}`)
+        }
+      }
+    }
+  }
+
   if (errors.length > 0) {
     console.error(`[cron/degrade-plans] Fouten (${errors.length}):`, errors)
   }
 
   return NextResponse.json({
-    ok:       true,
+    ok:         true,
     degraded,
     reminded,
-    errors:   errors.length > 0 ? errors : undefined,
-    ran_at:   now.toISOString(),
+    reminded3d,
+    errors:     errors.length > 0 ? errors : undefined,
+    ran_at:     now.toISOString(),
   })
 }

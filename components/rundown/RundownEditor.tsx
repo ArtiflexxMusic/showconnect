@@ -28,7 +28,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone, Zap, Loader2,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -103,6 +103,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showMoreMenu, setShowMoreMenu]                 = useState(false)
   const [saveError, setSaveError]                       = useState<string | null>(null)
   const [upgradeModal, setUpgradeModal]                 = useState<{ message: string; feature: string } | null>(null)
+  const [bulkMode, setBulkMode]                         = useState(false)
+  const [selectedCues, setSelectedCues]                 = useState<Set<string>>(new Set())
+  const [bulkTypeTarget, setBulkTypeTarget]             = useState<CueType | null>(null)
+  const [companionStatus, setCompanionStatus]           = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
 
   // DnD sensors
   const sensors = useSensors(
@@ -410,6 +414,67 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   const skipCue   = useCallback(async (id: string) => updateCue(id, { status: 'skipped' }), [updateCue])
   const resetCue  = useCallback(async (id: string) => updateCue(id, { status: 'pending', started_at: null }), [updateCue])
+
+  // ── Bulk-acties ──────────────────────────────────────────────────────────
+  const toggleCueSelection = useCallback((id: string) => {
+    setSelectedCues(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    const visible = activeFilter === 'all' ? cues : cues.filter(c => c.type === activeFilter)
+    setSelectedCues(prev =>
+      prev.size === visible.length
+        ? new Set()
+        : new Set(visible.map(c => c.id))
+    )
+  }, [cues, activeFilter])
+
+  const exitBulkMode = useCallback(() => {
+    setBulkMode(false)
+    setSelectedCues(new Set())
+    setBulkTypeTarget(null)
+  }, [])
+
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedCues)
+    await Promise.all(ids.map(id => supabase.from('cues').delete().eq('id', id)))
+    exitBulkMode()
+  }, [selectedCues, supabase, exitBulkMode])
+
+  const bulkChangeType = useCallback(async (type: CueType) => {
+    const ids = Array.from(selectedCues)
+    await Promise.all(ids.map(id => supabase.from('cues').update({ type }).eq('id', id)))
+    setCues(prev => prev.map(c => selectedCues.has(c.id) ? { ...c, type } : c))
+    exitBulkMode()
+  }, [selectedCues, supabase, exitBulkMode])
+
+  // ── Companion webhook test ──────────────────────────────────────────────
+  const testCompanionWebhook = useCallback(async () => {
+    if (!rundown.companion_webhook_url) return
+    setCompanionStatus('testing')
+    try {
+      await fetch(rundown.companion_webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'test',
+          source: 'CueBoard',
+          message: 'Testverzoek vanuit CueBoard',
+          rundown: { id: rundown.id, name: rundown.name },
+          show: { id: show.id, name: show.name },
+          timestamp: new Date().toISOString(),
+        }),
+      })
+      setCompanionStatus('ok')
+    } catch {
+      setCompanionStatus('error')
+    }
+    setTimeout(() => setCompanionStatus('idle'), 5000)
+  }, [rundown, show])
 
   // ── Rundown instellingen opslaan ─────────────────────────────────────────
   const saveRundownSettings = useCallback(async (updates: {
@@ -730,6 +795,35 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               <Clock className="h-3 w-3" /> {formatDuration(totalSecs)}
             </Badge>
 
+            {/* Companion webhook status */}
+            {rundown.companion_webhook_url && (
+              <button
+                onClick={testCompanionWebhook}
+                disabled={companionStatus === 'testing'}
+                title="Companion webhook actief — klik om te testen"
+              >
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'gap-1 text-xs cursor-pointer transition-colors',
+                    companionStatus === 'idle'    && 'text-blue-400 border-blue-500/30',
+                    companionStatus === 'testing' && 'text-yellow-400 border-yellow-500/30',
+                    companionStatus === 'ok'      && 'text-green-400 border-green-500/30',
+                    companionStatus === 'error'   && 'text-red-400 border-red-500/30',
+                  )}
+                >
+                  {companionStatus === 'testing'
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <Zap className="h-3 w-3" />
+                  }
+                  {companionStatus === 'idle'    && 'Companion'}
+                  {companionStatus === 'testing' && 'Testen…'}
+                  {companionStatus === 'ok'      && 'Verbonden!'}
+                  {companionStatus === 'error'   && 'Fout'}
+                </Badge>
+              </button>
+            )}
+
             {/* Filter dropdown */}
             <div className="relative">
               <Button
@@ -1013,8 +1107,21 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               )}
             </div>
 
+            {/* Bulk selectie toggle */}
+            {!rundown.is_locked && cues.length > 0 && (
+              <Button
+                size="sm"
+                variant={bulkMode ? 'secondary' : 'outline'}
+                className={cn('gap-1.5 text-muted-foreground', bulkMode && 'border-primary/50 text-primary')}
+                onClick={() => bulkMode ? exitBulkMode() : setBulkMode(true)}
+                title="Meerdere cues selecteren"
+              >
+                {bulkMode ? 'Annuleer' : 'Selecteer'}
+              </Button>
+            )}
+
             {/* Cue toevoegen */}
-            <Button size="sm" onClick={() => setShowAddModal(true)} disabled={rundown.is_locked}>
+            <Button size="sm" onClick={() => setShowAddModal(true)} disabled={rundown.is_locked || bulkMode}>
               <Plus className="h-4 w-4" /> Cue
             </Button>
           </div>
@@ -1037,6 +1144,57 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           <Lock className="h-4 w-4 shrink-0" />
           <span className="font-medium">Rundown is vergrendeld</span>
           <span className="text-orange-400/70">— bewerken is uitgeschakeld. Klik op het slotje in de toolbar om te ontgrendelen.</span>
+        </div>
+      )}
+
+      {/* ── Bulk acties bar ───────────────────────────────────────────── */}
+      {bulkMode && (
+        <div className="mx-4 mt-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className={cn(
+              'h-4 w-4 rounded border flex items-center justify-center transition-colors',
+              selectedCues.size > 0 ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
+            )}>
+              {selectedCues.size > 0 && <span className="text-[9px] font-bold">✓</span>}
+            </span>
+            {selectedCues.size === 0
+              ? 'Alles selecteren'
+              : `${selectedCues.size} geselecteerd`
+            }
+          </button>
+
+          {selectedCues.size > 0 && (
+            <>
+              <span className="w-px h-4 bg-border/60 mx-1" />
+              {/* Type wijzigen */}
+              <div className="relative group">
+                <button className="flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                  Type wijzigen
+                </button>
+                <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:flex group-focus-within:flex flex-col bg-popover border border-border rounded-md shadow-lg py-1 min-w-[160px]">
+                  {FILTER_OPTIONS.filter(o => o.value !== 'all').map(opt => (
+                    <button
+                      key={opt.value}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+                      onClick={() => bulkChangeType(opt.value as CueType)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Verwijderen */}
+              <button
+                onClick={bulkDelete}
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <Trash2 className="h-3 w-3" /> Verwijder {selectedCues.size}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -1087,13 +1245,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                     cue={cue}
                     index={globalIndex}
                     expectedTime={expectedTimes[globalIndex]}
-                    onEdit={rundown.is_locked ? undefined : () => setEditingCue(cue)}
-                    onDelete={rundown.is_locked ? undefined : () => deleteCue(cue.id)}
-                    onDuplicate={rundown.is_locked ? undefined : () => duplicateCue(cue)}
+                    onEdit={rundown.is_locked || bulkMode ? undefined : () => setEditingCue(cue)}
+                    onDelete={rundown.is_locked || bulkMode ? undefined : () => deleteCue(cue.id)}
+                    onDuplicate={rundown.is_locked || bulkMode ? undefined : () => duplicateCue(cue)}
                     onStart={() => startCue(cue.id)}
                     onSkip={() => skipCue(cue.id)}
                     onReset={() => resetCue(cue.id)}
                     locked={rundown.is_locked}
+                    bulkMode={bulkMode}
+                    selected={selectedCues.has(cue.id)}
+                    onSelect={() => toggleCueSelection(cue.id)}
                   />
                 )
               })}

@@ -436,6 +436,8 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const [showInvite, setShowInvite]     = useState(false)
   const [planFilter, setPlanFilter]     = useState<'all' | 'free' | 'trial' | 'pro' | 'team'>('all')
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
+  const [sortBy, setSortBy]             = useState<'created_at' | 'name' | 'plan'>('created_at')
+  const [sortAsc, setSortAsc]           = useState(false)
 
   // Gebruikersacties
   const [actionLoading, setActionLoading] = useState<string | null>(null)  // userId
@@ -470,13 +472,23 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     }
     // Zoeken
     const q = userSearch.toLowerCase().trim()
-    if (!q) return list
-    return list.filter(u =>
-      u.email.toLowerCase().includes(q) ||
-      (u.full_name ?? '').toLowerCase().includes(q) ||
-      (u.phone ?? '').toLowerCase().includes(q)
-    )
-  }, [users, userSearch, planFilter])
+    if (q) {
+      list = list.filter(u =>
+        u.email.toLowerCase().includes(q) ||
+        (u.full_name ?? '').toLowerCase().includes(q) ||
+        (u.phone ?? '').toLowerCase().includes(q)
+      )
+    }
+    // Sorteren
+    list = [...list].sort((a, b) => {
+      let cmp = 0
+      if (sortBy === 'name')       cmp = (a.full_name ?? a.email).localeCompare(b.full_name ?? b.email)
+      if (sortBy === 'plan')       cmp = a.plan.localeCompare(b.plan)
+      if (sortBy === 'created_at') cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      return sortAsc ? cmp : -cmp
+    })
+    return list
+  }, [users, userSearch, planFilter, sortBy, sortAsc])
 
   const filteredShows = useMemo(() => {
     const q = showSearch.toLowerCase().trim()
@@ -593,6 +605,21 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const proCount    = users.filter(u => u.plan === 'pro').length
   const teamCount   = users.filter(u => u.plan === 'team').length
   const trialCount  = users.filter(u => isTrialActive(u.trial_ends_at) && u.plan === 'free').length
+  const expiringTrials = useMemo(() => {
+    const cutoff = Date.now() + 7 * 24 * 60 * 60 * 1000
+    return users.filter(u =>
+      isTrialActive(u.trial_ends_at) &&
+      u.plan === 'free' &&
+      u.trial_ends_at &&
+      new Date(u.trial_ends_at).getTime() <= cutoff
+    ).sort((a, b) => new Date(a.trial_ends_at!).getTime() - new Date(b.trial_ends_at!).getTime())
+  }, [users])
+  // Schat MRR op basis van plan-prijzen (EUR)
+  const mrrEur = useMemo(() => {
+    const proPricePerMonth  = 9.99
+    const teamPricePerMonth = 24.99
+    return (proCount * proPricePerMonth + teamCount * teamPricePerMonth).toFixed(0)
+  }, [proCount, teamCount])
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -624,7 +651,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         {[
           { label: 'Gebruikers', value: users.length,    icon: Users,    color: '',                   filter: 'all'   },
           { label: 'Trial',      value: trialCount,      icon: Clock,    color: 'text-amber-400',     filter: 'trial' },
@@ -650,7 +677,47 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
             </CardContent>
           </Card>
         ))}
+        {/* MRR schatting */}
+        {isBeheerder && (
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Est. MRR</p>
+                  <p className="text-2xl font-bold mt-0.5">€{mrrEur}</p>
+                </div>
+                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Trials die binnenkort verlopen */}
+      {expiringTrials.length > 0 && isBeheerder && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-3.5 w-3.5 text-amber-400" />
+            <span className="text-sm font-semibold text-amber-400">
+              {expiringTrials.length} trial{expiringTrials.length !== 1 ? 's' : ''} verlopen binnen 7 dagen
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {expiringTrials.map(u => (
+              <div key={u.id} className="flex items-center gap-1.5 text-xs bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">
+                <span className="text-amber-300/80">{u.full_name ?? u.email}</span>
+                <span className="text-amber-500/60">
+                  {u.trial_ends_at && (
+                    <>verloopt {new Date(u.trial_ends_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Invite modal */}
       {showInvite && (
@@ -694,7 +761,23 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                 </span>
               )}
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Sorteren */}
+              <select
+                value={`${sortBy}-${sortAsc ? 'asc' : 'desc'}`}
+                onChange={e => {
+                  const [field, dir] = e.target.value.split('-')
+                  setSortBy(field as typeof sortBy)
+                  setSortAsc(dir === 'asc')
+                }}
+                className="text-xs bg-background border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary text-muted-foreground"
+              >
+                <option value="created_at-desc">Nieuwste eerst</option>
+                <option value="created_at-asc">Oudste eerst</option>
+                <option value="name-asc">Naam A–Z</option>
+                <option value="name-desc">Naam Z–A</option>
+                <option value="plan-asc">Plan A–Z</option>
+              </select>
               {/* Uitnodigen (beheerder + admin) */}
               <button
                 onClick={() => setShowInvite(true)}

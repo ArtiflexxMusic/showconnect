@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { ArrowRight, LayoutList, Users, Radio, Zap } from 'lucide-react'
+import { ArrowRight, LayoutList, Users, Radio, Zap, Share2, Clapperboard, Timer, Settings2 } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Welkom bij CueBoard' }
@@ -138,13 +138,49 @@ export default async function WelcomePage() {
             </div>
           )}
 
+          {/* Features overzicht */}
+          <div className="mt-12 mb-10">
+            <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-white/20 mb-6">
+              Wat zit er in CueBoard?
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { icon: Clapperboard, label: 'Cue-editor', desc: 'Bouw rundowns met types, tijden en notities' },
+                { icon: Radio,        label: 'Live Caller', desc: 'Bestuur je show realtime in de browser' },
+                { icon: Share2,       label: 'Team access', desc: 'Iedereen heeft zijn eigen view en rol' },
+                { icon: Timer,        label: 'Timers',      desc: 'Automatische countdown per cue' },
+              ].map(({ icon: Icon, label, desc }) => (
+                <div key={label} className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-4 text-center">
+                  <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-2">
+                    <Icon className="h-3.5 w-3.5 text-emerald-400" />
+                  </div>
+                  <p className="text-xs font-bold text-white/80 mb-1">{label}</p>
+                  <p className="text-[10px] text-white/30 leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Snelle tips */}
+          <div className="rounded-2xl border border-white/6 bg-white/[0.02] px-5 py-4 mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Settings2 className="h-3.5 w-3.5 text-white/30" />
+              <span className="text-xs font-bold uppercase tracking-widest text-white/30">Tips voor snelle start</span>
+            </div>
+            <ul className="space-y-1.5 text-xs text-white/40 list-none">
+              <li className="flex items-start gap-2"><span className="text-emerald-400/60 mt-0.5">→</span> Gebruik de <strong className="text-white/60">Tab</strong>-toets in de cue-editor om snel tussen velden te springen</li>
+              <li className="flex items-start gap-2"><span className="text-emerald-400/60 mt-0.5">→</span> Open de <strong className="text-white/60">Caller mode</strong> op een tweede scherm of tablet voor live presentaties</li>
+              <li className="flex items-start gap-2"><span className="text-emerald-400/60 mt-0.5">→</span> Deel je show via een <strong className="text-white/60">publieke link</strong> zodat het publiek de status kan volgen</li>
+            </ul>
+          </div>
+
           {/* Skip link */}
-          <div className="text-center mt-8">
+          <div className="text-center mt-2">
             <Link
               href="/dashboard"
-              className="text-xs text-white/20 hover:text-white/40 transition-colors underline underline-offset-2"
+              className="text-xs text-white/30 hover:text-white/60 transition-colors underline underline-offset-2"
             >
-              Doorgaan naar dashboard
+              Doorgaan naar dashboard →
             </Link>
           </div>
 

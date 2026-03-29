@@ -24,10 +24,14 @@ interface SortableCueRowProps {
   onSkip: () => void
   onReset: () => void
   locked?: boolean
+  bulkMode?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }
 
 export function SortableCueRow({
-  cue, index, expectedTime, onEdit, onDelete, onDuplicate, onStart, onSkip, onReset, locked = false
+  cue, index, expectedTime, onEdit, onDelete, onDuplicate, onStart, onSkip, onReset, locked = false,
+  bulkMode = false, selected = false, onSelect,
 }: SortableCueRowProps) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging
@@ -55,7 +59,8 @@ export function SortableCueRow({
         isRunning   && 'cue-running',
         isDone      && 'opacity-50',
         isSkipped   && 'opacity-40',
-        !isDragging && 'hover:bg-accent/30'
+        !isDragging && !selected && 'hover:bg-accent/30',
+        selected    && 'border-primary/40 bg-primary/8'
       )}
     >
       {/* Kleurlabel balk links */}
@@ -67,18 +72,32 @@ export function SortableCueRow({
       )}
       <div className="rundown-grid px-2 py-2 items-center">
 
-        {/* Drag handle */}
-        <button
-          {...attributes}
-          {...(!locked ? listeners : {})}
-          className={cn(
-            'flex items-center justify-center h-6 w-6 rounded text-muted-foreground/30',
-            locked ? 'cursor-not-allowed opacity-30' : 'hover:text-muted-foreground cursor-grab active:cursor-grabbing'
-          )}
-          disabled={locked}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
+        {/* Drag handle / checkbox in bulk mode */}
+        {bulkMode ? (
+          <button
+            onClick={onSelect}
+            className="flex items-center justify-center h-6 w-6 rounded"
+          >
+            <span className={cn(
+              'h-4 w-4 rounded border flex items-center justify-center transition-colors',
+              selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary/50'
+            )}>
+              {selected && <span className="text-[9px] font-bold">✓</span>}
+            </span>
+          </button>
+        ) : (
+          <button
+            {...attributes}
+            {...(!locked ? listeners : {})}
+            className={cn(
+              'flex items-center justify-center h-6 w-6 rounded text-muted-foreground/30',
+              locked ? 'cursor-not-allowed opacity-30' : 'hover:text-muted-foreground cursor-grab active:cursor-grabbing'
+            )}
+            disabled={locked}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
 
         {/* # + verwachte tijd */}
         <div className="pl-1">

@@ -378,6 +378,57 @@ export function buildTrialExpiringEmail(opts: {
 }
 
 /**
+ * Mail: trial verloopt over 3 dagen (vroege herinnering)
+ */
+export function buildTrialExpiring3DayEmail(opts: {
+  name: string | null
+  trialEndsAt: string
+}) {
+  const displayName = opts.name ?? 'daar'
+  const expiryDate  = new Date(opts.trialEndsAt).toLocaleDateString('nl-NL', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+  const upgradeUrl = `${BASE_URL}/upgrade`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Nog 3 dagen gratis trial
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#ccc;line-height:1.7;">
+      Je gratis proefperiode van CueBoard loopt af op <strong style="color:#fff;">${expiryDate}</strong> — nog 3 dagen.
+      Hopelijk heb je de kans gehad om alles te ontdekken!
+    </p>
+    <p style="margin:0 0 8px;font-size:15px;color:#ccc;line-height:1.7;">
+      Wil je blijven werken met:
+    </p>
+    <ul style="margin:12px 0 20px;padding-left:20px;color:#aaa;font-size:14px;line-height:1.8;">
+      <li>Onbeperkte shows &amp; rundowns</li>
+      <li>Slideshow-upload &amp; live-bediening</li>
+      <li>Bitfocus Companion-integratie</li>
+      <li>Mic patch &amp; cast panel</li>
+    </ul>
+    <p style="margin:0 0 20px;font-size:15px;color:#ccc;line-height:1.7;">
+      Kies dan nu je plan — vanaf €9,99/maand, inclusief BTW.
+    </p>
+    <a href="${upgradeUrl}" style="${btnStyle}">
+      Plan kiezen →
+    </a>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+    </p>
+  `
+
+  return {
+    subject: 'Nog 3 dagen: je CueBoard-trial loopt af',
+    html:    emailBase(content),
+  }
+}
+
+/**
  * Mail: admin heeft een gebruiker uitgenodigd
  * (aanvullend op de Supabase invite-mail — optioneel te versturen)
  */

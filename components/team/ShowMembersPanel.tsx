@@ -107,10 +107,37 @@ export function ShowMembersPanel({
     if (error) {
       console.error('Invite error:', error)
       setInviteError(`Uitnodiging mislukt: ${error.message}`)
-    } else if (data) {
-      setInvitations(prev => [...prev, data as Invitation])
+      setInviting(false)
+      return
+    }
+
+    if (data) {
+      const inv = data as Invitation
+      setInvitations(prev => [...prev, inv])
       setInviteEmail('')
       setShowInvite(false)
+
+      // Stuur de uitnodigingsmail automatisch
+      setEmailSending(inv.id)
+      try {
+        const resp = await fetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invitationId: inv.id }),
+        })
+        if (resp.ok) {
+          setEmailSent(inv.id)
+          setTimeout(() => setEmailSent(null), 4000)
+        } else {
+          const err = await resp.json().catch(() => ({}))
+          console.warn('Mail niet verstuurd:', err)
+          setInviteError('Uitnodiging aangemaakt, maar e-mail kon niet worden verstuurd. Gebruik de "Mail" knop om opnieuw te proberen.')
+        }
+      } catch {
+        console.warn('Mail versturen mislukt')
+      } finally {
+        setEmailSending(null)
+      }
     }
     setInviting(false)
   }
@@ -224,14 +251,17 @@ export function ShowMembersPanel({
               {inviteError && <p className="text-xs text-destructive mb-2">{inviteError}</p>}
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
-                  {inviting ? 'Uitnodigen…' : 'Uitnodiging aanmaken'}
+                  {inviting
+                    ? <><div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1.5" /> Uitnodigen…</>
+                    : <><Mail className="h-3.5 w-3.5 mr-1" /> Uitnodiging versturen</>
+                  }
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => { setShowInvite(false); setInviteEmail('') }}>
                   Annuleren
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Er wordt een uitnodigingslink gegenereerd die je kunt delen.
+                De ontvanger krijgt direct een e-mail met een uitnodigingslink.
               </p>
             </div>
           )}

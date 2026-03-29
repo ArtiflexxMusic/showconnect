@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration } from '@/lib/utils'
-import { Clock, ChevronRight, Radio } from 'lucide-react'
+import { Clock, ChevronRight, Radio, Pencil, Check, X, MapPin, Loader2 } from 'lucide-react'
 import type { CastMember, Show, Rundown, Cue } from '@/lib/types/database'
 
 interface CastPortalViewProps {
@@ -82,6 +82,55 @@ export function CastPortalView({ castMember, show, rundowns, cues: initialCues, 
   const myNext      = myCues.find(c => c.status === 'pending')
   const countdown   = activeCue ? calcCountdown(activeCue, now) : 0
   const progress    = activeCue ? calcProgress(activeCue, now) : 0
+
+  // ── Cue editing ──────────────────────────────────────────────────────────────
+  const [editingCueId, setEditingCueId] = useState<string | null>(null)
+  const [editTitle, setEditTitle]       = useState('')
+  const [editLocation, setEditLocation] = useState('')
+  const [saving, setSaving]             = useState(false)
+  const [saveError, setSaveError]       = useState<string | null>(null)
+
+  function startEdit(cue: Cue) {
+    setEditingCueId(cue.id)
+    setEditTitle(cue.title)
+    setEditLocation(cue.location ?? '')
+    setSaveError(null)
+  }
+
+  function cancelEdit() {
+    setEditingCueId(null)
+    setSaveError(null)
+  }
+
+  const saveEdit = useCallback(async (cueId: string) => {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const resp = await fetch('/api/cast/cue', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          cueId,
+          title:    editTitle,
+          location: editLocation,
+        }),
+      })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'Opslaan mislukt')
+      }
+      // Optimistisch updaten in lokale state
+      setCues(prev => prev.map(c =>
+        c.id === cueId ? { ...c, title: editTitle, location: editLocation || null } : c
+      ))
+      setEditingCueId(null)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Onbekende fout')
+    } finally {
+      setSaving(false)
+    }
+  }, [token, editTitle, editLocation])
 
   return (
     <div className="min-h-screen bg-[#050f09] text-white select-none">
@@ -229,8 +278,11 @@ export function CastPortalView({ castMember, show, rundowns, cues: initialCues, 
 
         {/* ── VOLLEDIG PROGRAMMA ── */}
         <div>
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3">
+          <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-1">
             Volledig programma
+          </p>
+          <p className="text-[10px] text-white/20 mb-3 flex items-center gap-1">
+            <Pencil className="h-2.5 w-2.5" /> Tik op een cue om de naam of locatie aan te passen
           </p>
           {rundowns.map(rundown => {
             const rundownCues = cues.filter(c => c.rundown_id === rundown.id)
@@ -244,28 +296,97 @@ export function CastPortalView({ castMember, show, rundowns, cues: initialCues, 
                 <div className="space-y-1">
                   {rundownCues.map(cue => {
                     const isMe = memberName && cue.presenter?.toLowerCase().includes(memberName.toLowerCase())
+                    const isEditing = editingCueId === cue.id
+                    const canEdit = cue.status !== 'running' && cue.status !== 'done' && cue.status !== 'skipped'
+
+                    if (isEditing) {
+                      return (
+                        <div key={cue.id} className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] px-3 py-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-white/20 w-5 shrink-0">{cue.position + 1}</span>
+                            <input
+                              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-emerald-500/50 focus:bg-white/[0.07] transition-all"
+                              value={editTitle}
+                              onChange={e => setEditTitle(e.target.value)}
+                              placeholder="Naam van de cue"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 shrink-0" />
+                            <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+                              <MapPin className="h-3 w-3 text-white/30 shrink-0" />
+                              <input
+                                className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25"
+                                value={editLocation}
+                                onChange={e => setEditLocation(e.target.value)}
+                                placeholder="Podium / locatie (optioneel)"
+                              />
+                            </div>
+                          </div>
+                          {saveError && (
+                            <p className="text-xs text-red-400/80 px-6">{saveError}</p>
+                          )}
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              onClick={cancelEdit}
+                              className="flex items-center gap-1 text-xs text-white/40 hover:text-white/60 transition-colors px-2 py-1"
+                            >
+                              <X className="h-3.5 w-3.5" /> Annuleren
+                            </button>
+                            <button
+                              onClick={() => saveEdit(cue.id)}
+                              disabled={saving || !editTitle.trim()}
+                              className="flex items-center gap-1 text-xs bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold px-3 py-1.5 rounded-lg transition-all"
+                            >
+                              {saving
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <Check className="h-3.5 w-3.5" />
+                              }
+                              Opslaan
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+
                     return (
-                      <div key={cue.id} className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
-                        cue.status === 'running'  ? 'bg-emerald-500/[0.06] border border-emerald-500/25' :
-                        cue.status === 'done' || cue.status === 'skipped' ? 'opacity-30' :
-                        isMe ? 'bg-white/[0.03] border border-white/[0.08]' : ''
-                      )}>
+                      <div
+                        key={cue.id}
+                        className={cn(
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
+                          cue.status === 'running'  ? 'bg-emerald-500/[0.06] border border-emerald-500/25' :
+                          cue.status === 'done' || cue.status === 'skipped' ? 'opacity-30' :
+                          isMe ? 'bg-white/[0.03] border border-white/[0.08]' : '',
+                          canEdit ? 'cursor-pointer hover:bg-white/[0.04]' : ''
+                        )}
+                        onClick={() => canEdit && startEdit(cue)}
+                      >
                         <span className="text-[11px] font-mono text-white/20 w-5 shrink-0">
                           {cue.position + 1}
                         </span>
-                        <span className={cn(
-                          'flex-1 truncate',
-                          cue.status === 'running' ? 'text-white font-semibold' :
-                          cue.status === 'done' || cue.status === 'skipped' ? 'line-through text-white/30' :
-                          isMe ? 'text-white/80' : 'text-white/40'
-                        )}>
-                          {cue.title}
-                          {isMe && <span className="ml-1.5 text-[10px] text-emerald-400/70 font-bold normal-case">● jij</span>}
-                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className={cn(
+                            'block truncate',
+                            cue.status === 'running' ? 'text-white font-semibold' :
+                            cue.status === 'done' || cue.status === 'skipped' ? 'line-through text-white/30' :
+                            isMe ? 'text-white/80' : 'text-white/40'
+                          )}>
+                            {cue.title}
+                            {isMe && <span className="ml-1.5 text-[10px] text-emerald-400/70 font-bold normal-case">● jij</span>}
+                          </span>
+                          {cue.location && (
+                            <span className="flex items-center gap-1 text-[10px] text-white/25 mt-0.5">
+                              <MapPin className="h-2.5 w-2.5" /> {cue.location}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[11px] font-mono text-white/20 shrink-0">
                           {formatDuration(cue.duration_seconds)}
                         </span>
+                        {canEdit && (
+                          <Pencil className="h-3 w-3 text-white/0 group-hover:text-white/30 transition-colors shrink-0" />
+                        )}
                       </div>
                     )
                   })}

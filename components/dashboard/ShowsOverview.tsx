@@ -12,6 +12,7 @@ import {
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
   Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft, Search, X,
+  Share2,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EditShowModal } from './EditShowModal'
@@ -34,11 +35,14 @@ interface ShowWithRundowns {
 
 interface ShowsOverviewProps {
   shows: ShowWithRundowns[]
+  sharedShows?: ShowWithRundowns[]
+  membershipMap?: Record<string, string>
 }
 
-export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
+export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedShows = [], membershipMap = {} }: ShowsOverviewProps) {
   const supabase = createClient()
   const [shows, setShows]           = useState<ShowWithRundowns[]>(initialShows)
+  const [sharedShows]               = useState<ShowWithRundowns[]>(initialSharedShows)
   const [deleteTarget, setDeleteTarget] = useState<ShowWithRundowns | null>(null)
   const [deleting, setDeleting]     = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -92,7 +96,7 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
       <div className="max-w-4xl">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-bold">Shows</h1>
+            <h1 className="text-2xl font-bold">Mijn shows</h1>
             <p className="text-muted-foreground mt-1">
               {shows.length === 0
                 ? 'Nog geen shows aangemaakt'
@@ -238,6 +242,33 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
             </div>
           </section>
         )}
+
+        {/* ── Gedeelde shows ──────────────────────────────────── */}
+        {viewMode === 'list' && sharedShows.length > 0 && (
+          <section className="mt-10">
+            <div className="flex items-center gap-2 mb-3">
+              <Share2 className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Gedeeld met mij
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground/60 mb-4">
+              Shows waaraan je bent uitgenodigd door een andere organisator.
+            </p>
+            <div className="grid gap-3">
+              {sharedShows.map((show) => (
+                <ShowCard
+                  key={show.id}
+                  show={show}
+                  shared
+                  sharedRole={membershipMap[show.id]}
+                  onDelete={() => {}}
+                  onEdit={() => {}}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <EditShowModal
@@ -271,11 +302,22 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
   )
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  owner:     'Eigenaar',
+  editor:    'Editor',
+  caller:    'Caller',
+  crew:      'Crew',
+  presenter: 'Presenter',
+  viewer:    'Toeschouwer',
+}
+
 function ShowCard({
-  show, past = false, onDelete, onEdit,
+  show, past = false, shared = false, sharedRole, onDelete, onEdit,
 }: {
   show: ShowWithRundowns
   past?: boolean
+  shared?: boolean
+  sharedRole?: string
   onDelete: () => void
   onEdit: () => void
 }) {
@@ -283,7 +325,7 @@ function ShowCard({
   const primaryRundown = show.rundowns.find(r => r.is_active) ?? show.rundowns[0]
 
   return (
-    <Card className="hover:border-primary/40 transition-colors">
+    <Card className={`hover:border-primary/40 transition-colors ${shared ? 'border-border/40 bg-muted/5' : ''}`}>
       <CardHeader className="pb-2 pt-4 px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -294,6 +336,12 @@ function ShowCard({
                 </Link>
               </CardTitle>
               {past && <Badge variant="outline" className="text-[10px] px-1.5">Afgelopen</Badge>}
+              {shared && sharedRole && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 gap-1">
+                  <Share2 className="h-2.5 w-2.5" />
+                  {ROLE_LABELS[sharedRole] ?? sharedRole}
+                </Badge>
+              )}
             </div>
             <CardDescription className="flex items-center gap-3 mt-1">
               {show.date && (
@@ -312,36 +360,42 @@ function ShowCard({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* Uitnodigen → ga direct naar show met team panel */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-primary"
-              title="Team beheren & uitnodigen"
-              asChild
-            >
-              <Link href={`/shows/${show.id}#team`}>
-                <Users className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              onClick={onEdit}
-              title="Show bewerken"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={onDelete}
-              title="Show verwijderen"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {/* Uitnodigen → ga direct naar show met team panel (alleen voor owners) */}
+            {!shared && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-primary"
+                title="Team beheren & uitnodigen"
+                asChild
+              >
+                <Link href={`/shows/${show.id}#team`}>
+                  <Users className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            )}
+            {!shared && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={onEdit}
+                title="Show bewerken"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {!shared && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={onDelete}
+                title="Show verwijderen"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>

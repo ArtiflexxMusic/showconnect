@@ -4,10 +4,10 @@ import { RegisterForm } from '@/components/auth/RegisterForm'
 export const metadata: Metadata = { title: 'Account aanmaken – CueBoard' }
 
 interface PageProps {
-  searchParams: Promise<{ redirect?: string }>
+  searchParams: Promise<{ redirect?: string; plan?: string }>
 }
 
 export default async function RegisterPage({ searchParams }: PageProps) {
-  const { redirect } = await searchParams
-  return <RegisterForm redirectTo={redirect} />
+  const { redirect, plan } = await searchParams
+  return <RegisterForm redirectTo={redirect} plan={plan} />
 }

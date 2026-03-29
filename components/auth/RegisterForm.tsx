@@ -10,11 +10,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertCircle, Loader2, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 
-interface RegisterFormProps {
-  redirectTo?: string
+// Vertaal ?plan= param naar de juiste checkout variant
+const PLAN_TO_CHECKOUT: Record<string, string> = {
+  pro:  '/checkout?variant=pro_monthly',
+  team: '/checkout?variant=team_monthly',
 }
 
-export function RegisterForm({ redirectTo }: RegisterFormProps) {
+interface RegisterFormProps {
+  redirectTo?: string
+  /** Komt van ?plan=pro of ?plan=team in de URL — stuurt na registratie door naar checkout */
+  plan?: string
+}
+
+export function RegisterForm({ redirectTo, plan }: RegisterFormProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -24,6 +32,12 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [success, setSuccess]   = useState(false)
+
+  // Bepaal waar naartoe na e-mailbevestiging:
+  // - invite-redirect heeft altijd voorrang
+  // - als ?plan= meegegeven: direct naar checkout
+  // - anders: welkomstpagina
+  const afterConfirmPath = redirectTo ?? (plan && PLAN_TO_CHECKOUT[plan]) ?? '/welcome'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,8 +49,7 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
       password,
       options: {
         data: { full_name: fullName },
-        // Nieuwe gebruikers gaan naar /welcome; invite-links of andere redirects hebben voorrang
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo ?? '/welcome')}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(afterConfirmPath)}`,
       },
     })
 
@@ -65,6 +78,11 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
             <span className="font-medium text-foreground">{email}</span>.
             Klik op de link om je account te activeren.
           </p>
+          {plan && PLAN_TO_CHECKOUT[plan] && (
+            <p className="text-xs text-primary bg-primary/10 rounded-lg px-3 py-2 mb-3 border border-primary/20">
+              Na bevestiging word je doorgestuurd naar de betaalpagina voor je gekozen plan.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             Geen mail ontvangen? Controleer ook je spammap.
           </p>
@@ -80,7 +98,11 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
         <CardDescription>
           {redirectTo?.startsWith('/invite/')
             ? 'Maak een account aan om de uitnodiging te accepteren'
-            : 'Maak een gratis CueBoard-account aan'}
+            : plan === 'pro'
+              ? 'Maak een account aan en ga direct aan de slag met het Team plan'
+              : plan === 'team'
+                ? 'Maak een account aan en ga direct aan de slag met het Business plan'
+                : 'Maak een gratis CueBoard-account aan'}
         </CardDescription>
       </CardHeader>
 

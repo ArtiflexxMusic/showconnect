@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
+import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
 
 export function CreateShowForm() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export function CreateShowForm() {
   const [rundownName, setRundownName] = useState('Hoofdrundown')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; message?: string }>({ open: false })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,6 +43,14 @@ export function CreateShowForm() {
       })
 
       const data = await res.json()
+
+      // Plan limiet bereikt → upgrade modal tonen
+      if (res.status === 403 && data.upgrade) {
+        setUpgradeModal({ open: true, message: data.error })
+        setLoading(false)
+        return
+      }
+
       if (!res.ok) throw new Error(data.error ?? 'Er is een fout opgetreden')
 
       router.push(`/shows/${data.show.id}/rundown/${data.rundown.id}`)
@@ -52,86 +62,95 @@ export function CreateShowForm() {
   }
 
   return (
-    <Card>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4 pt-6">
-          {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="show-name">Show naam *</Label>
-            <Input
-              id="show-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Bedrijfsevenement 2026"
-              required
-              autoFocus
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="show-date">Datum</Label>
-              <Input
-                id="show-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="show-venue">Locatie</Label>
-              <Input
-                id="show-venue"
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-                placeholder="Stadsschouwburg Amsterdam"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="show-description">Omschrijving</Label>
-            <Textarea
-              id="show-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Korte omschrijving van het evenement..."
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2 pt-2 border-t border-border">
-            <Label htmlFor="rundown-name">Naam eerste rundown</Label>
-            <Input
-              id="rundown-name"
-              value={rundownName}
-              onChange={(e) => setRundownName(e.target.value)}
-              placeholder="Hoofdrundown"
-            />
-            <p className="text-xs text-muted-foreground">
-              Er wordt direct een rundown aangemaakt zodat je meteen kunt beginnen.
-            </p>
-          </div>
-        </CardContent>
-
-        <CardFooter className="gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
-            Annuleren
-          </Button>
-          <Button type="submit" disabled={loading || !name.trim()}>
-            {loading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Aanmaken...</>
-            ) : (
-              'Show aanmaken'
+    <>
+      <Card>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4 pt-6">
+            {error && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
             )}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+
+            <div className="space-y-2">
+              <Label htmlFor="show-name">Show naam *</Label>
+              <Input
+                id="show-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Bedrijfsevenement 2026"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="show-date">Datum</Label>
+                <Input
+                  id="show-date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="show-venue">Locatie</Label>
+                <Input
+                  id="show-venue"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  placeholder="Stadsschouwburg Amsterdam"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="show-description">Omschrijving</Label>
+              <Textarea
+                id="show-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Korte omschrijving van het evenement..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              <Label htmlFor="rundown-name">Naam eerste rundown</Label>
+              <Input
+                id="rundown-name"
+                value={rundownName}
+                onChange={(e) => setRundownName(e.target.value)}
+                placeholder="Hoofdrundown"
+              />
+              <p className="text-xs text-muted-foreground">
+                Er wordt direct een rundown aangemaakt zodat je meteen kunt beginnen.
+              </p>
+            </div>
+          </CardContent>
+
+          <CardFooter className="gap-3">
+            <Button type="button" variant="outline" onClick={() => router.back()}>
+              Annuleren
+            </Button>
+            <Button type="submit" disabled={loading || !name.trim()}>
+              {loading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Aanmaken...</>
+              ) : (
+                'Show aanmaken'
+              )}
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
+
+      <UpgradeModal
+        open={upgradeModal.open}
+        onClose={() => setUpgradeModal({ open: false })}
+        message={upgradeModal.message}
+        feature="Meer shows aanmaken"
+      />
+    </>
   )
 }

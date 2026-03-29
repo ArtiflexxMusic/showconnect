@@ -91,9 +91,10 @@ export async function GET(request: NextRequest) {
   // Stuur herinnering als trial binnen 24u verloopt (maar nog niet verlopen)
   const { data: expiringTrials, error: trialErr } = await supabase
     .from('profiles')
-    .select('id, email, full_name, trial_ends_at, plan')
+    .select('id, email, full_name, trial_ends_at, plan, notify_trial_emails')
     .eq('plan', 'free')           // Alleen free-plan gebruikers
     .eq('plan_source', 'free')    // Niet al betaald
+    .eq('notify_trial_emails', true) // Alleen als gebruiker toestemming gaf
     .gt('trial_ends_at', now.toISOString())        // Trial nog niet verlopen
     .lte('trial_ends_at', in24h.toISOString())     // Maar verloopt binnen 24u
 
@@ -120,9 +121,10 @@ export async function GET(request: NextRequest) {
   let reminded3d = 0
   const { data: expiring3dTrials, error: trial3dErr } = await supabase
     .from('profiles')
-    .select('id, email, full_name, trial_ends_at, plan')
+    .select('id, email, full_name, trial_ends_at, plan, notify_trial_emails')
     .eq('plan', 'free')
     .eq('plan_source', 'free')
+    .eq('notify_trial_emails', true) // Alleen als gebruiker toestemming gaf
     .gt('trial_ends_at', in2d.toISOString())    // Meer dan 2 dagen
     .lte('trial_ends_at', in3d.toISOString())   // Maar binnen 3 dagen
 

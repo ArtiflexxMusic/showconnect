@@ -467,3 +467,42 @@ export function buildInviteEmail(opts: {
     html:    emailBase(content),
   }
 }
+
+/**
+ * Mail: admin stuurt direct bericht naar gebruiker
+ */
+export function buildAdminDirectEmail(opts: {
+  name:    string | null
+  subject: string
+  message: string
+}) {
+  const displayName = opts.name ?? 'daar'
+  // Converteer newlines naar <br> voor HTML-weergave
+  const htmlMessage = opts.message
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br />')
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Bericht van CueBoard
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <div style="margin:0 0 24px;font-size:15px;color:#ccc;line-height:1.8;white-space:pre-wrap;">
+      ${htmlMessage}
+    </div>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Dit bericht is verstuurd door het CueBoard-team.
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+    </p>
+  `
+
+  return {
+    subject: opts.subject,
+    html:    emailBase(content),
+  }
+}

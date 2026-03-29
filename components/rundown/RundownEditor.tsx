@@ -28,7 +28,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone, Zap, Loader2,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone, Zap, Loader2, Download, Trash2,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -893,6 +893,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                     className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-muted-foreground"
                   >
                     <Printer className="h-3.5 w-3.5" /> Afdrukken / PDF
+                  </a>
+                  <hr className="border-border/50 my-1" />
+                  <a
+                    href={`/api/export/rundown/${rundown.id}`}
+                    download
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-muted-foreground"
+                    onClick={() => setShowViewMenu(false)}
+                  >
+                    <Download className="h-3.5 w-3.5" /> Exporteren als CSV
                   </a>
                   <hr className="border-border/50 my-1" />
                   <button

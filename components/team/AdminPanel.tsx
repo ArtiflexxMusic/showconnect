@@ -453,6 +453,11 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const [savingNotes, setSavingNotes]     = useState(false)
   // Grafieken
   const [showCharts, setShowCharts]       = useState(false)
+  // Direct e-mail sturen
+  const [emailingUser, setEmailingUser]   = useState<string | null>(null)
+  const [emailSubject, setEmailSubject]   = useState('')
+  const [emailMessage, setEmailMessage]   = useState('')
+  const [sendingEmail, setSendingEmail]   = useState(false)
 
   // Gebruikersacties
   const [actionLoading, setActionLoading] = useState<string | null>(null)  // userId
@@ -709,6 +714,28 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     ))
     setSavingNotes(false)
     setEditingNotes(null)
+  }
+
+  const sendDirectEmail = async (userId: string) => {
+    if (!emailSubject.trim() || !emailMessage.trim()) return
+    setSendingEmail(true)
+    const res = await fetch('/api/admin/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, subject: emailSubject, message: emailMessage }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setActionMsg({
+      userId,
+      msg: data.ok ? `E-mail verstuurd naar ${data.to}` : `Fout: ${data.error ?? 'Onbekend'}`,
+      ok: !!data.ok,
+    })
+    setSendingEmail(false)
+    if (data.ok) {
+      setEmailingUser(null)
+      setEmailSubject('')
+      setEmailMessage('')
+    }
   }
 
   return (
@@ -1288,7 +1315,64 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                         {label}
                       </button>
                     ))}
+                    {/* Direct e-mail sturen */}
+                    {isBeheerder && (
+                      <button
+                        onClick={() => {
+                          setEmailingUser(emailingUser === user.id ? null : user.id)
+                          setEmailSubject('')
+                          setEmailMessage('')
+                        }}
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md transition-colors',
+                          emailingUser === user.id
+                            ? 'bg-primary/10 text-primary border-primary/30'
+                            : 'bg-background border-border/60 hover:bg-muted/60 hover:border-border'
+                        )}
+                      >
+                        <Mail className="h-3 w-3" />
+                        Direct e-mail
+                      </button>
+                    )}
                   </div>
+
+                  {/* Direct e-mail formulier */}
+                  {emailingUser === user.id && (
+                    <div className="space-y-2 bg-background/60 border border-border/50 rounded-lg p-3">
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Mail className="h-3 w-3" /> E-mail sturen naar {user.email}
+                      </p>
+                      <input
+                        value={emailSubject}
+                        onChange={e => setEmailSubject(e.target.value)}
+                        placeholder="Onderwerp…"
+                        className="w-full text-xs bg-background border border-border/60 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <textarea
+                        value={emailMessage}
+                        onChange={e => setEmailMessage(e.target.value)}
+                        placeholder="Je bericht aan de gebruiker…"
+                        rows={3}
+                        className="w-full text-xs bg-background border border-border/60 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => sendDirectEmail(user.id)}
+                          disabled={sendingEmail || !emailSubject.trim() || !emailMessage.trim()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                        >
+                          {sendingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          Versturen
+                        </button>
+                        <button
+                          onClick={() => setEmailingUser(null)}
+                          className="px-3 py-1.5 text-xs border border-border/60 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Annuleren
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Feedback bericht */}
                   {actionMsg?.userId === user.id && (

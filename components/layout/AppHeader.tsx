@@ -9,6 +9,7 @@ import { LogOut, LayoutDashboard, Plus, Shield, User, Menu, X, HelpCircle, Zap }
 import type { Profile } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { ChangelogBell } from './ChangelogBell'
+import { GlobalSearch } from './GlobalSearch'
 
 interface AppHeaderProps {
   user: Profile | null
@@ -69,6 +70,9 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
           </Link>
 
           <div className="flex-1" />
+
+          {/* Globale zoekfunctie */}
+          {user && <GlobalSearch />}
 
           {/* Changelog bell */}
           <ChangelogBell />

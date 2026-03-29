@@ -701,6 +701,21 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     setExtendingTrial(null)
   }
 
+  const removeTrial = async (userId: string) => {
+    setExtendingTrial(userId)
+    const res = await fetch('/api/admin/extend-trial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, remove: true }),
+    })
+    if (res.ok) {
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, trial_ends_at: null } : u
+      ))
+    }
+    setExtendingTrial(null)
+  }
+
   // ── Admin notities opslaan ──────────────────────────────────────────────────
   const saveAdminNotes = async (userId: string) => {
     setSavingNotes(true)
@@ -1224,16 +1239,15 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                     </div>
                   </div>
 
-                  {/* Trial verlengen */}
+                  {/* Trial verlengen / verwijderen */}
                   {isBeheerder && (
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground font-medium">Trial verlengen:</span>
+                      <span className="text-xs text-muted-foreground font-medium">Trial:</span>
                       {[3, 7, 14, 30].map(d => (
                         <button
                           key={d}
-                          onClick={() => extendTrial(user.id)}
+                          onClick={() => { setExtendDays(d); extendTrial(user.id) }}
                           disabled={extendingTrial === user.id}
-                          onMouseEnter={() => setExtendDays(d)}
                           className="flex items-center gap-1 px-2.5 py-1 text-xs border border-amber-500/30 text-amber-400 rounded-md hover:bg-amber-500/10 transition-colors disabled:opacity-50"
                         >
                           {extendingTrial === user.id && extendDays === d
@@ -1243,6 +1257,20 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                           +{d}d
                         </button>
                       ))}
+                      {user.trial_ends_at && (
+                        <button
+                          onClick={() => removeTrial(user.id)}
+                          disabled={extendingTrial === user.id}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs border border-destructive/30 text-destructive/70 rounded-md hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                          title="Trial verwijderen"
+                        >
+                          {extendingTrial === user.id
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <X className="h-3 w-3" />
+                          }
+                          Verwijderen
+                        </button>
+                      )}
                     </div>
                   )}
 

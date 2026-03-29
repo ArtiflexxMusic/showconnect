@@ -1,7 +1,11 @@
 /**
  * PATCH /api/admin/extend-trial
- * Verlengt de trial-periode van een gebruiker met X dagen.
+ *
+ * Verlengt of verwijdert de trial-periode van een gebruiker.
  * Alleen toegankelijk voor beheerders en admins.
+ *
+ * Body (verlengen):  { userId: string, days: number }
+ * Body (verwijderen): { userId: string, remove: true }
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -18,9 +22,24 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null)
-  const { userId, days } = body ?? {}
-  if (!userId || typeof days !== 'number' || days < 1 || days > 365) {
-    return NextResponse.json({ error: 'Ongeldige parameters' }, { status: 400 })
+  const { userId, days, remove } = body ?? {}
+
+  if (!userId) return NextResponse.json({ error: 'userId is verplicht' }, { status: 400 })
+
+  // ── Trial verwijderen ──────────────────────────────────────────────────────
+  if (remove === true) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ trial_ends_at: null })
+      .eq('id', userId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, trial_ends_at: null })
+  }
+
+  // ── Trial verlengen ────────────────────────────────────────────────────────
+  if (typeof days !== 'number' || days < 1 || days > 365) {
+    return NextResponse.json({ error: 'Ongeldige parameters: geef days (1-365) of remove: true' }, { status: 400 })
   }
 
   // Haal huidige trial_ends_at op

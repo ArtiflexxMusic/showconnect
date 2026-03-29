@@ -67,13 +67,14 @@ export async function POST(request: NextRequest) {
   switch (action) {
 
     case 'resend_confirmation': {
-      // Stuur een invite-link (herbevestiging) — type 'invite' vereist geen wachtwoord
+      // Stuur een magic link — werkt voor bestaande onbevestigde users en
+      // bevestigt de email zodra de gebruiker er op klikt
       const { error } = await admin.auth.admin.generateLink({
-        type: 'invite',
+        type: 'magiclink',
         email: targetEmail,
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      return NextResponse.json({ success: true, message: `Bevestigingsmail verstuurd naar ${targetEmail}` })
+      return NextResponse.json({ success: true, message: `Inloglink (bevestiging) verstuurd naar ${targetEmail}` })
     }
 
     case 'confirm_email': {

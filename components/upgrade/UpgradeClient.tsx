@@ -272,7 +272,7 @@ export function UpgradeClient({
                 )}
 
                 {/* Plan naam + icon */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-h-[48px]">
                   <div className={cn('p-2 rounded-lg bg-muted/50 shrink-0', plan.color)}>
                     <Icon className="h-5 w-5" />
                   </div>
@@ -287,7 +287,7 @@ export function UpgradeClient({
                 </div>
 
                 {/* Prijs */}
-                <div>
+                <div className="min-h-[56px]">
                   {plan.key === 'free' ? (
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-bold">€0</span>

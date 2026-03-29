@@ -192,6 +192,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   // ── CRUD ────────────────────────────────────────────────────────────────
   const addCue = useCallback(async (input: CreateCueInput) => {
     setIsSaving(true)
+    setSaveError(null)
     const maxPos = cues.length > 0 ? Math.max(...cues.map((c) => c.position)) + 1 : 0
     const { error } = await supabase.from('cues').insert({
       rundown_id:       rundown.id,
@@ -224,7 +225,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       slide_control_mode:    input.slide_control_mode ?? 'caller',
       current_slide_index:   input.current_slide_index ?? 0,
     })
-    if (error) console.error('Fout bij toevoegen cue:', error)
+    if (error) {
+      console.error('Fout bij toevoegen cue:', error)
+      const msg = error.message?.includes('violates check constraint')
+        ? `Type niet toegestaan in de database. Voer migratie 011 uit in Supabase om alle cue-types toe te staan.`
+        : `Opslaan mislukt: ${error.message ?? 'onbekende fout'}`
+      setSaveError(msg)
+      setIsSaving(false)
+      // Modal NIET sluiten bij fout — gebruiker kan opnieuw proberen
+      return
+    }
     setIsSaving(false)
     setShowAddModal(false)
   }, [cues, rundown.id, supabase])
@@ -1074,11 +1084,12 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       {/* ── Modals ────────────────────────────────────────────────────── */}
       <CueFormModal
         open={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => { setShowAddModal(false); setSaveError(null) }}
         onSave={addCue}
         loading={isSaving}
         supabase={supabase}
         rundownId={rundown.id}
+        saveError={saveError}
         stageNames={rundown.stage_names?.split(',').map((s) => s.trim()).filter(Boolean) ?? []}
       />
 

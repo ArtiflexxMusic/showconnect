@@ -700,6 +700,63 @@ export type Database = {
         Update: Record<string, never>
         Relationships: []
       }
+      rundown_chat: {
+        Row: {
+          id: string
+          rundown_id: string
+          user_id: string | null
+          sender_name: string
+          sender_role: string
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          rundown_id: string
+          user_id?: string | null
+          sender_name: string
+          sender_role?: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          sender_name?: string
+          sender_role?: string
+          message?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'rundown_chat_rundown_id_fkey'; columns: ['rundown_id']; referencedRelation: 'rundowns'; referencedColumns: ['id'] }
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth_key: string
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth_key: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          endpoint?: string
+          p256dh?: string
+          auth_key?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: 'push_subscriptions_user_id_fkey'; columns: ['user_id']; referencedRelation: 'users'; referencedColumns: ['id'] }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

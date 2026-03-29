@@ -17,6 +17,8 @@ import Link from 'next/link'
 import { SlideViewer } from './SlideViewer'
 import { MicPatchPanel } from './MicPatchPanel'
 import { MicStatusBar } from './MicStatusBar'
+import { ChatPanel, ChatToggleButton } from './ChatPanel'
+import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 
 interface CallerViewProps {
   rundown: Rundown
@@ -126,6 +128,9 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [mediaDuration, setMediaDuration]       = useState(0)
 
   const [showMicPatch, setShowMicPatch] = useState(false)
+  const [showChat, setShowChat]         = useState(false)
+  const [chatUnread, setChatUnread]     = useState(0)
+  const [callerName, setCallerName]     = useState('Caller')
 
   // Countdown waarschuwings-opties (opgeslagen in localStorage)
   const [beepEnabled, setBeepEnabled] = useState<boolean>(() => {
@@ -160,6 +165,19 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const showComplete = pendingCues.length === 0 && !activeCue
 
   const expectedTimes = calculateCueStartTimes(cues, rundown.show_start_time)
+
+  // ── Profielnaam ophalen voor chat ────────────────────────────────────────
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => {
+        if (data?.full_name) setCallerName(data.full_name)
+        else if (data?.email) setCallerName(data.email.split('@')[0])
+      })
+  }, [userId, supabase])
 
   // ── Supabase Realtime ────────────────────────────────────────────────────
   useEffect(() => {
@@ -429,12 +447,26 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       event: 'nudge',
       payload: { from: userId, message: '🔔 Aandacht van de caller!' },
     })
+    // Stuur ook push notificatie (best-effort, voor leden met app in achtergrond)
+    fetch('/api/push/nudge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rundownId: rundown.id }),
+    }).catch(() => {})
     setTimeout(() => setNudgeActive(false), 2000)
   }, [nudgeActive, rundown.id, userId, supabase])
 
   const autoAdvanceRef   = useRef(false)
   const beepedAt30Ref    = useRef(false)
   const beepedAt15Ref    = useRef(false)
+
+  // ── Berekeningen actieve cue (vroeg gedeclareerd — gebruikt in useEffects) ─
+  const countdown = activeCue ? calcCountdown(activeCue, now) : 0
+  const progress  = activeCue ? calcProgress(activeCue, now) : 0
+
+  // Totale resterende tijd (actieve cue countdown + pending cues)
+  const totalRemaining = (activeCue ? countdown : 0) +
+    pendingCues.reduce((sum, c) => sum + c.duration_seconds, 0)
 
   // ── Audio + Flash waarschuwingen bij countdown drempels ──────────────────
   useEffect(() => {
@@ -546,14 +578,6 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     setMediaPlaying(false)
   }
 
-  // ── Berekeningen actieve cue ─────────────────────────────────────────────
-  const countdown = activeCue ? calcCountdown(activeCue, now) : 0
-  const progress  = activeCue ? calcProgress(activeCue, now) : 0
-
-  // Totale resterende tijd (actieve cue countdown + pending cues)
-  const totalRemaining = (activeCue ? countdown : 0) +
-    pendingCues.reduce((sum, c) => sum + c.duration_seconds, 0)
-
   // ── Auto-advance: automatisch GO als countdown 0 bereikt ─────────────────
   useEffect(() => {
     if (!activeCue?.auto_advance) {
@@ -663,6 +687,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           >
             <Radio className="h-4 w-4" />
           </Button>
+
+          {/* Push notificaties toggle */}
+          <PushNotificationToggle iconOnly />
+
+          {/* Chat toggle */}
+          <ChatToggleButton
+            onClick={() => { setShowChat(!showChat); setChatUnread(0) }}
+            unread={chatUnread}
+            isOpen={showChat}
+          />
 
           {/* Nudge knop */}
           <Button
@@ -1051,6 +1085,18 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         open={showMicPatch}
         onClose={() => setShowMicPatch(false)}
       />
+
+      {/* ── Chat overlay ─────────────────────────────────────────────── */}
+      {showChat && (
+        <div className="absolute bottom-20 right-6 z-40 w-80 shadow-2xl">
+          <ChatPanel
+            rundownId={rundown.id}
+            senderName={callerName}
+            senderRole="caller"
+            onClose={() => setShowChat(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }

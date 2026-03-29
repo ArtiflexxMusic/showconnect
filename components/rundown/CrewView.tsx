@@ -8,6 +8,8 @@ import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, M
 import { Button } from '@/components/ui/button'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
 import { MicStatusBar } from './MicStatusBar'
+import { ChatPanel } from './ChatPanel'
+import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 
 interface CrewAnnotation {
   id: string
@@ -64,6 +66,8 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [annotating, setAnnotating]     = useState(false)
   const [showAnnotations, setShowAnnotations] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [crewName, setCrewName]           = useState('Crew')
+  const [bottomTab, setBottomTab]         = useState<'chat' | 'notes'>('chat')
 
   const activeCue   = cues.find((c) => c.status === 'running')
   const pendingCues = cues.filter((c) => c.status === 'pending')
@@ -127,7 +131,17 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   // Annotaties laden + user ophalen
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id ?? null)
+      if (!user) return
+      setCurrentUserId(user.id)
+      supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.full_name) setCrewName(data.full_name)
+          else if (data?.email) setCrewName(data.email.split('@')[0])
+        })
     })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -213,6 +227,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
                 {rundown.show_start_time.slice(0, 5)}
               </span>
             )}
+            <PushNotificationToggle iconOnly />
             <span className={cn('text-xs flex items-center gap-1', isOnline ? 'text-green-400' : 'text-red-400')}>
               {isOnline ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
               {isOnline ? 'Live' : 'Offline'}
@@ -395,30 +410,60 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         )}
       </div>
 
-      {/* ── Annotaties panel ──────────────────────────────────────────── */}
+      {/* ── Onderste panel (Chat + Notities tabs) ─────────────────────── */}
       <div className="sticky bottom-0 bg-background border-t border-border/50">
 
-        {/* Annotaties toggle */}
-        <button
-          onClick={() => setShowAnnotations(!showAnnotations)}
-          className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span className="flex items-center gap-1.5">
+        {/* Tab balk */}
+        <div className="flex items-center px-4 pt-2 gap-3">
+          <button
+            onClick={() => setBottomTab(bottomTab === 'chat' ? 'notes' : 'chat')}
+            className={cn(
+              'flex items-center gap-1.5 text-xs pb-2 border-b-2 transition-colors',
+              bottomTab === 'chat'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
             <MessageSquare className="h-3.5 w-3.5" />
-            Crew notities
+            Chat
+          </button>
+          <button
+            onClick={() => setBottomTab(bottomTab === 'notes' ? 'chat' : 'notes')}
+            className={cn(
+              'flex items-center gap-1.5 text-xs pb-2 border-b-2 transition-colors',
+              bottomTab === 'notes'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Notities
             {annotations.length > 0 && (
               <span className="bg-primary/20 text-primary rounded-full px-1.5 text-[10px] font-semibold">
                 {annotations.length}
               </span>
             )}
-          </span>
-          {showAnnotations
-            ? <ChevronDown className="h-3.5 w-3.5" />
-            : <ChevronUp className="h-3.5 w-3.5" />
-          }
-        </button>
+          </button>
+          <button
+            onClick={() => setShowAnnotations(!showAnnotations)}
+            className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showAnnotations
+              ? <ChevronDown className="h-3.5 w-3.5" />
+              : <ChevronUp className="h-3.5 w-3.5" />
+            }
+          </button>
+        </div>
 
-        {showAnnotations && (
+        {showAnnotations && bottomTab === 'chat' && (
+          <ChatPanel
+            rundownId={rundown.id}
+            senderName={crewName}
+            senderRole="crew"
+            className="rounded-none border-0 border-t border-border/30"
+          />
+        )}
+
+        {showAnnotations && bottomTab === 'notes' && (
           <div className="border-t border-border/30 bg-background/95">
             {/* Notities lijst */}
             <div className="max-h-48 overflow-y-auto px-4 py-2 space-y-2">

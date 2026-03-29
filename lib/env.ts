@@ -32,3 +32,12 @@ export const MAILJET_API_KEY      = optionalEnv('MAILJET_API_KEY')
 export const MAILJET_SECRET_KEY   = optionalEnv('MAILJET_SECRET_KEY')
 export const MOLLIE_API_KEY       = optionalEnv('MOLLIE_API_KEY')
 export const APP_URL              = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cueboard.nl'
+
+// ── Web Push / VAPID ────────────────────────────────────────────────────────
+// Genereer nieuwe keys met: node scripts/gen-vapid-keys.js
+// Stel in als VAPID_PUBLIC_KEY en VAPID_PRIVATE_KEY in .env.local + Vercel
+export const VAPID_PUBLIC_KEY     = optionalEnv('VAPID_PUBLIC_KEY')
+export const VAPID_PRIVATE_KEY    = optionalEnv('VAPID_PRIVATE_KEY')
+export const VAPID_SUBJECT        = process.env.VAPID_SUBJECT ?? 'mailto:info@artiflexx.nl'
+// De public key is ook nodig op de client; zet hem in NEXT_PUBLIC_VAPID_PUBLIC_KEY
+export const NEXT_PUBLIC_VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''

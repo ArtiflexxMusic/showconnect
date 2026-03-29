@@ -20,6 +20,7 @@ import { LoadTemplateModal } from './LoadTemplateModal'
 import { CueLogPanel } from './CueLogPanel'
 import { ShortcutHelp } from './ShortcutHelp'
 import { MicPatchPanel } from './MicPatchPanel'
+import { ChatPanel, ChatToggleButton } from './ChatPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -89,6 +90,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showMicPatch, setShowMicPatch]                 = useState(false)
   const [showShortcutHelp, setShowShortcutHelp]         = useState(false)
   const [showSharePanel, setShowSharePanel]             = useState(false)
+  const [showChat, setShowChat]                         = useState(false)
+  const [chatUnread, setChatUnread]                     = useState(0)
+  const [editorName, setEditorName]                     = useState('Editor')
   const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
   const [showMoreMenu, setShowMoreMenu]                 = useState(false)
   const [saveError, setSaveError]                       = useState<string | null>(null)
@@ -157,6 +161,19 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       supabase.removeChannel(channel)
     }
   }, [rundown.id, userId, supabase])
+
+  // ── Profielnaam voor chat ────────────────────────────────────────────────
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => {
+        if (data?.full_name) setEditorName(data.full_name)
+        else if (data?.email) setEditorName(data.email.split('@')[0])
+      })
+  }, [userId, supabase])
 
   // ── CRUD ────────────────────────────────────────────────────────────────
   const addCue = useCallback(async (input: CreateCueInput) => {
@@ -820,6 +837,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                 {snapshotDone ? <Check className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
               </Button>
 
+              {/* Chat */}
+              <ChatToggleButton
+                onClick={() => { setShowChat(!showChat); setChatUnread(0) }}
+                unread={chatUnread}
+                isOpen={showChat}
+              />
+
               {/* Nudge */}
               <Button size="sm" variant="outline" onClick={sendNudge} disabled={nudgeActive}
                 className={cn('gap-2', nudgeActive
@@ -1084,6 +1108,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         open={showMicPatch}
         onClose={() => setShowMicPatch(false)}
       />
+
+      {/* ── Chat overlay ─────────────────────────────────────────────────── */}
+      {showChat && (
+        <div className="fixed bottom-16 right-6 z-50 w-80 shadow-2xl">
+          <ChatPanel
+            rundownId={rundown.id}
+            senderName={editorName}
+            senderRole="editor"
+            onClose={() => setShowChat(false)}
+          />
+        </div>
+      )}
 
       {/* Sluit menu's bij klik buiten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (

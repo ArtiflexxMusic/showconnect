@@ -1,5 +1,5 @@
-// CueBoard Service Worker
-const CACHE_NAME = 'cueboard-v1'
+// CueBoard Service Worker — v2
+const CACHE_NAME = 'cueboard-v2'
 
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
@@ -78,5 +78,58 @@ self.addEventListener('fetch', (event) => {
   // Everything else: network-first
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
+  )
+})
+
+// ── Push notificaties ─────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+
+  let data = {}
+  try {
+    data = event.data.json()
+  } catch {
+    data = { title: 'CueBoard', body: event.data.text() }
+  }
+
+  const title   = data.title   ?? 'CueBoard'
+  const body    = data.body    ?? ''
+  const url     = data.url     ?? '/'
+  const tag     = data.tag     ?? 'cueboard'
+  const icon    = '/icon-192.png'
+  const badge   = '/favicon-32.png'
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      badge,
+      tag,
+      data: { url },
+      requireInteraction: false,
+      vibrate: [200, 100, 200],
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? '/'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Focus existing tab if already open
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url)
+          return client.focus()
+        }
+      }
+      // Otherwise open a new tab
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url)
+      }
+    })
   )
 })

@@ -13,7 +13,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
-  Copy, QrCode, X, Monitor,
+  Copy, QrCode, X, Monitor, Share2, Check,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -62,6 +62,7 @@ export function ShowDashboard({
   const [duplicating, setDuplicating]       = useState(false)
   const [qrUrl, setQrUrl]                   = useState<string | null>(null)
   const [qrLabel, setQrLabel]               = useState('')
+  const [sharecopied, setShareCopied]       = useState(false)
 
   async function handleDeleteRundown() {
     if (!deleteTarget) return
@@ -195,6 +196,21 @@ export function ShowDashboard({
             </Button>
             <InfoButton section="uitnodigen" text="Bekijk en beheer alle teamleden en hun rollen." />
           </div>
+          <Button
+            variant="outline" size="sm"
+            className="gap-2"
+            onClick={async () => {
+              const url = `${window.location.origin}/p/${show.id}`
+              await navigator.clipboard.writeText(url)
+              setShareCopied(true)
+              setTimeout(() => setShareCopied(false), 2500)
+            }}
+          >
+            {sharecopied
+              ? <><Check className="h-3.5 w-3.5 text-emerald-400" /> Gekopieerd!</>
+              : <><Share2 className="h-3.5 w-3.5" /> Delen</>
+            }
+          </Button>
           <Button variant="outline" size="sm" onClick={handleDuplicateShow} disabled={duplicating} className="gap-2">
             {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
             Dupliceren

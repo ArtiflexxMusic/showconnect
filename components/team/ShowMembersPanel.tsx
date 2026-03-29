@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2, Shield, Mic, Users, Eye, Pencil, Mail } from 'lucide-react'
+import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2, Shield, Mic, Users, Eye, Pencil, Mail, Info } from 'lucide-react'
 import type { ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -81,6 +81,7 @@ export function ShowMembersPanel({
   const [openMenu, setOpenMenu]       = useState<string | null>(null)
   const [emailSending, setEmailSending] = useState<string | null>(null)
   const [emailSent, setEmailSent]     = useState<string | null>(null)
+  const [showRoleLegend, setShowRoleLegend] = useState(false)
 
   const supabase  = createClient()
   const canManage = currentUserRole === 'owner' || currentUserRole === 'editor'
@@ -266,20 +267,29 @@ export function ShowMembersPanel({
             </div>
           )}
 
-          {/* Rol legenda */}
+          {/* Rol legenda — inklapbaar */}
           {canManage && !showInvite && (
-            <div className="px-6 pt-4 pb-3 border-b border-border/50">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Rollen</p>
-              <div className="flex flex-col gap-1.5">
-                {ASSIGNABLE_ROLES.map(role => (
-                  <div key={role} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium shrink-0', ROLE_COLORS[role])}>
-                      {ROLE_LABELS[role]}
-                    </span>
-                    <span>{ROLE_DESC[role].split(':')[0]}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="px-6 pt-3 pb-2 border-b border-border/50">
+              <button
+                onClick={() => setShowRoleLegend(v => !v)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Info className="h-3 w-3" />
+                Rollenuitleg
+                <ChevronDown className={cn('h-3 w-3 transition-transform', showRoleLegend && 'rotate-180')} />
+              </button>
+              {showRoleLegend && (
+                <div className="flex flex-col gap-1.5 mt-2">
+                  {ASSIGNABLE_ROLES.map(role => (
+                    <div key={role} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium shrink-0', ROLE_COLORS[role])}>
+                        {ROLE_LABELS[role]}
+                      </span>
+                      <span>{ROLE_DESC[role].split(':')[0]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

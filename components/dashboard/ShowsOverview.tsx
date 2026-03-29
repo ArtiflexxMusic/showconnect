@@ -12,7 +12,7 @@ import {
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
   Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft, Search, X,
-  Share2,
+  Share2, Archive,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EditShowModal } from './EditShowModal'
@@ -36,10 +36,11 @@ interface ShowWithRundowns {
 interface ShowsOverviewProps {
   shows: ShowWithRundowns[]
   sharedShows?: ShowWithRundowns[]
+  archivedShows?: ShowWithRundowns[]
   membershipMap?: Record<string, string>
 }
 
-export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedShows = [], membershipMap = {} }: ShowsOverviewProps) {
+export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedShows = [], archivedShows = [], membershipMap = {} }: ShowsOverviewProps) {
   const supabase = createClient()
   const [shows, setShows]           = useState<ShowWithRundowns[]>(initialShows)
   const [sharedShows]               = useState<ShowWithRundowns[]>(initialSharedShows)
@@ -48,7 +49,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<ShowWithRundowns | null>(null)
   const [viewMode, setViewMode]     = useState<'list' | 'calendar'>('list')
-  const [activeTab, setActiveTab]   = useState<'mine' | 'shared'>('mine')
+  const [activeTab, setActiveTab]   = useState<'mine' | 'shared' | 'archived'>('mine')
   const [calMonth, setCalMonth]     = useState(() => {
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }
   })
@@ -174,6 +175,22 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
               </span>
             )}
           </button>
+          {archivedShows.length > 0 && (
+            <button
+              onClick={() => setActiveTab('archived')}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
+                activeTab === 'archived'
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Archief
+              <span className="ml-1 text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">
+                {archivedShows.length}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Zoekbalk */}
@@ -289,6 +306,42 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
               </section>
             )}
           </>
+        )}
+
+        {/* ── Archief tab ─────────────────────────────────────────── */}
+        {activeTab === 'archived' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground mb-4">
+              Gearchiveerde shows zijn nog steeds toegankelijk maar worden niet in je hoofdlijst getoond.
+              Open een show om hem te dearchiveren.
+            </p>
+            {archivedShows.map((show) => (
+              <Link
+                key={show.id}
+                href={`/shows/${show.id}`}
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-5 py-4 hover:border-border transition-colors opacity-70 hover:opacity-100"
+              >
+                <div>
+                  <p className="font-medium text-sm">{show.name}</p>
+                  <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                    {show.date && (
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="h-3 w-3" />
+                        {formatDate(show.date)}
+                      </span>
+                    )}
+                    {show.venue && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {show.venue}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </Link>
+            ))}
+          </div>
         )}
 
         {/* ── Gedeelde shows tab ──────────────────────────────────── */}

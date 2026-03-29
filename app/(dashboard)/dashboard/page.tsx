@@ -12,7 +12,6 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   // Haal alle shows op waar de user toegang tot heeft (via RLS)
-  // inclusief de user's rol in die show
   const { data: shows } = await supabase
     .from('shows')
     .select('*, rundowns(id, name, is_active)')
@@ -28,7 +27,6 @@ export default async function DashboardPage() {
     (memberships ?? []).map((m) => [m.show_id, m.role as string])
   )
 
-  // Splits shows op in 'mijn shows' (owner of created_by) vs 'gedeeld met mij'
   const allShows = (shows ?? []) as Array<{
     id: string
     name: string
@@ -37,17 +35,27 @@ export default async function DashboardPage() {
     description: string | null
     created_by: string | null
     created_at: string
+    archived_at: string | null
     rundowns: Array<{ id: string; name: string; is_active: boolean }>
   }>
 
-  const myShows = allShows.filter((s) => {
+  // Splits in actief vs gearchiveerd
+  const activeShows   = allShows.filter((s) => !s.archived_at)
+  const archivedShows = allShows.filter((s) => !!s.archived_at)
+
+  const myShows = activeShows.filter((s) => {
     const role = membershipMap.get(s.id)
     return s.created_by === user.id || role === 'owner'
   })
 
-  const sharedShows = allShows.filter((s) => {
+  const sharedShows = activeShows.filter((s) => {
     const role = membershipMap.get(s.id)
     return s.created_by !== user.id && role !== 'owner' && role !== undefined
+  })
+
+  const myArchivedShows = archivedShows.filter((s) => {
+    const role = membershipMap.get(s.id)
+    return s.created_by === user.id || role === 'owner'
   })
 
   return (
@@ -55,9 +63,10 @@ export default async function DashboardPage() {
       <ShowsOverview
         shows={myShows}
         sharedShows={sharedShows}
+        archivedShows={myArchivedShows}
         membershipMap={Object.fromEntries(membershipMap)}
       />
-      <DashboardGuide hasShows={allShows.length > 0} />
+      <DashboardGuide hasShows={activeShows.length > 0} />
     </>
   )
 }

@@ -13,7 +13,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
-  Copy, QrCode, X, Monitor, Share2, Check,
+  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -63,6 +63,20 @@ export function ShowDashboard({
   const [qrUrl, setQrUrl]                   = useState<string | null>(null)
   const [qrLabel, setQrLabel]               = useState('')
   const [sharecopied, setShareCopied]       = useState(false)
+  const [archiving, setArchiving]           = useState(false)
+
+  async function handleArchiveShow() {
+    setArchiving(true)
+    const isArchived = !!show.archived_at
+    await supabase
+      .from('shows')
+      .update({ archived_at: isArchived ? null : new Date().toISOString() })
+      .eq('id', show.id)
+    setArchiving(false)
+    // Terug naar dashboard na archiveren
+    if (!isArchived) router.push('/dashboard')
+    else router.refresh()
+  }
 
   async function handleDeleteRundown() {
     if (!deleteTarget) return
@@ -218,6 +232,23 @@ export function ShowDashboard({
           <Button variant="outline" size="sm" onClick={() => setEditShowOpen(true)} className="gap-2">
             <Pencil className="h-3.5 w-3.5" /> Bewerken
           </Button>
+          {currentUserRole === 'owner' && (
+            <Button
+              variant="outline" size="sm"
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              onClick={handleArchiveShow}
+              disabled={archiving}
+              title={show.archived_at ? 'Uit archief halen' : 'Show archiveren'}
+            >
+              {archiving
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : show.archived_at
+                  ? <ArchiveRestore className="h-3.5 w-3.5" />
+                  : <Archive className="h-3.5 w-3.5" />
+              }
+              {show.archived_at ? 'Dearchiveren' : 'Archiveren'}
+            </Button>
+          )}
         </div>
       </div>
 

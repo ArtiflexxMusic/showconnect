@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { RundownEditor } from '@/components/rundown/RundownEditor'
+import { getPlanLimits } from '@/lib/plans'
 import type { Show, Rundown, Cue } from '@/lib/types/database'
+import type { Plan } from '@/lib/plans'
 
 interface PageProps {
   params: Promise<{ showId: string; rundownId: string }>
@@ -60,6 +62,20 @@ export default async function RundownPage({ params }: PageProps) {
     .eq('show_id', showId)
     .order('created_at', { ascending: true })
 
+  // Plan-limieten ophalen voor client-side gate
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan, plan_expires_at, trial_ends_at')
+    .eq('id', user.id)
+    .single()
+
+  const plan = ((profile as { plan?: string } | null)?.plan ?? 'free') as Plan
+  const limits = getPlanLimits(
+    plan,
+    (profile as { plan_expires_at?: string | null } | null)?.plan_expires_at ?? null,
+    (profile as { trial_ends_at?: string | null } | null)?.trial_ends_at ?? null,
+  )
+
   const rundown = rundownData as Rundown
   const show = showData as Show
 
@@ -70,6 +86,8 @@ export default async function RundownPage({ params }: PageProps) {
       initialCues={(cues ?? []) as Cue[]}
       userId={user.id}
       allRundowns={(allRundowns ?? []) as Array<{ id: string; name: string }>}
+      maxCues={limits.max_cues_per_rundown === Infinity ? null : limits.max_cues_per_rundown}
+      maxRundowns={limits.max_rundowns_per_show === Infinity ? null : limits.max_rundowns_per_show}
     />
   )
 }

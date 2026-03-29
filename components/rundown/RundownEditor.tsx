@@ -21,6 +21,7 @@ import { CueLogPanel } from './CueLogPanel'
 import { ShortcutHelp } from './ShortcutHelp'
 import { MicPatchPanel } from './MicPatchPanel'
 import { ChatPanel, ChatToggleButton } from './ChatPanel'
+import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -57,9 +58,11 @@ interface RundownEditorProps {
   initialCues: Cue[]
   userId: string
   allRundowns?: Array<{ id: string; name: string }>
+  maxCues?: number | null
+  maxRundowns?: number | null
 }
 
-export function RundownEditor({ rundown: initialRundown, show, initialCues, userId, allRundowns = [] }: RundownEditorProps) {
+export function RundownEditor({ rundown: initialRundown, show, initialCues, userId, allRundowns = [], maxCues = null, maxRundowns = null }: RundownEditorProps) {
   const supabase = createClient()
   const router = useRouter()
 
@@ -99,6 +102,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
   const [showMoreMenu, setShowMoreMenu]                 = useState(false)
   const [saveError, setSaveError]                       = useState<string | null>(null)
+  const [upgradeModal, setUpgradeModal]                 = useState<{ message: string; feature: string } | null>(null)
 
   // DnD sensors
   const sensors = useSensors(
@@ -191,6 +195,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── CRUD ────────────────────────────────────────────────────────────────
   const addCue = useCallback(async (input: CreateCueInput) => {
+    // Plan limiet check
+    if (maxCues !== null && cues.length >= maxCues) {
+      setShowAddModal(false)
+      setUpgradeModal({
+        feature: 'cues',
+        message: `Je Individual plan staat maximaal ${maxCues} cues per rundown toe. Upgrade naar Team voor onbeperkt cues.`,
+      })
+      return
+    }
     setIsSaving(true)
     setSaveError(null)
     const maxPos = cues.length > 0 ? Math.max(...cues.map((c) => c.position)) + 1 : 0
@@ -468,6 +481,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── Rundown dupliceren ───────────────────────────────────────────────────
   const duplicateRundown = useCallback(async () => {
+    // Plan limiet check
+    if (maxRundowns !== null && allRundowns.length >= maxRundowns) {
+      setUpgradeModal({
+        feature: 'rundowns',
+        message: `Je Individual plan staat maximaal ${maxRundowns} rundown per show toe. Upgrade naar Team voor meer rundowns.`,
+      })
+      return
+    }
     const { data: newRundown, error: rundownErr } = await supabase
       .from('rundowns')
       .insert({
@@ -1192,6 +1213,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
       {showShortcutHelp && (
         <ShortcutHelp onClose={() => setShowShortcutHelp(false)} />
+      )}
+
+      {/* ── Upgrade modal bij plan-limiet ───────────────────────────────── */}
+      {upgradeModal && (
+        <UpgradeModal
+          open={true}
+          onClose={() => setUpgradeModal(null)}
+          message={upgradeModal.message}
+          feature={upgradeModal.feature}
+        />
       )}
     </div>
   )

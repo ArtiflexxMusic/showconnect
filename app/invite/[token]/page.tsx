@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -100,9 +101,14 @@ export default async function InvitePage({ params }: PageProps) {
     )
   }
 
-  // Ingelogd → accepteer de uitnodiging server-side
+  // Ingelogd → accepteer de uitnodiging server-side via admin client (bypasses RLS)
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
   // Controleer of gebruiker al lid is
-  const { data: existingMember } = await supabase
+  const { data: existingMember } = await admin
     .from('show_members')
     .select('id')
     .eq('show_id', invitation.show_id)
@@ -110,15 +116,17 @@ export default async function InvitePage({ params }: PageProps) {
     .single()
 
   if (!existingMember) {
-    // Lid toevoegen
-    await supabase.from('show_members').insert({
+    // Lid toevoegen (service role bypasses RLS)
+    const { error: insertError } = await admin.from('show_members').insert({
       show_id:    invitation.show_id,
       user_id:    user.id,
       role:       invitation.role,
       invited_by: invitation.invited_by,
     })
+    if (insertError) console.error('[invite] show_members insert failed:', insertError.message)
+
     // Uitnodiging markeren als geaccepteerd
-    await supabase.from('invitations')
+    await admin.from('invitations')
       .update({ accepted_at: new Date().toISOString() })
       .eq('id', invitation.id)
   }

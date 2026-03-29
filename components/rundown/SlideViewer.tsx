@@ -47,6 +47,31 @@ function loadScript(src: string): Promise<void> {
   })
 }
 
+// ── Auto-hide hook voor controls ───────────────────────────────────────────────
+function useAutoHideControls(delay = 1200) {
+  const [visible, setVisible] = useState(true)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const show = useCallback(() => {
+    setVisible(true)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setVisible(false), delay)
+  }, [delay])
+
+  const hide = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setVisible(false)
+  }, [])
+
+  useEffect(() => {
+    // Start timer bij mount
+    timerRef.current = setTimeout(() => setVisible(false), delay)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [delay])
+
+  return { visible, show, hide }
+}
+
 // ── PDF Viewer ─────────────────────────────────────────────────────────────────
 function PdfViewer({
   url, slideIndex, onPageCount, onSlideChange, showControls, canControl, allowFullscreen
@@ -67,6 +92,7 @@ function PdfViewer({
   const [error, setError]       = useState<string | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const renderTaskRef = useRef<{cancel: () => void} | null>(null)
+  const { visible: controlsVisible, show: showControls_, hide: hideControls } = useAutoHideControls()
 
   // pdf.js laden
   useEffect(() => {
@@ -140,15 +166,50 @@ function PdfViewer({
   )
 
   return (
-    <div className={cn('relative flex flex-col h-full', fullscreen && 'fixed inset-0 z-[100] bg-black')}>
-      {/* Canvas */}
+    <div
+      className={cn('relative flex flex-col h-full', fullscreen && 'fixed inset-0 z-[100] bg-black')}
+      onMouseMove={showControls_}
+      onMouseLeave={hideControls}
+    >
+      {/* Canvas + klikzones */}
       <div className="relative flex-1 overflow-hidden flex items-center justify-center bg-black">
         <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
+
+        {/* Klikzone links → vorige slide */}
+        {canControl && slideIndex > 0 && (
+          <button
+            onClick={() => onSlideChange?.(slideIndex - 1)}
+            className="absolute left-0 top-0 h-full w-1/3 flex items-center justify-start pl-3 group opacity-0 hover:opacity-100 transition-opacity"
+            title="Vorige slide"
+          >
+            <span className="bg-black/40 rounded-full p-2 group-hover:bg-black/70 transition-colors">
+              <ChevronLeft className="h-6 w-6 text-white" />
+            </span>
+          </button>
+        )}
+
+        {/* Klikzone rechts → volgende slide */}
+        {canControl && slideIndex < total - 1 && (
+          <button
+            onClick={() => onSlideChange?.(slideIndex + 1)}
+            className="absolute right-0 top-0 h-full w-1/3 flex items-center justify-end pr-3 group opacity-0 hover:opacity-100 transition-opacity"
+            title="Volgende slide"
+          >
+            <span className="bg-black/40 rounded-full p-2 group-hover:bg-black/70 transition-colors">
+              <ChevronRight className="h-6 w-6 text-white" />
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Controls */}
       {showControls && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[#080f0a] border-t border-white/5">
+        <div
+          className={cn(
+            'flex items-center justify-between px-4 py-2 bg-[#080f0a] border-t border-white/5 transition-opacity duration-300',
+            controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}
+        >
           <div className="flex items-center gap-2">
             <Button
               size="sm" variant="outline"
@@ -190,11 +251,16 @@ function PptxViewer({ url, showControls, canControl, allowFullscreen }: {
   allowFullscreen?: boolean
 }) {
   const [fullscreen, setFullscreen] = useState(false)
+  const { visible: controlsVisible, show: showControls_, hide: hideControls } = useAutoHideControls()
   const encoded = encodeURIComponent(url)
   const embedUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encoded}`
 
   return (
-    <div className={cn('relative flex flex-col h-full', fullscreen && 'fixed inset-0 z-[100] bg-black')}>
+    <div
+      className={cn('relative flex flex-col h-full', fullscreen && 'fixed inset-0 z-[100] bg-black')}
+      onMouseMove={showControls_}
+      onMouseLeave={hideControls}
+    >
       <iframe
         src={embedUrl}
         className="flex-1 w-full border-0"
@@ -202,7 +268,12 @@ function PptxViewer({ url, showControls, canControl, allowFullscreen }: {
         sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
       />
       {showControls && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[#080f0a] border-t border-white/5">
+        <div
+          className={cn(
+            'flex items-center justify-between px-4 py-2 bg-[#080f0a] border-t border-white/5 transition-opacity duration-300',
+            controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}
+        >
           <p className="text-xs text-muted-foreground">
             PPTX — gebruik de pijltjes in de viewer om te navigeren
             {canControl && ' of laat presentator dit doen'}

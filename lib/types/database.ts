@@ -214,10 +214,10 @@ export interface CreateCueInput {
   title: string
   type: CueType
   duration_seconds: number
-  notes?: string
-  tech_notes?: string
-  presenter?: string
-  location?: string
+  notes?: string | null
+  tech_notes?: string | null
+  presenter?: string | null
+  location?: string | null
   // Media (optioneel)
   media_url?: string | null
   media_path?: string | null

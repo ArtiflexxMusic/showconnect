@@ -302,6 +302,29 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   // ── PREV ─────────────────────────────────────────────────────────────────
   const handlePrev = useCallback(async () => {
     if (isProcessing) return
+
+    // Slide-first: als de actieve cue een presentatie heeft en er nog slides vóór zijn,
+    // ga dan naar de vorige slide i.p.v. de vorige cue.
+    if (
+      activeCue?.presentation_url &&
+      activeCue.slide_control_mode !== 'presenter' &&
+      currentSlideIndex > 0
+    ) {
+      const newIndex = currentSlideIndex - 1
+      setCurrentSlideIndex(newIndex)
+      if (slideChannelRef.current) {
+        slideChannelRef.current.send({
+          type: 'broadcast',
+          event: 'slide_change',
+          payload: { index: newIndex, source: 'caller' },
+        })
+      }
+      await supabase.from('cues')
+        .update({ current_slide_index: newIndex } as Record<string, unknown>)
+        .eq('id', activeCue.id)
+      return
+    }
+
     setIsProcessing(true)
     try {
       if (activeCue) {
@@ -318,7 +341,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     } finally {
       setTimeout(() => setIsProcessing(false), 300)
     }
-  }, [isProcessing, activeCue, cues, supabase])
+  }, [isProcessing, activeCue, cues, supabase, currentSlideIndex, slideChannelRef])
 
   // ── SKIP ─────────────────────────────────────────────────────────────────
   const handleSkip = useCallback(async () => {

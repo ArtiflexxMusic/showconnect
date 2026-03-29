@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   CreditCard, Zap, Users, AlertTriangle, CheckCircle2,
-  Clock, RefreshCw, XCircle, ChevronRight, Receipt, Loader2,
+  Clock, RefreshCw, XCircle, ChevronRight, Receipt, Loader2, Download,
 } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import type { MolliePayment, MollieSubscription } from '@/lib/mollie'
@@ -258,16 +258,31 @@ export function BillingPage({ profile, payments, subscription }: BillingPageProp
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{description}</p>
                       <p className="text-xs text-muted-foreground">
+                        {p.paidAt
+                          ? formatDate(p.paidAt)
+                          : formatDate(p.createdAt ?? '')}
+                        <span className="mx-1.5 text-muted-foreground/30">·</span>
                         {paymentStatusLabel(p.status)}
                         {p.sequenceType === 'recurring' && (
-                          <span className="ml-2 text-muted-foreground/50">· Automatische verlenging</span>
+                          <span className="ml-1.5 text-muted-foreground/50">· Automatische verlenging</span>
                         )}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="flex items-center gap-3 shrink-0">
                       <p className="font-mono font-semibold">
                         {formatEuro(p.amount.value)}
                       </p>
+                      {p.status === 'paid' && (
+                        <a
+                          href={`/invoice/${p.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Factuur downloaden"
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 )

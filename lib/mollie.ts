@@ -59,6 +59,9 @@ export interface MolliePayment {
   mandateId?: string
   subscriptionId?: string
   amount: { currency: string; value: string }
+  description?: string
+  createdAt?: string
+  paidAt?: string
   metadata?: Record<string, string>
   _links: {
     checkout?: { href: string }

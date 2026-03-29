@@ -180,6 +180,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       color:            input.color ?? null,
       auto_advance:     input.auto_advance ?? false,
       slide_index:      input.slide_index ?? null,
+      // Presentatie velden
+      presentation_url:      input.presentation_url ?? null,
+      presentation_path:     input.presentation_path ?? null,
+      presentation_type:     input.presentation_type ?? null,
+      presentation_filename: input.presentation_filename ?? null,
+      slide_control_mode:    input.slide_control_mode ?? 'caller',
+      current_slide_index:   input.current_slide_index ?? 0,
     })
     if (error) console.error('Fout bij toevoegen cue:', error)
     setIsSaving(false)
@@ -234,8 +241,17 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   const updateCue = useCallback(async (id: string, updates: UpdateCueInput) => {
     setIsSaving(true)
+    // Optimistische update: toon wijzigingen direct zonder te wachten op Realtime
+    setCues((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } as Cue : c))
+    )
     const { error } = await supabase.from('cues').update(updates).eq('id', id)
-    if (error) console.error('Fout bij updaten cue:', error)
+    if (error) {
+      console.error('Fout bij updaten cue:', error)
+      // Bij fout: laad de originele data opnieuw vanuit de database
+      const { data } = await supabase.from('cues').select('*').eq('id', id).single()
+      if (data) setCues((prev) => prev.map((c) => (c.id === id ? data as Cue : c)))
+    }
     setIsSaving(false)
     setEditingCue(null)
   }, [supabase])

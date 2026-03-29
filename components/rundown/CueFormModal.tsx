@@ -289,7 +289,7 @@ export function CueFormModal({
     let finalPresentationFilename = presentationFilename
 
     if (presentationFile) {
-      const tempId = initialValues?.id ?? `tmp_${Date.now()}`
+      const tempId = initialValues?.id ?? crypto.randomUUID()
       const result = await uploadPresentation(tempId)
       if (!result) return
       finalPresentationUrl      = result.url
@@ -302,10 +302,10 @@ export function CueFormModal({
       title:            title.trim(),
       type,
       duration_seconds: parseDuration(durationStr),
-      notes:            notes.trim() || undefined,
-      tech_notes:       techNotes.trim() || undefined,
-      presenter:        presenter.trim() || undefined,
-      location:         location.trim() || undefined,
+      notes:            notes.trim() || null,
+      tech_notes:       techNotes.trim() || null,
+      presenter:        presenter.trim() || null,
+      location:         location.trim() || null,
       media_url:        finalMediaUrl,
       media_path:       finalMediaPath,
       media_type:       mediaType,

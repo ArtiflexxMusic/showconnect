@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, cueTypeLabel, cueTypeColor } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Radio, Clock, MapPin, Mic } from 'lucide-react'
+import { Radio, Clock, Mic, Maximize2, Minimize2 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 
 interface PublicStatusViewProps {
@@ -23,10 +23,52 @@ function useWallClock() {
   return now ?? new Date()
 }
 
+function useFullscreen() {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    function onChange() {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const enter = useCallback(() => {
+    document.documentElement.requestFullscreen().catch(() => {})
+  }, [])
+
+  const exit = useCallback(() => {
+    document.exitFullscreen().catch(() => {})
+  }, [])
+
+  return { isFullscreen, enter, exit }
+}
+
+function useAutoHide(delay = 1500) {
+  const [visible, setVisible] = useState(true)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const show = useCallback(() => {
+    setVisible(true)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setVisible(false), delay)
+  }, [delay])
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => setVisible(false), delay)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [delay])
+
+  return { visible, show }
+}
+
 export function PublicStatusView({ rundown, show, initialCues }: PublicStatusViewProps) {
   const supabase = createClient()
   const now      = useWallClock()
   const [cues, setCues] = useState<Cue[]>(initialCues)
+  const { isFullscreen, enter, exit } = useFullscreen()
+  const { visible: btnVisible, show: showBtn } = useAutoHide()
 
   const activeCue  = cues.find(c => c.status === 'running') ?? null
   const nextCue    = activeCue
@@ -61,7 +103,22 @@ export function PublicStatusView({ rundown, show, initialCues }: PublicStatusVie
   }, [rundown.id, supabase])
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col relative" onMouseMove={showBtn}>
+
+      {/* Fullscreen knop – fade weg na inactiviteit */}
+      <button
+        onClick={isFullscreen ? exit : enter}
+        className={cn(
+          'fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-black/40 hover:bg-black/70 text-white/60 hover:text-white transition-all duration-300',
+          btnVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        )}
+        title={isFullscreen ? 'Volledig scherm verlaten' : 'Volledig scherm'}
+      >
+        {isFullscreen
+          ? <Minimize2 className="h-5 w-5" />
+          : <Maximize2 className="h-5 w-5" />
+        }
+      </button>
 
       {/* Header */}
       <div className="border-b border-border/50 px-6 py-4 flex items-center justify-between">

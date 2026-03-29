@@ -1,34 +1,67 @@
 /**
  * CueBoard Email utility
  *
- * Ondersteunt twee providers (automatisch gekozen op basis van env vars):
+ * Ondersteunt drie providers (automatisch gekozen op basis van env vars):
  *
- *  1. Mailjet (aanbevolen – gratis 6000 mails/maand, geen domeinverificatie)
+ *  1. Brevo (aanbevolen – gratis 300 mails/dag, geen domeinverificatie nodig)
+ *     Vereist: BREVO_API_KEY
+ *     Setup: https://app.brevo.com → Settings → SMTP & API → API Keys
+ *     Afzender: info@artiflexx.nl (geverifieerd in Brevo)
+ *
+ *  2. Mailjet (fallback)
  *     Vereist: MAILJET_API_KEY + MAILJET_SECRET_KEY
- *     Setup: https://app.mailjet.com → API Keys
- *     Zet ook MAILJET_FROM_EMAIL op het geverifieerde afzenderadres
- *     (bijv. info@cueboard.nl — Mailjet stuurt een verificatie-link)
  *
- *  2. Resend (fallback)
- *     Vereist: RESEND_API_KEY + geverifieerd domein in Resend Dashboard
- *     Setup: https://resend.com → API Keys + Domains
+ *  3. Resend (laatste fallback)
+ *     Vereist: RESEND_API_KEY + geverifieerd domein
  *
  * Voeg de gekozen variabelen toe in Vercel Dashboard →
  * Settings → Environment Variables → Production
  */
 
+const BREVO_API_KEY = process.env.BREVO_API_KEY
+
 const MAILJET_API_KEY    = process.env.MAILJET_API_KEY
 const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY
-const MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL ?? 'info@cueboard.nl'
+const MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL ?? 'noreply@cueboard.nl'
 const MAILJET_FROM_NAME  = process.env.MAILJET_FROM_NAME  ?? 'CueBoard'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
+
+const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL ?? 'info@artiflexx.nl'
+const BREVO_FROM_NAME  = process.env.BREVO_FROM_NAME  ?? 'CueBoard'
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.cueboard.nl'
 
 export interface EmailResult {
   ok: boolean
   error?: string
+}
+
+// ── Brevo verzender ───────────────────────────────────────────────────────────
+async function sendViaBrevo(opts: { to: string; subject: string; html: string }): Promise<EmailResult> {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key':      BREVO_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender:      { name: BREVO_FROM_NAME, email: BREVO_FROM_EMAIL },
+      to:          [{ email: opts.to }],
+      subject:     opts.subject,
+      htmlContent: opts.html,
+    }),
+  })
+
+  const body = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    const err = body?.message ?? JSON.stringify(body)
+    console.error('[email/brevo] Versturen mislukt:', err)
+    return { ok: false, error: err }
+  }
+
+  return { ok: true }
 }
 
 // ── Mailjet verzender ─────────────────────────────────────────────────────────
@@ -102,25 +135,27 @@ export async function sendEmail(opts: {
   subject: string
   html: string
 }): Promise<EmailResult> {
-  // Mailjet heeft prioriteit
+  // Brevo heeft prioriteit
+  if (BREVO_API_KEY) {
+    const result = await sendViaBrevo(opts)
+    if (result.ok) return result
+    console.warn('[email] Brevo mislukt, probeer Mailjet als fallback:', result.error)
+  }
+
+  // Mailjet als tweede optie
   if (MAILJET_API_KEY && MAILJET_SECRET_KEY) {
     const result = await sendViaMailjet(opts)
     if (result.ok) return result
-    // Mailjet mislukt (bijv. account gesuspendeerd) → probeer Resend als fallback
     console.warn('[email] Mailjet mislukt, probeer Resend als fallback:', result.error)
-    if (RESEND_API_KEY) {
-      return sendViaResend(opts)
-    }
-    return result
   }
 
-  // Resend als enige provider
+  // Resend als laatste fallback
   if (RESEND_API_KEY) {
     return sendViaResend(opts)
   }
 
   // Geen provider geconfigureerd
-  console.warn('[email] Geen e-mailprovider geconfigureerd. Voeg MAILJET_API_KEY + MAILJET_SECRET_KEY toe aan Vercel Environment Variables.')
+  console.warn('[email] Geen e-mailprovider geconfigureerd. Voeg BREVO_API_KEY toe aan Vercel Environment Variables.')
   return { ok: false, error: 'Geen e-mailprovider geconfigureerd (zie lib/email.ts voor instructies)' }
 }
 

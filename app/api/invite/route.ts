@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendEmail } from '@/lib/email'
 
 const ROLE_LABELS: Record<string, string> = {
   owner:     'Eigenaar',
@@ -64,15 +65,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const RESEND_API_KEY = process.env.RESEND_API_KEY
-    if (!RESEND_API_KEY) {
-      return NextResponse.json({
-        error: 'Email niet geconfigureerd',
-        hint: 'Voeg RESEND_API_KEY toe aan .env.local',
-      }, { status: 503 })
-    }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cueboard.app'
+    const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard.app'
     const inviteLink = `${appUrl}/invite/${invitation.token}`
     const showName   = (invitation.shows as { name: string } | null)?.name ?? 'een show'
     const roleName   = ROLE_LABELS[invitation.role] ?? invitation.role
@@ -84,38 +77,30 @@ export async function POST(req: NextRequest) {
       : { data: null }
     const inviterName = inviterProfile?.full_name || inviterProfile?.email || 'Iemand'
 
-    // Stuur e-mail via Resend API
-    const emailResp = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from:    'CueBoard <noreply@cueboard.app>',
-        to:      [invitation.email],
-        subject: `${inviterName} nodigt je uit voor ${showName}`,
-        html: `
+    const expiryDate = new Date(invitation.expires_at).toLocaleDateString('nl-NL', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+
+    const html = `
 <!DOCTYPE html>
-<html>
+<html lang="nl">
 <head>
   <meta charset="utf-8">
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 40px 20px; }
     .container { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
-    .logo { font-size: 20px; font-weight: 700; color: #818cf8; letter-spacing: 2px; margin-bottom: 24px; }
-    .logo span { font-weight: 300; color: #c7d2fe; }
+    .logo { font-size: 20px; font-weight: 700; color: #f97316; letter-spacing: 2px; margin-bottom: 24px; }
     h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; color: #f1f5f9; }
     p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 8px 0; }
     .role-badge { display: inline-block; background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb40; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 500; margin: 12px 0; }
-    .btn { display: block; background: #6366f1; color: white !important; text-decoration: none; text-align: center; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 24px 0; }
+    .btn { display: block; background: #f97316; color: white !important; text-decoration: none; text-align: center; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 24px 0; }
     .footer { font-size: 12px; color: #475569; margin-top: 24px; border-top: 1px solid #334155; padding-top: 16px; }
-    .link { color: #818cf8; word-break: break-all; font-size: 12px; }
+    .link { color: #f97316; word-break: break-all; font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">CUE<span>BOARD</span></div>
+    <div class="logo">CueBoard</div>
     <h1>Je bent uitgenodigd!</h1>
     <p><strong style="color:#f1f5f9">${inviterName}</strong> nodigt je uit om deel te nemen aan:</p>
     <p style="color:#f1f5f9; font-size: 18px; font-weight: 600; margin: 12px 0;">${showName}</p>
@@ -125,20 +110,23 @@ export async function POST(req: NextRequest) {
     <p>Of kopieer deze link:</p>
     <p class="link">${inviteLink}</p>
     <div class="footer">
-      <p>Deze uitnodiging verloopt op ${new Date(invitation.expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}.</p>
+      <p>Deze uitnodiging verloopt op ${expiryDate}.</p>
       <p>CueBoard – Real-time show control voor live events</p>
     </div>
   </div>
 </body>
-</html>
-        `.trim(),
-      }),
+</html>`.trim()
+
+    // Gebruik de centrale sendEmail helper (Mailjet eerst, dan Resend als fallback)
+    const result = await sendEmail({
+      to:      invitation.email,
+      subject: `${inviterName} nodigt je uit voor ${showName}`,
+      html,
     })
 
-    if (!emailResp.ok) {
-      const errBody = await emailResp.json().catch(() => ({}))
-      console.error('Resend error:', errBody)
-      return NextResponse.json({ error: 'E-mail versturen mislukt' }, { status: 500 })
+    if (!result.ok) {
+      console.error('Invite email error:', result.error)
+      return NextResponse.json({ error: 'E-mail versturen mislukt', detail: result.error }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

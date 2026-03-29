@@ -78,7 +78,6 @@ export function ShowMembersPanel({
   const [inviteError, setInviteError] = useState('')
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [changingRole, setChangingRole] = useState<string | null>(null)
-  const [openMenu, setOpenMenu]       = useState<string | null>(null)
   const [emailSending, setEmailSending] = useState<string | null>(null)
   const [emailSent, setEmailSent]     = useState<string | null>(null)
   const [showRoleLegend, setShowRoleLegend] = useState(false)
@@ -184,7 +183,6 @@ export function ShowMembersPanel({
   // ── Rol wijzigen ───────────────────────────────────────────────────────────
   const changeRole = async (memberId: string, newRole: ShowMemberRole) => {
     setChangingRole(memberId)
-    setOpenMenu(null)
     await supabase.from('show_members').update({ role: newRole }).eq('id', memberId)
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m))
     setChangingRole(null)
@@ -312,51 +310,27 @@ export function ShowMembersPanel({
                   )}
                 </div>
 
-                {/* Rol badge / dropdown */}
+                {/* Rol selector — native select om clipping door overflow te vermijden */}
                 {canManage && member.role !== 'owner' ? (
-                  <div className="relative">
-                    <button
-                      onClick={() => setOpenMenu(openMenu === member.id ? null : member.id)}
+                  <div className="relative flex items-center gap-1.5">
+                    {changingRole === member.id && (
+                      <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin text-muted-foreground" />
+                    )}
+                    <select
+                      value={member.role}
                       disabled={changingRole === member.id}
+                      onChange={(e) => changeRole(member.id, e.target.value as ShowMemberRole)}
                       className={cn(
-                        'flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium transition-colors hover:opacity-80',
+                        'text-xs font-medium rounded border px-2 py-1 cursor-pointer bg-card appearance-none pr-5',
+                        'focus:outline-none focus:ring-1 focus:ring-primary',
                         ROLE_COLORS[member.role]
                       )}
                     >
-                      {changingRole === member.id
-                        ? <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin" />
-                        : <>{ROLE_LABELS[member.role]} <ChevronDown className="h-2.5 w-2.5" /></>
-                      }
-                    </button>
-                    {openMenu === member.id && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg min-w-[200px] overflow-hidden">
-                          {ASSIGNABLE_ROLES.map(role => (
-                            <button
-                              key={role}
-                              onClick={() => changeRole(member.id, role)}
-                              className="w-full flex items-start gap-2 px-3 py-2.5 text-xs hover:bg-muted transition-colors text-left"
-                            >
-                              <div className="mt-0.5">
-                                {member.role === role
-                                  ? <Check className="h-3 w-3 text-primary" />
-                                  : <div className="h-3 w-3" />
-                                }
-                              </div>
-                              <div>
-                                <p className="font-medium flex items-center gap-1">
-                                  <span className={cn('inline-flex items-center gap-0.5 px-1 py-0.5 rounded border text-[10px]', ROLE_COLORS[role])}>
-                                    {ROLE_ICONS[role]} {ROLE_LABELS[role]}
-                                  </span>
-                                </p>
-                                <p className="text-muted-foreground text-[10px] mt-0.5">{ROLE_DESC[role]}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                      {ASSIGNABLE_ROLES.map(r => (
+                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="h-2.5 w-2.5 absolute right-1.5 pointer-events-none text-current opacity-70" />
                   </div>
                 ) : (
                   <span className={cn('flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium', ROLE_COLORS[member.role])}>

@@ -28,7 +28,7 @@ const PLAN_ORDER = { free: 0, pro: 1, team: 2 } as const
 const PLANS = [
   {
     key:     'free' as const,
-    name:    'Free',
+    name:    'Individual',
     icon:    Gift,
     color:   'text-muted-foreground',
     border:  'border-border',
@@ -45,13 +45,13 @@ const PLANS = [
   },
   {
     key:     'pro' as const,
-    name:    'Pro',
+    name:    'Team',
     icon:    Zap,
     color:   'text-primary',
     border:  'border-primary/30',
     badge:   'bg-primary/15 text-primary',
-    monthly: { variant: 'pro_monthly', price: '9,95' },
-    yearly:  { variant: 'pro_yearly',  price: '99,99', saving: '€19' },
+    monthly: { variant: 'pro_monthly', price: '9,99' },
+    yearly:  { variant: 'pro_yearly',  price: '99,99', saving: '€20' },
     features: [
       'Tot 5 shows',
       'Tot 3 rundowns per show',
@@ -64,7 +64,7 @@ const PLANS = [
   },
   {
     key:     'team' as const,
-    name:    'Team',
+    name:    'Business',
     icon:    Users,
     color:   'text-violet-400',
     border:  'border-violet-500/30',
@@ -77,7 +77,7 @@ const PLANS = [
       'Onbeperkt cues',
       'Onbeperkt teamleden',
       'Onbeperkt cast members',
-      'Alles van Pro',
+      'Alles van Team',
       'Prioriteitsondersteuning',
     ],
     popular: true,
@@ -145,9 +145,9 @@ export function UpgradeClient({
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Plannen</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
             {isActiveGift
-              ? `Je hebt een cadeau ${currentPlan === 'pro' ? 'Pro' : 'Team'} plan`
+              ? `Je hebt een cadeau ${currentPlan === 'pro' ? 'Team' : 'Business'} plan`
               : isActivePaid
-                ? `Je gebruikt het ${currentPlan === 'pro' ? 'Pro' : 'Team'} plan`
+                ? `Je gebruikt het ${currentPlan === 'pro' ? 'Team' : 'Business'} plan`
                 : 'Kies het plan dat bij jouw gebruik past'}
           </p>
         </div>

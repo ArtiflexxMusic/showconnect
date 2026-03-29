@@ -34,8 +34,8 @@ export default async function WelcomePage() {
       icon: Users,
       title: 'Nodig je team uit',
       desc: 'Deel een Magic Link of stuur een invite. Caller, crew en presentator — iedereen krijgt zijn eigen view.',
-      cta: 'Shows bekijken',
-      href: '/shows',
+      cta: 'Naar dashboard',
+      href: '/dashboard',
       primary: false,
     },
     {
@@ -126,7 +126,7 @@ export default async function WelcomePage() {
                   <span className="text-sm font-bold text-white">Meer uit CueBoard halen?</span>
                 </div>
                 <p className="text-sm text-white/40 leading-relaxed">
-                  Met Pro krijg je onbeperkt shows, Cast Portal, presentatie-uploads en Companion-koppeling — vanaf €9,95/maand.
+                  Met het Team plan krijg je meerdere shows, presentatie-uploads en Companion-koppeling — vanaf €9,99/maand.
                 </p>
               </div>
               <Link
@@ -141,7 +141,7 @@ export default async function WelcomePage() {
           {/* Skip link */}
           <div className="text-center mt-8">
             <Link
-              href="/shows"
+              href="/dashboard"
               className="text-xs text-white/20 hover:text-white/40 transition-colors underline underline-offset-2"
             >
               Doorgaan naar dashboard

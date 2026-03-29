@@ -63,20 +63,20 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  free: 'Free',
-  pro:  'Pro',
-  team: 'Team',
+  free: 'Individual',
+  pro:  'Team',
+  team: 'Business',
 }
 
 /** Prijs in euro's per plan + interval */
 export const PLAN_PRICES: Record<Plan, number | null> = {
   free: null,
-  pro:  9.95,
+  pro:  9.99,
   team: 29.99,
 }
 
 export const PLAN_PRICES_MONTHLY: Partial<Record<Plan, number>> = {
-  pro:  9.95,
+  pro:  9.99,
   team: 29.99,
 }
 

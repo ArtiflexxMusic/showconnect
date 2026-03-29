@@ -62,7 +62,7 @@ export async function checkPlanGate(
     current: currentCount,
     message: allowed
       ? 'OK'
-      : `Je ${plan === 'free' ? 'gratis plan' : plan + '-plan'} staat maximaal ${
+      : `Je ${plan === 'free' ? 'Individual' : plan === 'pro' ? 'Team' : 'Business'} plan staat maximaal ${
           limit === Infinity ? 'onbeperkt' : limit
         } ${FEATURE_LABELS[feature]} toe. Upgrade je plan om meer aan te maken.`,
   }
@@ -100,6 +100,6 @@ export async function checkFeatureAccess(
     plan,
     message: allowed
       ? 'OK'
-      : `${FEATURE_LABELS[feature]} is niet beschikbaar in je ${plan === 'free' ? 'gratis plan' : plan + '-plan'}. Upgrade naar Pro of Team om dit te gebruiken.`,
+      : `${FEATURE_LABELS[feature]} is niet beschikbaar in je ${plan === 'free' ? 'Individual' : plan === 'pro' ? 'Team' : 'Business'} plan. Upgrade naar Team of Business om dit te gebruiken.`,
   }
 }

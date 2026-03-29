@@ -219,7 +219,7 @@ export function buildPaymentRequestEmail(opts: {
   paymentUrl?: string
 }) {
   const displayName = opts.name ?? 'daar'
-  const planLabel   = opts.plan === 'pro' ? 'Pro (€9,95/mnd)' : 'Team (€29,95/mnd)'
+  const planLabel   = opts.plan === 'pro' ? 'Team (€9,99/mnd)' : 'Business (€29,99/mnd)'
   const paymentUrl  = opts.paymentUrl ?? `${BASE_URL}/upgrade`
 
   const content = `
@@ -247,7 +247,7 @@ export function buildPaymentRequestEmail(opts: {
   `
 
   return {
-    subject: `Activeer je CueBoard ${opts.plan === 'pro' ? 'Pro' : 'Team'}-plan`,
+    subject: `Activeer je CueBoard ${opts.plan === 'pro' ? 'Team' : 'Business'}-plan`,
     html:    emailBase(content),
   }
 }
@@ -297,7 +297,7 @@ export function buildPlanExpiredEmail(opts: {
   previousPlan: 'pro' | 'team'
 }) {
   const displayName  = opts.name ?? 'daar'
-  const planLabel    = opts.previousPlan === 'pro' ? 'Pro' : 'Team'
+  const planLabel    = opts.previousPlan === 'pro' ? 'Team' : 'Business'
   const upgradeUrl   = `${BASE_URL}/upgrade`
 
   const content = `

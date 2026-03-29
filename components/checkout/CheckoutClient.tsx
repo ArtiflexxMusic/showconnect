@@ -79,8 +79,8 @@ interface CheckoutClientProps {
 // ─── Plan visueel config ──────────────────────────────────────────────────────
 
 const PLAN_STYLE = {
-  pro:  { icon: Zap,   color: 'text-primary',    bg: 'bg-primary/10',    border: 'border-primary/30' },
-  team: { icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
+  pro:  { icon: Zap,   color: 'text-primary',    bg: 'bg-primary/10',    border: 'border-primary/30',    label: 'Team' },
+  team: { icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30', label: 'Business' },
 } as const
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ export function CheckoutClient({ variantKey, variant, methods }: CheckoutClientP
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-base capitalize">{variant.plan} plan</p>
+                  <p className="font-semibold text-base">{style.label} plan</p>
                   <p className="text-xs text-muted-foreground">
                     {isYearly ? 'Jaarabonnement' : 'Maandabonnement'}
                   </p>
@@ -164,7 +164,7 @@ export function CheckoutClient({ variantKey, variant, methods }: CheckoutClientP
                   <div className="flex justify-between text-xs text-emerald-400">
                     <span>Jaarkorting</span>
                     <span>
-                      {variant.plan === 'pro' ? 'bespaar €19' : 'bespaar €60'}
+                      {variant.plan === 'pro' ? 'bespaar €20' : 'bespaar €60'}
                     </span>
                   </div>
                 )}

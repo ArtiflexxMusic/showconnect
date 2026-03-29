@@ -629,8 +629,8 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
           { label: 'Gebruikers', value: users.length,    icon: Users,    color: '',                   filter: 'all'   },
           { label: 'Trial',      value: trialCount,      icon: Clock,    color: 'text-amber-400',     filter: 'trial' },
           { label: 'Gratis',     value: users.filter(u => u.plan === 'free' && !isTrialActive(u.trial_ends_at)).length, icon: Users, color: 'text-muted-foreground', filter: 'free' },
-          { label: 'Pro',        value: proCount,        icon: Sparkles, color: 'text-primary',       filter: 'pro'   },
-          { label: 'Team',       value: teamCount,       icon: Crown,    color: 'text-violet-400',    filter: 'team'  },
+          { label: 'Team',     value: proCount,        icon: Sparkles, color: 'text-primary',       filter: 'pro'   },
+          { label: 'Business', value: teamCount,       icon: Crown,    color: 'text-violet-400',    filter: 'team'  },
         ].map(({ label, value, icon: Icon, color, filter }) => (
           <Card
             key={label}
@@ -687,7 +687,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
               {planFilter !== 'all' && (
                 <span className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary border border-primary/25 rounded px-1.5 py-0.5">
                   <Filter className="h-2.5 w-2.5" />
-                  {planFilter === 'trial' ? 'Trial' : planFilter === 'free' ? 'Gratis' : planFilter === 'pro' ? 'Pro' : 'Team'}
+                  {planFilter === 'trial' ? 'Trial' : planFilter === 'free' ? 'Individual' : planFilter === 'pro' ? 'Team' : 'Business'}
                   <button onClick={() => setPlanFilter('all')} className="ml-0.5 hover:text-destructive">
                     <X className="h-2.5 w-2.5" />
                   </button>

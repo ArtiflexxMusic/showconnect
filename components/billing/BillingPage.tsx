@@ -241,7 +241,7 @@ export function BillingPage({ profile, payments, subscription }: BillingPageProp
               </p>
               {profile.plan === 'free' && (
                 <p className="text-xs mt-1 text-muted-foreground/60">
-                  Upgrade naar Pro of Team om je betalingen hier te zien.
+                  Upgrade naar Team of Business om je betalingen hier te zien.
                 </p>
               )}
             </div>

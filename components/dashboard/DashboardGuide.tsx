@@ -24,8 +24,8 @@ const STEPS = [
     icon: LayoutList,
     title: 'Bouw een rundown',
     desc: 'Open de rundown-editor en voeg cues toe met type, duur en notities.',
-    href: '/shows',
-    cta: 'Naar shows',
+    href: '/dashboard',
+    cta: 'Naar dashboard',
   },
   {
     id: 'invite',

@@ -95,7 +95,7 @@ export interface MollieSubscription {
 export interface PlanVariant {
   plan: Plan
   interval: PlanInterval
-  amount: string          // "9.95" – Mollie verwacht string met punt
+  amount: string          // "9.99" – Mollie verwacht string met punt
   description: string
   mollieInterval: string  // "1 month" of "1 year"
 }
@@ -103,22 +103,22 @@ export interface PlanVariant {
 export const PLAN_VARIANTS: Record<string, PlanVariant> = {
   pro_monthly: {
     plan: 'pro', interval: 'monthly',
-    amount: '9.95', description: 'CueBoard Pro – maandelijks',
+    amount: '9.99', description: 'CueBoard Team – maandelijks',
     mollieInterval: '1 month',
   },
   pro_yearly: {
     plan: 'pro', interval: 'yearly',
-    amount: '99.99', description: 'CueBoard Pro – jaarlijks',
+    amount: '99.99', description: 'CueBoard Team – jaarlijks',
     mollieInterval: '1 year',
   },
   team_monthly: {
     plan: 'team', interval: 'monthly',
-    amount: '29.99', description: 'CueBoard Team – maandelijks',
+    amount: '29.99', description: 'CueBoard Business – maandelijks',
     mollieInterval: '1 month',
   },
   team_yearly: {
     plan: 'team', interval: 'yearly',
-    amount: '299.99', description: 'CueBoard Team – jaarlijks',
+    amount: '299.99', description: 'CueBoard Business – jaarlijks',
     mollieInterval: '1 year',
   },
 }

@@ -543,34 +543,34 @@ function HowItWorks() {
 // ─────────────────────────────────────────────
 const PLANS = [
   {
-    name: 'Free',
+    name: 'Individual',
     price: '€0',
     period: 'voor altijd',
     desc: 'Probeer CueBoard zonder risico.',
     highlight: false,
     cta: 'Gratis starten',
     href: '/register',
-    features: ['3 shows', '1 rundown per show', 'Tot 30 cues', 'Caller · Presenter · Crew', 'Realtime samenwerking', 'Uitnodigen via link'],
-  },
-  {
-    name: 'Pro',
-    price: '€9,95',
-    period: 'per maand',
-    desc: 'Voor professionals die meerdere shows draaien.',
-    highlight: true,
-    cta: 'Pro proberen',
-    href: '/register?plan=pro',
-    features: ['Onbeperkt shows & rundowns', 'Onbeperkt cues', 'Versiegeschiedenis', 'Cast Portal & Magic Links', 'Presentaties & slides per cue', 'Companion integratie', 'Prioriteit support'],
+    features: ['1 show', '1 rundown per show', 'Tot 15 cues', '2 teamleden per show', 'Caller · Presenter · Crew', 'Realtime samenwerking'],
   },
   {
     name: 'Team',
+    price: '€9,99',
+    period: 'per maand',
+    desc: 'Voor professionals die meerdere shows draaien.',
+    highlight: true,
+    cta: 'Team starten',
+    href: '/register?plan=pro',
+    features: ['Tot 5 shows', 'Tot 3 rundowns per show', 'Onbeperkt cues', 'Tot 5 teamleden per show', 'Presentatie-upload (PDF / PPTX)', 'Companion integratie', 'Mic patch panel'],
+  },
+  {
+    name: 'Business',
     price: '€29,99',
     period: 'per maand',
     desc: 'Voor AV-bureaus en productieteams.',
     highlight: false,
-    cta: 'Team starten',
+    cta: 'Business starten',
     href: '/register?plan=team',
-    features: ['Alles uit Pro', 'Tot 10 gebruikers', 'Teambeheerpaneel', 'Centrale show bibliotheek', 'Mic Patch & audio beheer', 'SSO', 'Dedicated support'],
+    features: ['Onbeperkt shows & rundowns', 'Onbeperkt cues', 'Onbeperkt teamleden', 'Onbeperkt cast members', 'Mic Patch & audio beheer', 'Alles van Team', 'Prioriteitsondersteuning'],
   },
 ]
 

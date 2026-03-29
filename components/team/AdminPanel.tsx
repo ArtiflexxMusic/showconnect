@@ -11,7 +11,6 @@ import {
   Mail, Key, Link2, CheckCircle2, Edit2, Loader2, AlertCircle,
   PlusCircle, StickyNote, BarChart2, TrendingUp,
 } from 'lucide-react'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { UserRole, UserPlan, PlanSource } from '@/lib/types/database'
 import {
   PLAN_LABELS, PLAN_COLORS, PLAN_SOURCE_LABELS, PLAN_SOURCE_COLORS, PLAN_PRICES,
@@ -803,24 +802,22 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={signupsChart} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="week" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                  />
-                  <Area type="monotone" dataKey="count" name="Signups" stroke="hsl(var(--primary))" fill="url(#signupGrad)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="h-48 flex items-end gap-2 px-2">
+              {(() => {
+                const maxCount = Math.max(...signupsChart.map(d => d.count), 1)
+                return signupsChart.map((d, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                    <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                      {d.count}
+                    </span>
+                    <div
+                      className="w-full rounded-t-sm bg-primary/70 hover:bg-primary transition-colors"
+                      style={{ height: `${Math.max((d.count / maxCount) * 152, d.count > 0 ? 4 : 0)}px` }}
+                    />
+                    <span className="text-[9px] text-muted-foreground truncate w-full text-center">{d.week}</span>
+                  </div>
+                ))
+              })()}
             </div>
           </CardContent>
         </Card>

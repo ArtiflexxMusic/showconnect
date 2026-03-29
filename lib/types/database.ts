@@ -297,6 +297,9 @@ export type Database = {
           plan_interval: PlanInterval | null
           mollie_customer_id: string | null
           mollie_subscription_id: string | null
+          admin_notes: string | null
+          notify_trial_emails: boolean
+          notify_product_emails: boolean
         }
         Insert: {
           id: string
@@ -314,6 +317,9 @@ export type Database = {
           plan_interval?: PlanInterval | null
           mollie_customer_id?: string | null
           mollie_subscription_id?: string | null
+          admin_notes?: string | null
+          notify_trial_emails?: boolean
+          notify_product_emails?: boolean
         }
         Update: {
           id?: string
@@ -330,6 +336,9 @@ export type Database = {
           plan_interval?: PlanInterval | null
           mollie_customer_id?: string | null
           mollie_subscription_id?: string | null
+          admin_notes?: string | null
+          notify_trial_emails?: boolean
+          notify_product_emails?: boolean
         }
         Relationships: []
       }
@@ -343,6 +352,7 @@ export type Database = {
           created_by: string | null
           created_at: string
           updated_at: string
+          archived_at: string | null
         }
         Insert: {
           id?: string
@@ -353,6 +363,7 @@ export type Database = {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          archived_at?: string | null
         }
         Update: {
           id?: string
@@ -362,6 +373,7 @@ export type Database = {
           description?: string | null
           created_by?: string | null
           updated_at?: string
+          archived_at?: string | null
         }
         Relationships: []
       }

@@ -48,6 +48,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<ShowWithRundowns | null>(null)
   const [viewMode, setViewMode]     = useState<'list' | 'calendar'>('list')
+  const [activeTab, setActiveTab]   = useState<'mine' | 'shared'>('mine')
   const [calMonth, setCalMonth]     = useState(() => {
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }
   })
@@ -94,47 +95,89 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
   return (
     <>
       <div className="max-w-4xl">
+        {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-bold">Mijn shows</h1>
+            <h1 className="text-2xl font-bold">Shows</h1>
             <p className="text-muted-foreground mt-1">
-              {shows.length === 0
-                ? 'Nog geen shows aangemaakt'
-                : searchQuery.trim()
-                  ? `${filteredShows.length} van ${shows.length} show${shows.length !== 1 ? 's' : ''}`
-                  : `${shows.length} show${shows.length !== 1 ? 's' : ''}`}
+              {activeTab === 'mine'
+                ? (shows.length === 0
+                    ? 'Nog geen shows aangemaakt'
+                    : searchQuery.trim()
+                      ? `${filteredShows.length} van ${shows.length} show${shows.length !== 1 ? 's' : ''}`
+                      : `${shows.length} show${shows.length !== 1 ? 's' : ''}`)
+                : `${sharedShows.length} gedeelde show${sharedShows.length !== 1 ? 's' : ''}`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Weergave-toggle */}
-            <div className="flex items-center border border-border rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <LayoutList className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Lijst</span>
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Kalender</span>
-              </button>
-            </div>
-            <Button asChild size="sm">
-              <Link href="/shows/new">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Nieuwe show</span>
-                <span className="sm:hidden">Nieuw</span>
-              </Link>
-            </Button>
+            {/* Weergave-toggle — alleen in mijn shows */}
+            {activeTab === 'mine' && (
+              <div className="flex items-center border border-border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <LayoutList className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Lijst</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Kalender</span>
+                </button>
+              </div>
+            )}
+            {activeTab === 'mine' && (
+              <Button asChild size="sm">
+                <Link href="/shows/new">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Nieuwe show</span>
+                  <span className="sm:hidden">Nieuw</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 mb-5 border-b border-border">
+          <button
+            onClick={() => setActiveTab('mine')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'mine'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Mijn shows
+            {shows.length > 0 && (
+              <span className="ml-2 text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">
+                {shows.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('shared')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
+              activeTab === 'shared'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Gedeeld met mij
+            {sharedShows.length > 0 && (
+              <span className="ml-1 text-xs bg-primary/15 text-primary rounded-full px-1.5 py-0.5">
+                {sharedShows.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Zoekbalk */}
-        {shows.length > 0 && (
+        {activeTab === 'mine' && shows.length > 0 && (
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
@@ -156,7 +199,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
         )}
 
         {/* Lege staat met onboarding-stappen */}
-        {shows.length === 0 && (
+        {activeTab === 'mine' && shows.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="py-12">
               <div className="text-center mb-8">
@@ -193,7 +236,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
         )}
 
         {/* Geen zoekresultaten */}
-        {searchQuery.trim() && filteredShows.length === 0 && (
+        {activeTab === 'mine' && searchQuery.trim() && filteredShows.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <Search className="h-8 w-8 mx-auto mb-3 opacity-30" />
             <p className="font-medium">Geen shows gevonden</p>
@@ -201,73 +244,81 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
           </div>
         )}
 
-        {/* ── Kalenderweergave ──────────────────────────────────────── */}
-        {viewMode === 'calendar' && shows.length > 0 && (
-          <CalendarView shows={filteredShows} calMonth={calMonth} setCalMonth={setCalMonth} />
+        {/* ── Mijn shows tab ──────────────────────────────────────── */}
+        {activeTab === 'mine' && (
+          <>
+            {/* Kalenderweergave */}
+            {viewMode === 'calendar' && shows.length > 0 && (
+              <CalendarView shows={filteredShows} calMonth={calMonth} setCalMonth={setCalMonth} />
+            )}
+
+            {viewMode === 'list' && upcoming.length > 0 && (
+              <section className="mb-8">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Aankomende shows
+                </h2>
+                <div className="grid gap-3">
+                  {upcoming.map((show) => (
+                    <ShowCard
+                      key={show.id}
+                      show={show}
+                      onDelete={() => setDeleteTarget(show)}
+                      onEdit={() => setEditTarget(show)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {viewMode === 'list' && past.length > 0 && (
+              <section>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Afgelopen shows
+                </h2>
+                <div className="grid gap-3 opacity-70">
+                  {past.map((show) => (
+                    <ShowCard
+                      key={show.id}
+                      show={show}
+                      past
+                      onDelete={() => setDeleteTarget(show)}
+                      onEdit={() => setEditTarget(show)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
 
-        {viewMode === 'list' && upcoming.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Aankomende shows
-            </h2>
-            <div className="grid gap-3">
-              {upcoming.map((show) => (
-                <ShowCard
-                  key={show.id}
-                  show={show}
-                  onDelete={() => setDeleteTarget(show)}
-                  onEdit={() => setEditTarget(show)}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {viewMode === 'list' && past.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Afgelopen shows
-            </h2>
-            <div className="grid gap-3 opacity-70">
-              {past.map((show) => (
-                <ShowCard
-                  key={show.id}
-                  show={show}
-                  past
-                  onDelete={() => setDeleteTarget(show)}
-                  onEdit={() => setEditTarget(show)}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Gedeelde shows ──────────────────────────────────── */}
-        {viewMode === 'list' && sharedShows.length > 0 && (
-          <section className="mt-10">
-            <div className="flex items-center gap-2 mb-3">
-              <Share2 className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Gedeeld met mij
-              </h2>
-            </div>
-            <p className="text-xs text-muted-foreground/60 mb-4">
-              Shows waaraan je bent uitgenodigd door een andere organisator.
-            </p>
-            <div className="grid gap-3">
-              {sharedShows.map((show) => (
-                <ShowCard
-                  key={show.id}
-                  show={show}
-                  shared
-                  sharedRole={membershipMap[show.id]}
-                  onDelete={() => {}}
-                  onEdit={() => {}}
-                />
-              ))}
-            </div>
-          </section>
+        {/* ── Gedeelde shows tab ──────────────────────────────────── */}
+        {activeTab === 'shared' && (
+          <>
+            {sharedShows.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <div className="h-12 w-12 rounded-full bg-muted/40 flex items-center justify-center mx-auto mb-4">
+                  <Share2 className="h-6 w-6 opacity-40" />
+                </div>
+                <p className="font-medium">Geen gedeelde shows</p>
+                <p className="text-sm mt-1 text-muted-foreground/70">
+                  Wanneer iemand je uitnodigt voor een show, verschijnt die hier.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {sharedShows.map((show) => (
+                  <ShowCard
+                    key={show.id}
+                    show={show}
+                    shared
+                    sharedRole={membershipMap[show.id]}
+                    onDelete={() => {}}
+                    onEdit={() => {}}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

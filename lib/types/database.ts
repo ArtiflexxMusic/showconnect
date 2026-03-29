@@ -26,6 +26,9 @@ export interface Profile {
   plan_interval: PlanInterval | null
   mollie_customer_id: string | null
   mollie_subscription_id: string | null
+  admin_notes: string | null
+  notify_trial_emails: boolean
+  notify_product_emails: boolean
 }
 
 export interface Show {

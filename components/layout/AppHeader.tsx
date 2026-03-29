@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { LogOut, LayoutDashboard, Plus, Shield, User, Menu, X, HelpCircle, Zap } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
+import { ChangelogBell } from './ChangelogBell'
 
 interface AppHeaderProps {
   user: Profile | null
@@ -68,6 +69,9 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
           </Link>
 
           <div className="flex-1" />
+
+          {/* Changelog bell */}
+          <ChangelogBell />
 
           {/* User info + profiel link + logout */}
           {user && (

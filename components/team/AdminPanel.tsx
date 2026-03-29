@@ -9,7 +9,9 @@ import {
   Search, Trash2, Crown, ExternalLink, X, Sparkles,
   UserPlus, Clock, Phone, Download, Filter,
   Mail, Key, Link2, CheckCircle2, Edit2, Loader2, AlertCircle,
+  PlusCircle, StickyNote, BarChart2, TrendingUp,
 } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { UserRole, UserPlan, PlanSource } from '@/lib/types/database'
 import {
   PLAN_LABELS, PLAN_COLORS, PLAN_SOURCE_LABELS, PLAN_SOURCE_COLORS, PLAN_PRICES,
@@ -30,6 +32,7 @@ interface UserRow {
   plan_source: PlanSource
   plan_expires_at: string | null
   trial_ends_at: string | null
+  admin_notes?: string | null
 }
 
 interface ShowRow {
@@ -438,6 +441,19 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [sortBy, setSortBy]             = useState<'created_at' | 'name' | 'plan'>('created_at')
   const [sortAsc, setSortAsc]           = useState(false)
+  // Bulk selectie
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+  const [bulkPlan, setBulkPlan]           = useState<Plan | null>(null)
+  const [bulkLoading, setBulkLoading]     = useState(false)
+  // Trial verlengen
+  const [extendingTrial, setExtendingTrial] = useState<string | null>(null)
+  const [extendDays, setExtendDays]         = useState(7)
+  // Admin notities
+  const [editingNotes, setEditingNotes]   = useState<string | null>(null)
+  const [notesValue, setNotesValue]       = useState('')
+  const [savingNotes, setSavingNotes]     = useState(false)
+  // Grafieken
+  const [showCharts, setShowCharts]       = useState(false)
 
   // Gebruikersacties
   const [actionLoading, setActionLoading] = useState<string | null>(null)  // userId
@@ -621,6 +637,81 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     return (proCount * proPricePerMonth + teamCount * teamPricePerMonth).toFixed(0)
   }, [proCount, teamCount])
 
+  // Signups per week (laatste 8 weken)
+  const signupsChart = useMemo(() => {
+    const weeks: Record<string, number> = {}
+    const now = new Date()
+    for (let i = 7; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i * 7)
+      const label = `W${d.getDate()}/${d.getMonth() + 1}`
+      weeks[label] = 0
+    }
+    for (const u of users) {
+      const created = new Date(u.created_at)
+      const diffDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
+      if (diffDays >= 0 && diffDays < 56) {
+        const weekIdx = Math.floor(diffDays / 7)
+        const d = new Date(now)
+        d.setDate(d.getDate() - weekIdx * 7)
+        const label = `W${d.getDate()}/${d.getMonth() + 1}`
+        if (label in weeks) weeks[label]++
+      }
+    }
+    return Object.entries(weeks).map(([week, count]) => ({ week, count })).reverse()
+  }, [users])
+
+  // ── Bulk plan wijzigen ──────────────────────────────────────────────────────
+  const bulkUpdatePlan = async (plan: Plan, planSource: PlanSource) => {
+    if (selectedUsers.size === 0) return
+    setBulkLoading(true)
+    const ids = Array.from(selectedUsers)
+    await Promise.all(ids.map(id => updatePlan(id, plan, planSource, null)))
+    setSelectedUsers(new Set())
+    setBulkPlan(null)
+    setBulkLoading(false)
+  }
+
+  const toggleUserSelect = (id: string) => {
+    setSelectedUsers(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  // ── Trial verlengen ─────────────────────────────────────────────────────────
+  const extendTrial = async (userId: string) => {
+    setExtendingTrial(userId)
+    const res = await fetch('/api/admin/extend-trial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, days: extendDays }),
+    })
+    const data = await res.json()
+    if (res.ok && data.trial_ends_at) {
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, trial_ends_at: data.trial_ends_at } : u
+      ))
+    }
+    setExtendingTrial(null)
+  }
+
+  // ── Admin notities opslaan ──────────────────────────────────────────────────
+  const saveAdminNotes = async (userId: string) => {
+    setSavingNotes(true)
+    await fetch('/api/admin/save-notes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, notes: notesValue }),
+    })
+    setUsers(prev => prev.map(u =>
+      u.id === userId ? { ...u, admin_notes: notesValue.trim() || null } : u
+    ))
+    setSavingNotes(false)
+    setEditingNotes(null)
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
@@ -640,13 +731,21 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
           </p>
         </div>
         {isBeheerder && (
-          <button
-            onClick={exportCsv}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground border border-border rounded-md hover:bg-muted/80 transition-colors"
-            title="Exporteer gebruikerslijst als CSV"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV exporteren
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCharts(!showCharts)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md transition-colors ${showCharts ? 'bg-primary/10 text-primary border-primary/30' : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'}`}
+            >
+              <BarChart2 className="h-3.5 w-3.5" /> Grafieken
+            </button>
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground border border-border rounded-md hover:bg-muted/80 transition-colors"
+              title="Exporteer gebruikerslijst als CSV"
+            >
+              <Download className="h-3.5 w-3.5" /> CSV exporteren
+            </button>
+          </div>
         )}
       </div>
 
@@ -694,6 +793,38 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
           </Card>
         )}
       </div>
+
+      {/* Grafieken */}
+      {showCharts && isBeheerder && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" /> Signups per week (laatste 8 weken)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={signupsChart} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="week" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Area type="monotone" dataKey="count" name="Signups" stroke="hsl(var(--primary))" fill="url(#signupGrad)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Trials die binnenkort verlopen */}
       {expiringTrials.length > 0 && isBeheerder && (
@@ -805,13 +936,51 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {/* Bulk acties bar */}
+          {selectedUsers.size > 0 && isBeheerder && (
+            <div className="flex items-center gap-3 px-6 py-2.5 bg-primary/5 border-b border-primary/20 flex-wrap">
+              <span className="text-xs font-semibold text-primary">{selectedUsers.size} geselecteerd</span>
+              <span className="w-px h-4 bg-border/60" />
+              <span className="text-xs text-muted-foreground">Plan wijzigen naar:</span>
+              {(['free', 'pro', 'team'] as Plan[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => bulkUpdatePlan(p, p === 'free' ? 'free' : 'gift')}
+                  disabled={bulkLoading}
+                  className="text-xs px-2.5 py-1 rounded border border-border bg-card hover:bg-accent transition-colors"
+                >
+                  {PLAN_LABELS[p]}
+                </button>
+              ))}
+              <button
+                onClick={() => setSelectedUsers(new Set())}
+                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <div>
             {filteredUsers.length === 0 && (
               <p className="px-6 py-4 text-sm text-muted-foreground">Geen gebruikers gevonden{userSearch ? ` voor "${userSearch}"` : planFilter !== 'all' ? ' voor dit filter' : ''}.</p>
             )}
             {filteredUsers.map(user => (
-              <div key={user.id} className="border-b border-border last:border-0">
+              <div key={user.id} className={cn('border-b border-border last:border-0', selectedUsers.has(user.id) && 'bg-primary/5')}>
               <div className="flex items-center gap-3 px-6 py-3.5 flex-wrap sm:flex-nowrap">
+                {/* Selectievakje */}
+                {isBeheerder && (
+                  <button
+                    onClick={() => toggleUserSelect(user.id)}
+                    className="shrink-0"
+                  >
+                    <span className={cn(
+                      'h-4 w-4 rounded border flex items-center justify-center transition-colors',
+                      selectedUsers.has(user.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary/50'
+                    )}>
+                      {selectedUsers.has(user.id) && <Check className="h-2.5 w-2.5" />}
+                    </span>
+                  </button>
+                )}
                 <Avatar user={user} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -1030,6 +1199,75 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                       )}
                     </div>
                   </div>
+
+                  {/* Trial verlengen */}
+                  {isBeheerder && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground font-medium">Trial verlengen:</span>
+                      {[3, 7, 14, 30].map(d => (
+                        <button
+                          key={d}
+                          onClick={() => extendTrial(user.id)}
+                          disabled={extendingTrial === user.id}
+                          onMouseEnter={() => setExtendDays(d)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs border border-amber-500/30 text-amber-400 rounded-md hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                        >
+                          {extendingTrial === user.id && extendDays === d
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <PlusCircle className="h-3 w-3" />
+                          }
+                          +{d}d
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Admin notities */}
+                  {isBeheerder && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <StickyNote className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">Admin-notitie</span>
+                        {user.admin_notes && editingNotes !== user.id && (
+                          <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1.5">heeft notitie</span>
+                        )}
+                      </div>
+                      {editingNotes === user.id ? (
+                        <div className="flex gap-2">
+                          <textarea
+                            autoFocus
+                            value={notesValue}
+                            onChange={e => setNotesValue(e.target.value)}
+                            rows={2}
+                            placeholder="Interne notitie voor admins…"
+                            className="flex-1 text-xs bg-background border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                          />
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => saveAdminNotes(user.id)}
+                              disabled={savingNotes}
+                              className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                            >
+                              {savingNotes ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                            </button>
+                            <button
+                              onClick={() => setEditingNotes(null)}
+                              className="text-xs px-2 py-1 border border-border rounded-md text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setEditingNotes(user.id); setNotesValue(user.admin_notes ?? '') }}
+                          className="text-left text-xs w-full px-3 py-2 bg-background/60 border border-border/50 rounded-md hover:border-border transition-colors text-muted-foreground"
+                        >
+                          {user.admin_notes || <span className="opacity-50">Klik om notitie toe te voegen…</span>}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Actie-knoppen */}
                   <div className="flex flex-wrap gap-2">

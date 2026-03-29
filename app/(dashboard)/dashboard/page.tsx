@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ShowsOverview } from '@/components/dashboard/ShowsOverview'
 import { DashboardGuide } from '@/components/dashboard/DashboardGuide'
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 
 export const metadata: Metadata = { title: 'Dashboard – CueBoard' }
 
@@ -58,8 +59,27 @@ export default async function DashboardPage() {
     return s.created_by === user.id || role === 'owner'
   })
 
+  // Onboarding checklist data
+  const hasShows      = myShows.length > 0
+  const hasRundowns   = myShows.some(s => s.rundowns.length > 0)
+  const hasGoneLive   = false // Kan niet server-side eenvoudig worden bepaald (cue log)
+  const hasTeamMembers = sharedShows.length > 0 || myShows.some(s => {
+    // Controleer of er meer dan 1 lid is (de owner zelf)
+    return false // Vereenvoudigd — we checken showleden niet hier om extra query te vermijden
+  })
+
+  const showChecklist = !hasShows || !hasRundowns // Toon alleen voor nieuwe gebruikers
+
   return (
     <>
+      {showChecklist && (
+        <OnboardingChecklist
+          hasShows={hasShows}
+          hasRundowns={hasRundowns}
+          hasGoneLive={hasGoneLive}
+          hasTeamMembers={hasTeamMembers}
+        />
+      )}
       <ShowsOverview
         shows={myShows}
         sharedShows={sharedShows}

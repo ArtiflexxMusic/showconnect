@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, User, Shield, Check, KeyRound, LogOut, Phone, Zap, Users, CreditCard, AlertTriangle } from 'lucide-react'
+import { Loader2, User, Shield, Check, KeyRound, LogOut, Phone, Zap, Users, CreditCard, AlertTriangle, LayoutList, ListMusic, Radio, Bell, BellOff } from 'lucide-react'
 import type { Profile } from '@/lib/types/database'
 import { useRouter } from 'next/navigation'
 import { PLAN_LABELS, PLAN_COLORS, isTrialActive } from '@/lib/plans'
@@ -15,6 +15,12 @@ import { cn } from '@/lib/utils'
 
 interface ProfilePageProps {
   profile: Profile
+  stats?: {
+    showCount: number
+    rundownCount: number
+    cueCount: number
+    sharedCount: number
+  }
 }
 
 function Avatar({ name, email, size = 'lg' }: { name: string | null; email: string; size?: 'sm' | 'lg' }) {
@@ -35,7 +41,7 @@ const ROLE_LABELS: Record<string, string> = {
   crew:      'Gebruiker',
 }
 
-export function ProfilePage({ profile }: ProfilePageProps) {
+export function ProfilePage({ profile, stats }: ProfilePageProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -50,6 +56,9 @@ export function ProfilePage({ profile }: ProfilePageProps) {
   const [cancelling, setCancelling]   = useState(false)
   const [cancelDone, setCancelDone]   = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [notifyTrial, setNotifyTrial]     = useState(profile.notify_trial_emails ?? true)
+  const [notifyProduct, setNotifyProduct] = useState(profile.notify_product_emails ?? true)
+  const [savingNotify, setSavingNotify]   = useState(false)
 
   const handleSave = async () => {
     setSaving(true)
@@ -99,6 +108,15 @@ export function ProfilePage({ profile }: ProfilePageProps) {
     } finally {
       setCancelling(false)
     }
+  }
+
+  const saveNotifyPrefs = async (trialVal: boolean, productVal: boolean) => {
+    setSavingNotify(true)
+    await supabase.from('profiles').update({
+      notify_trial_emails:   trialVal,
+      notify_product_emails: productVal,
+    }).eq('id', profile.id)
+    setSavingNotify(false)
   }
 
   const isPaidPlan    = profile.plan !== 'free' && profile.plan_source === 'paid'
@@ -342,6 +360,88 @@ export function ProfilePage({ profile }: ProfilePageProps) {
               {new Date(profile.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Statistieken */}
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Radio className="h-4 w-4" /> Jouw activiteit
+            </CardTitle>
+            <CardDescription>Overzicht van wat je hebt gebouwd in CueBoard</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { icon: LayoutList,  label: 'Shows',     value: stats.showCount },
+                { icon: ListMusic,   label: 'Rundowns',  value: stats.rundownCount },
+                { icon: Radio,       label: 'Cues',      value: stats.cueCount },
+                { icon: Users,       label: 'Gedeeld',   value: stats.sharedCount },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="rounded-lg bg-muted/30 border border-border/50 p-3 text-center">
+                  <Icon className="h-4 w-4 text-muted-foreground mx-auto mb-1.5" />
+                  <p className="text-xl font-bold">{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* E-mail notificaties */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="h-4 w-4" /> E-mailvoorkeuren
+          </CardTitle>
+          <CardDescription>Kies welke e-mails je van ons wilt ontvangen</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[
+            {
+              id: 'trial',
+              label: 'Trial-herinneringen',
+              desc: 'E-mails wanneer je trial bijna verloopt',
+              value: notifyTrial,
+              onChange: async (v: boolean) => {
+                setNotifyTrial(v)
+                await saveNotifyPrefs(v, notifyProduct)
+              },
+            },
+            {
+              id: 'product',
+              label: 'Productupdates',
+              desc: 'Nieuwe features, tips en aankondigingen',
+              value: notifyProduct,
+              onChange: async (v: boolean) => {
+                setNotifyProduct(v)
+                await saveNotifyPrefs(notifyTrial, v)
+              },
+            },
+          ].map(({ id, label, desc, value, onChange }) => (
+            <div key={id} className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">{label}</p>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+              </div>
+              <button
+                onClick={() => onChange(!value)}
+                disabled={savingNotify}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+                  value ? 'bg-primary' : 'bg-muted'
+                )}
+              >
+                <span className={cn(
+                  'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform',
+                  value ? 'translate-x-4' : 'translate-x-0'
+                )} />
+              </button>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

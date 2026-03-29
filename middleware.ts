@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Beschermde routes – redirect naar login als niet ingelogd
-  const protectedPaths = ['/dashboard', '/shows', '/rundown', '/admin', '/profile', '/billing', '/invoice']
+  const protectedPaths = ['/dashboard', '/shows', '/rundown', '/admin', '/profile', '/billing', '/invoice', '/print']
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   if (!user && isProtected) {

@@ -91,6 +91,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showSharePanel, setShowSharePanel]             = useState(false)
   const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
   const [showMoreMenu, setShowMoreMenu]                 = useState(false)
+  const [saveError, setSaveError]                       = useState<string | null>(null)
 
   // DnD sensors
   const sensors = useSensors(
@@ -241,20 +242,29 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   const updateCue = useCallback(async (id: string, updates: UpdateCueInput) => {
     setIsSaving(true)
+    setSaveError(null)
     // Optimistische update: toon wijzigingen direct zonder te wachten op Realtime
+    const snapshot = cues.find((c) => c.id === id)
     setCues((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } as Cue : c))
     )
     const { error } = await supabase.from('cues').update(updates).eq('id', id)
     if (error) {
       console.error('Fout bij updaten cue:', error)
-      // Bij fout: laad de originele data opnieuw vanuit de database
-      const { data } = await supabase.from('cues').select('*').eq('id', id).single()
-      if (data) setCues((prev) => prev.map((c) => (c.id === id ? data as Cue : c)))
+      // Rollback: herstel de originele data
+      if (snapshot) setCues((prev) => prev.map((c) => (c.id === id ? snapshot : c)))
+      // Foutmelding tonen zodat de gebruiker het probleem ziet
+      const msg = error.message?.includes('violates check constraint')
+        ? `Type of waarde niet toegestaan in de database. Voer migratie 011 uit in Supabase om alle cue-types toe te staan.`
+        : `Opslaan mislukt: ${error.message ?? 'onbekende fout'}`
+      setSaveError(msg)
+      setIsSaving(false)
+      // Modal NIET sluiten bij fout — gebruiker kan opnieuw proberen
+      return
     }
     setIsSaving(false)
     setEditingCue(null)
-  }, [supabase])
+  }, [supabase, cues])
 
   const deleteCue = useCallback(async (id: string) => {
     const { error } = await supabase.from('cues').delete().eq('id', id)
@@ -344,6 +354,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     companion_webhook_url: string | null
     presenter_pin: string | null
     notes: string | null
+    stage_names?: string | null
   }) => {
     const { data, error } = await supabase
       .from('rundowns')
@@ -698,7 +709,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                   </a>
                   <hr className="border-border/50 my-1" />
                   <a
-                    href={`/shows/${show.id}/rundown/${rundown.id}/print`}
+                    href={`/print/rundown/${rundown.id}`}
                     target="_blank"
                     className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors text-muted-foreground"
                   >
@@ -995,18 +1006,21 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         loading={isSaving}
         supabase={supabase}
         rundownId={rundown.id}
+        stageNames={rundown.stage_names?.split(',').map((s) => s.trim()).filter(Boolean) ?? []}
       />
 
       {editingCue && (
         <CueFormModal
           open={!!editingCue}
-          onClose={() => setEditingCue(null)}
+          onClose={() => { setEditingCue(null); setSaveError(null) }}
           onSave={(input) => updateCue(editingCue.id, input)}
           initialValues={editingCue}
           loading={isSaving}
           mode="edit"
           supabase={supabase}
           rundownId={rundown.id}
+          saveError={saveError}
+          stageNames={rundown.stage_names?.split(',').map((s) => s.trim()).filter(Boolean) ?? []}
         />
       )}
 

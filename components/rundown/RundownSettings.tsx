@@ -25,6 +25,7 @@ interface RundownSettingsProps {
     companion_webhook_url: string | null
     presenter_pin: string | null
     notes: string | null
+    stage_names?: string | null
   }) => Promise<void>
   onDelete?: () => Promise<void>
   onDuplicate?: () => Promise<void>
@@ -72,6 +73,10 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [showCompanionGuide, setShowCompanionGuide] = useState(false)
   const [showPayloadPreview, setShowPayloadPreview] = useState(false)
 
+  // Stage-namen state
+  const [stageNames, setStageNames]         = useState<string[]>([])
+  const [newStageName, setNewStageName]     = useState('')
+
   useEffect(() => {
     if (open) {
       setRundownName(rundown.name)
@@ -99,6 +104,13 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       }
       setPresenterPin(rundown.presenter_pin ?? '')
       setNotes(rundown.notes ?? '')
+      // Stage-namen laden (komma-gescheiden opgeslagen)
+      setStageNames(
+        rundown.stage_names
+          ? rundown.stage_names.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : []
+      )
+      setNewStageName('')
       setSlideUrl(rundown.slide_url ?? null)
       setSlidePath(rundown.slide_path ?? null)
       setSlideFilename(rundown.slide_filename ?? null)
@@ -152,6 +164,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
         companion_webhook_url: finalWebhookUrl,
         presenter_pin:         presenterPin.trim() || null,
         notes:                 notes.trim() || null,
+        stage_names:           stageNames.length > 0 ? stageNames.join(', ') : null,
       })
       onClose()
     } finally {
@@ -423,6 +436,75 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               placeholder="Algemene info voor de show (zichtbaar in caller & crew view)..."
               rows={2}
             />
+          </div>
+
+          <hr className="border-border/50" />
+
+          {/* ── Podia / Locaties ─────────────────────────────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Podia / Locaties</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Voeg je podia of locaties toe. Deze verschijnen als keuzelijst in het cue-formulier zodat je sneller cues kunt invullen.
+            </p>
+
+            {/* Bestaande stages */}
+            {stageNames.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {stageNames.map((name) => (
+                  <span
+                    key={name}
+                    className="flex items-center gap-1.5 text-xs bg-muted/50 border border-border/50 rounded-full px-3 py-1"
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => setStageNames((prev) => prev.filter((n) => n !== name))}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Nieuwe stage toevoegen */}
+            <div className="flex gap-2">
+              <Input
+                value={newStageName}
+                onChange={(e) => setNewStageName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const trimmed = newStageName.trim()
+                    if (trimmed && !stageNames.includes(trimmed)) {
+                      setStageNames((prev) => [...prev, trimmed])
+                    }
+                    setNewStageName('')
+                  }
+                }}
+                placeholder="Bijv. Hoofdpodium, Foyer, Zaal B…"
+                className="text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const trimmed = newStageName.trim()
+                  if (trimmed && !stageNames.includes(trimmed)) {
+                    setStageNames((prev) => [...prev, trimmed])
+                  }
+                  setNewStageName('')
+                }}
+                disabled={!newStageName.trim()}
+              >
+                Toevoegen
+              </Button>
+            </div>
           </div>
 
           <hr className="border-border/50" />

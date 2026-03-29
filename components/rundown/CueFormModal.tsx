@@ -40,11 +40,15 @@ interface CueFormModalProps {
   // Voor media-upload
   supabase?: ReturnType<typeof createClient>
   rundownId?: string
+  /** Externe foutmelding vanuit de parent (bijv. DB-fout) */
+  saveError?: string | null
+  /** Beschikbare podia/locaties voor de datalist (uit RundownSettings) */
+  stageNames?: string[]
 }
 
 export function CueFormModal({
   open, onClose, onSave, initialValues, loading = false, mode = 'add',
-  supabase, rundownId,
+  supabase, rundownId, saveError, stageNames = [],
 }: CueFormModalProps) {
   const [title, setTitle]           = useState('')
   const [type, setType]             = useState<CueType>('custom')
@@ -533,12 +537,29 @@ export function CueFormModal({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cue-location">Locatie / Podium</Label>
-                <Input
-                  id="cue-location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Hoofdpodium"
-                />
+                {stageNames.length > 0 ? (
+                  <>
+                    <datalist id="stage-names-list">
+                      {stageNames.map((s) => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
+                    <Input
+                      id="cue-location"
+                      list="stage-names-list"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder={stageNames[0] ?? 'Hoofdpodium'}
+                    />
+                  </>
+                ) : (
+                  <Input
+                    id="cue-location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Hoofdpodium"
+                  />
+                )}
               </div>
             </div>
 
@@ -733,6 +754,13 @@ export function CueFormModal({
             </div>
 
           </div>
+
+          {/* Foutmelding van de parent (bijv. DB-fout) */}
+          {saveError && (
+            <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2.5">
+              <p className="text-xs text-destructive leading-relaxed">{saveError}</p>
+            </div>
+          )}
 
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>

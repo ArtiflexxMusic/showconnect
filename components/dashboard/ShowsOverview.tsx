@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
-  Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft,
+  Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft, Search, X,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EditShowModal } from './EditShowModal'
@@ -47,12 +47,25 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
   const [calMonth, setCalMonth]     = useState(() => {
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }
   })
+  const [searchQuery, setSearchQuery] = useState('')
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const upcoming = shows.filter((s) => !s.date || new Date(s.date) >= today)
-  const past     = shows
+  // Zoekfilter — match op naam, locatie of rundown naam
+  const filteredShows = searchQuery.trim()
+    ? shows.filter((s) => {
+        const q = searchQuery.toLowerCase()
+        return (
+          s.name.toLowerCase().includes(q) ||
+          (s.venue ?? '').toLowerCase().includes(q) ||
+          s.rundowns.some((r) => r.name.toLowerCase().includes(q))
+        )
+      })
+    : shows
+
+  const upcoming = filteredShows.filter((s) => !s.date || new Date(s.date) >= today)
+  const past     = filteredShows
     .filter((s) => s.date && new Date(s.date) < today)
     .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime())
 
@@ -77,13 +90,15 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
   return (
     <>
       <div className="max-w-4xl">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
             <h1 className="text-2xl font-bold">Shows</h1>
             <p className="text-muted-foreground mt-1">
               {shows.length === 0
                 ? 'Nog geen shows aangemaakt'
-                : `${shows.length} show${shows.length !== 1 ? 's' : ''} gevonden`}
+                : searchQuery.trim()
+                  ? `${filteredShows.length} van ${shows.length} show${shows.length !== 1 ? 's' : ''}`
+                  : `${shows.length} show${shows.length !== 1 ? 's' : ''}`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -113,6 +128,28 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
             </Button>
           </div>
         </div>
+
+        {/* Zoekbalk */}
+        {shows.length > 0 && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Zoek op show, locatie of rundown…"
+              className="w-full pl-9 pr-8 py-2 text-sm bg-muted/40 border border-border/60 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/40 placeholder:text-muted-foreground/60"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Lege staat met onboarding-stappen */}
         {shows.length === 0 && (
@@ -151,9 +188,18 @@ export function ShowsOverview({ shows: initialShows }: ShowsOverviewProps) {
           </Card>
         )}
 
+        {/* Geen zoekresultaten */}
+        {searchQuery.trim() && filteredShows.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            <Search className="h-8 w-8 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">Geen shows gevonden</p>
+            <p className="text-sm mt-1">Probeer een andere zoekterm</p>
+          </div>
+        )}
+
         {/* ── Kalenderweergave ──────────────────────────────────────── */}
         {viewMode === 'calendar' && shows.length > 0 && (
-          <CalendarView shows={shows} calMonth={calMonth} setCalMonth={setCalMonth} />
+          <CalendarView shows={filteredShows} calMonth={calMonth} setCalMonth={setCalMonth} />
         )}
 
         {viewMode === 'list' && upcoming.length > 0 && (

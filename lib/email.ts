@@ -1,35 +1,86 @@
 /**
- * CueBoard Email utility via Resend
- * Gedeelde helper voor het versturen van transactionele mails
+ * CueBoard Email utility
+ *
+ * Ondersteunt twee providers (automatisch gekozen op basis van env vars):
+ *
+ *  1. Mailjet (aanbevolen – gratis 6000 mails/maand, geen domeinverificatie)
+ *     Vereist: MAILJET_API_KEY + MAILJET_SECRET_KEY
+ *     Setup: https://app.mailjet.com → API Keys
+ *     Zet ook MAILJET_FROM_EMAIL op het geverifieerde afzenderadres
+ *     (bijv. info@artiflexx.nl — Mailjet stuurt een verificatie-link)
+ *
+ *  2. Resend (fallback)
+ *     Vereist: RESEND_API_KEY + geverifieerd domein in Resend Dashboard
+ *     Setup: https://resend.com → API Keys + Domains
+ *
+ * Voeg de gekozen variabelen toe in Vercel Dashboard →
+ * Settings → Environment Variables → Production
  */
 
+const MAILJET_API_KEY    = process.env.MAILJET_API_KEY
+const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY
+const MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL ?? 'info@artiflexx.nl'
+const MAILJET_FROM_NAME  = process.env.MAILJET_FROM_NAME  ?? 'CueBoard'
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const FROM_EMAIL     = 'CueBoard <noreply@cueboard.nl>'
-const BASE_URL       = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.cueboard.nl'
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.cueboard.nl'
 
 export interface EmailResult {
   ok: boolean
   error?: string
 }
 
-export async function sendEmail(opts: {
-  to: string
-  subject: string
-  html: string
-}): Promise<EmailResult> {
-  if (!RESEND_API_KEY) {
-    console.warn('[email] RESEND_API_KEY niet geconfigureerd — mail niet verstuurd')
-    return { ok: false, error: 'RESEND_API_KEY ontbreekt' }
+// ── Mailjet verzender ─────────────────────────────────────────────────────────
+async function sendViaMailjet(opts: { to: string; subject: string; html: string }): Promise<EmailResult> {
+  const credentials = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString('base64')
+
+  const res = await fetch('https://api.mailjet.com/v3.1/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${credentials}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({
+      Messages: [
+        {
+          From:     { Email: MAILJET_FROM_EMAIL, Name: MAILJET_FROM_NAME },
+          To:       [{ Email: opts.to }],
+          Subject:  opts.subject,
+          HTMLPart: opts.html,
+        },
+      ],
+    }),
+  })
+
+  const body = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    const err = body?.Messages?.[0]?.Errors?.[0]?.ErrorMessage ?? JSON.stringify(body)
+    console.error('[email/mailjet] Versturen mislukt:', err)
+    return { ok: false, error: err }
   }
 
+  const msgStatus = body?.Messages?.[0]?.Status
+  if (msgStatus && msgStatus !== 'success') {
+    const err = `Mailjet status: ${msgStatus}`
+    console.error('[email/mailjet]', err, body)
+    return { ok: false, error: err }
+  }
+
+  return { ok: true }
+}
+
+// ── Resend verzender ──────────────────────────────────────────────────────────
+async function sendViaResend(opts: { to: string; subject: string; html: string }): Promise<EmailResult> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
+      'Content-Type':  'application/json',
     },
     body: JSON.stringify({
-      from:    FROM_EMAIL,
+      from:    `${MAILJET_FROM_NAME} <${MAILJET_FROM_EMAIL}>`,
       to:      [opts.to],
       subject: opts.subject,
       html:    opts.html,
@@ -38,11 +89,32 @@ export async function sendEmail(opts: {
 
   if (!res.ok) {
     const err = await res.text()
-    console.error('[email] Versturen mislukt:', err)
+    console.error('[email/resend] Versturen mislukt:', err)
     return { ok: false, error: err }
   }
 
   return { ok: true }
+}
+
+// ── Hoofd sendEmail functie ───────────────────────────────────────────────────
+export async function sendEmail(opts: {
+  to: string
+  subject: string
+  html: string
+}): Promise<EmailResult> {
+  // Mailjet heeft prioriteit
+  if (MAILJET_API_KEY && MAILJET_SECRET_KEY) {
+    return sendViaMailjet(opts)
+  }
+
+  // Resend als fallback
+  if (RESEND_API_KEY) {
+    return sendViaResend(opts)
+  }
+
+  // Geen provider geconfigureerd
+  console.warn('[email] Geen e-mailprovider geconfigureerd. Voeg MAILJET_API_KEY + MAILJET_SECRET_KEY toe aan Vercel Environment Variables.')
+  return { ok: false, error: 'Geen e-mailprovider geconfigureerd (zie lib/email.ts voor instructies)' }
 }
 
 // ── Email templates ──────────────────────────────────────────────────────────
@@ -211,6 +283,54 @@ export function buildPlanExpiredEmail(opts: {
 
   return {
     subject: `Je CueBoard ${planLabel}-plan is verlopen`,
+    html:    emailBase(content),
+  }
+}
+
+/**
+ * Mail: trial verloopt binnen 24 uur – herinnering
+ */
+export function buildTrialExpiringEmail(opts: {
+  name: string | null
+  trialEndsAt: string
+}) {
+  const displayName = opts.name ?? 'daar'
+  const expiryDate  = new Date(opts.trialEndsAt).toLocaleDateString('nl-NL', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+  const upgradeUrl  = `${BASE_URL}/upgrade`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Je gratis trial verloopt morgen
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#ccc;line-height:1.7;">
+      Je gratis proefperiode van CueBoard loopt af op <strong style="color:#fff;">${expiryDate}</strong>.
+      Daarna val je terug naar het gratis plan met beperkte functies.
+    </p>
+    <p style="margin:0 0 8px;font-size:15px;color:#ccc;line-height:1.7;">
+      Upgrade nu en houd toegang tot alle functies:
+    </p>
+    <ul style="margin:12px 0 20px;padding-left:20px;color:#aaa;font-size:14px;line-height:1.8;">
+      <li>Onbeperkte shows &amp; rundowns</li>
+      <li>Slideshow-upload &amp; live-bediening</li>
+      <li>Bitfocus Companion-integratie</li>
+      <li>Mic patch &amp; cast panel</li>
+    </ul>
+    <a href="${upgradeUrl}" style="${btnStyle}">
+      Plan kiezen →
+    </a>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+    </p>
+  `
+
+  return {
+    subject: 'Je CueBoard-trial verloopt morgen',
     html:    emailBase(content),
   }
 }

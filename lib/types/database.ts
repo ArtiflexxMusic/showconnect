@@ -57,6 +57,8 @@ export interface Rundown {
   // Still image (fallback achtergrond op stage output tussen sprekers)
   still_url: string | null
   still_path: string | null
+  // Podium/locatie-namen voor snelle cue-invoer (komma-gescheiden)
+  stage_names: string | null
   created_at: string
   updated_at: string
 }

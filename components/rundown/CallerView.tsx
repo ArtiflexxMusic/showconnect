@@ -65,20 +65,45 @@ function calcProgress(cue: Cue, now: Date): number {
 function countdownColor(remaining: number, total: number): string {
   if (remaining === 0) return 'text-red-500'
   if (remaining <= 15) return 'text-red-400'
-  if (remaining <= 60 || remaining / total < 0.2) return 'text-yellow-400'
+  if (remaining <= 30 || remaining / total < 0.15) return 'text-orange-400'
+  if (remaining <= 60 || remaining / total < 0.25) return 'text-yellow-400'
   return 'text-green-400'
 }
 
 function progressColor(remaining: number): string {
   if (remaining <= 15) return 'bg-red-500'
+  if (remaining <= 30) return 'bg-orange-500'
   if (remaining <= 60) return 'bg-yellow-500'
   return 'bg-green-500'
 }
 
 function countdownPulse(remaining: number): string {
   if (remaining <= 15) return 'countdown-critical'
-  if (remaining <= 60) return 'countdown-warning'
+  if (remaining <= 30) return 'countdown-warning'
   return ''
+}
+
+function countdownBorder(remaining: number): string {
+  if (remaining === 0 || remaining <= 15) return 'border-red-500/70'
+  if (remaining <= 30) return 'border-orange-500/60'
+  return 'border-green-500/50'
+}
+
+// Speelt een korte beep via Web Audio API
+function playBeep(freq = 880, duration = 0.12, volume = 0.3) {
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = freq
+    osc.type = 'sine'
+    gain.gain.setValueAtTime(volume, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + duration)
+  } catch { /* AudioContext kan geblokkeerd zijn */ }
 }
 
 // ── Hoofd component ─────────────────────────────────────────────────────────
@@ -101,6 +126,15 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [mediaDuration, setMediaDuration]       = useState(0)
 
   const [showMicPatch, setShowMicPatch] = useState(false)
+
+  // Countdown waarschuwings-opties (opgeslagen in localStorage)
+  const [beepEnabled, setBeepEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem('caller_beep_enabled') !== 'false' } catch { return true }
+  })
+  const [flashEnabled, setFlashEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem('caller_flash_enabled') !== 'false' } catch { return true }
+  })
+  const [flashActive, setFlashActive] = useState(false)
 
   // Slide state
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
@@ -398,7 +432,34 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     setTimeout(() => setNudgeActive(false), 2000)
   }, [nudgeActive, rundown.id, userId, supabase])
 
-  const autoAdvanceRef = useRef(false)
+  const autoAdvanceRef   = useRef(false)
+  const beepedAt30Ref    = useRef(false)
+  const beepedAt15Ref    = useRef(false)
+
+  // ── Audio + Flash waarschuwingen bij countdown drempels ──────────────────
+  useEffect(() => {
+    if (!activeCue || countdown <= 0) return
+    // Reset bij nieuwe cue
+    if (countdown > 30) { beepedAt30Ref.current = false; beepedAt15Ref.current = false }
+    if (countdown <= 30 && countdown > 15 && !beepedAt30Ref.current) {
+      beepedAt30Ref.current = true
+      if (beepEnabled) playBeep(660, 0.15, 0.25)
+      if (flashEnabled) { setFlashActive(true); setTimeout(() => setFlashActive(false), 400) }
+    }
+    if (countdown <= 15 && !beepedAt15Ref.current) {
+      beepedAt15Ref.current = true
+      if (beepEnabled) {
+        // Twee beeps: urgenter signaal
+        playBeep(880, 0.12, 0.35)
+        setTimeout(() => playBeep(880, 0.12, 0.35), 200)
+      }
+      if (flashEnabled) {
+        setFlashActive(true)
+        setTimeout(() => setFlashActive(false), 200)
+        setTimeout(() => { setFlashActive(true); setTimeout(() => setFlashActive(false), 200) }, 350)
+      }
+    }
+  }, [countdown, activeCue, beepEnabled, flashEnabled])
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
@@ -534,6 +595,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
       )}
 
+      {/* ── Countdown schermflits ────────────────────────────────────── */}
+      {flashActive && (
+        <div className="pointer-events-none absolute inset-0 z-[60] bg-orange-500/30 animate-pulse" />
+      )}
+
       {/* ── Nudge melding ────────────────────────────────────────────── */}
       {nudgeMessage && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl text-sm animate-bounce">
@@ -558,6 +624,36 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Countdown waarschuwing toggles */}
+          <button
+            onClick={() => {
+              const next = !beepEnabled
+              setBeepEnabled(next)
+              try { localStorage.setItem('caller_beep_enabled', String(next)) } catch {}
+            }}
+            className={cn(
+              'h-8 w-8 rounded flex items-center justify-center transition-colors text-xs',
+              beepEnabled ? 'text-primary bg-primary/10' : 'text-muted-foreground/40 hover:text-muted-foreground'
+            )}
+            title={beepEnabled ? 'Audiowaarschuwing aan (klik om uit te zetten)' : 'Audiowaarschuwing uit (klik om aan te zetten)'}
+          >
+            🔔
+          </button>
+          <button
+            onClick={() => {
+              const next = !flashEnabled
+              setFlashEnabled(next)
+              try { localStorage.setItem('caller_flash_enabled', String(next)) } catch {}
+            }}
+            className={cn(
+              'h-8 w-8 rounded flex items-center justify-center transition-colors text-xs',
+              flashEnabled ? 'text-primary bg-primary/10' : 'text-muted-foreground/40 hover:text-muted-foreground'
+            )}
+            title={flashEnabled ? 'Schermflits aan (klik om uit te zetten)' : 'Schermflits uit (klik om aan te zetten)'}
+          >
+            ⚡
+          </button>
+
           {/* Mic patch */}
           <Button
             variant="ghost" size="sm"
@@ -666,7 +762,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             </p>
 
             <div
-              className="rounded-xl border-2 border-green-500/50 bg-green-500/5 p-6 relative overflow-hidden"
+              className={cn(
+                'rounded-xl border-2 p-6 relative overflow-hidden transition-colors duration-500',
+                countdown <= 15 ? 'bg-red-500/5' : countdown <= 30 ? 'bg-orange-500/5' : 'bg-green-500/5',
+                countdownBorder(countdown)
+              )}
               style={activeCue.color ? { borderLeftColor: activeCue.color, borderLeftWidth: '4px' } : {}}
             >
               {/* Header */}

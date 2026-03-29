@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, ChevronRight, SkipForward, Wifi, WifiOff,
   Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell, BellRing,
-  Music, Video, Volume2, VolumeX, StopCircle, Monitor,
+  Music, Video, Volume2, VolumeX, StopCircle, Monitor, Zap, ZapOff,
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 import Link from 'next/link'
@@ -649,34 +649,38 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
         <div className="flex items-center gap-3">
           {/* Countdown waarschuwing toggles */}
-          <button
+          <Button
+            variant="ghost" size="sm"
             onClick={() => {
               const next = !beepEnabled
               setBeepEnabled(next)
               try { localStorage.setItem('caller_beep_enabled', String(next)) } catch {}
             }}
             className={cn(
-              'h-8 w-8 rounded flex items-center justify-center transition-colors text-xs',
-              beepEnabled ? 'text-primary bg-primary/10' : 'text-muted-foreground/40 hover:text-muted-foreground'
+              'h-8 gap-1.5',
+              beepEnabled ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
             )}
-            title={beepEnabled ? 'Audiowaarschuwing aan (klik om uit te zetten)' : 'Audiowaarschuwing uit (klik om aan te zetten)'}
+            title={beepEnabled ? 'Pieptoon aan — klik om uit te zetten' : 'Pieptoon uit — klik om aan te zetten'}
           >
-            🔔
-          </button>
-          <button
+            {beepEnabled ? <Bell className="h-4 w-4" /> : <Bell className="h-4 w-4 opacity-40" />}
+            <span className="text-xs hidden sm:inline">{beepEnabled ? 'Piep' : 'Piep'}</span>
+          </Button>
+          <Button
+            variant="ghost" size="sm"
             onClick={() => {
               const next = !flashEnabled
               setFlashEnabled(next)
               try { localStorage.setItem('caller_flash_enabled', String(next)) } catch {}
             }}
             className={cn(
-              'h-8 w-8 rounded flex items-center justify-center transition-colors text-xs',
-              flashEnabled ? 'text-primary bg-primary/10' : 'text-muted-foreground/40 hover:text-muted-foreground'
+              'h-8 gap-1.5',
+              flashEnabled ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
             )}
-            title={flashEnabled ? 'Schermflits aan (klik om uit te zetten)' : 'Schermflits uit (klik om aan te zetten)'}
+            title={flashEnabled ? 'Schermflits aan — klik om uit te zetten' : 'Schermflits uit — klik om aan te zetten'}
           >
-            ⚡
-          </button>
+            {flashEnabled ? <Zap className="h-4 w-4" /> : <ZapOff className="h-4 w-4" />}
+            <span className="text-xs hidden sm:inline">Flits</span>
+          </Button>
 
           {/* Mic patch */}
           <Button

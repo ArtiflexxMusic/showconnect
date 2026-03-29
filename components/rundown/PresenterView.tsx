@@ -6,7 +6,7 @@ import { cn, formatDuration, calculateCueStartTimes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Clock, ChevronRight, Mic, MapPin, Lock, Music, Video,
-  Monitor, Maximize2, Minimize2, LayoutPanelLeft, AlignJustify,
+  Monitor, Maximize2, Minimize2, LayoutPanelLeft, AlignJustify, Bell,
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 import { SlideViewer } from './SlideViewer'
@@ -124,6 +124,9 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
   const [totalSlidesInCue, setTotalSlidesInCue]   = useState(0)
   // 'single' = 1 scherm alles gestapeld | 'dual' = links huidige slide, rechts info+volgende
   const [viewMode, setViewMode]       = useState<'single' | 'dual'>('single')
+  // Nudge/flash van editor
+  const [nudgeFlash, setNudgeFlash]   = useState(false)
+  const [nudgeMsg, setNudgeMsg]       = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const slideChannelRef = useRef<any>(null)
 
@@ -162,6 +165,14 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
         })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cues', filter: `rundown_id=eq.${rundown.id}` },
         (payload) => setCues(prev => prev.filter(c => c.id !== payload.old.id)))
+      // Nudge/alarm van editor of caller
+      .on('broadcast', { event: 'nudge' }, (payload) => {
+        const msg = payload.payload?.message ?? '🔔 Aandacht!'
+        setNudgeMsg(msg)
+        setNudgeFlash(true)
+        setTimeout(() => setNudgeFlash(false), 800)
+        setTimeout(() => setNudgeMsg(null), 4000)
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [rundown.id, supabase])
@@ -463,7 +474,18 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
 
   // ── SINGLE-SCHERM modus ───────────────────────────────────────────────────
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 text-white select-none overflow-hidden">
+    <div className="h-screen flex flex-col bg-zinc-950 text-white select-none overflow-hidden relative">
+      {/* ── Nudge flash overlay ──────────────────────────────────────────── */}
+      {nudgeFlash && (
+        <div className="pointer-events-none absolute inset-0 z-[70] bg-yellow-400/40 animate-pulse" />
+      )}
+      {/* ── Nudge melding ───────────────────────────────────────────────── */}
+      {nudgeMsg && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl text-base animate-bounce">
+          <Bell className="h-5 w-5" />
+          {nudgeMsg}
+        </div>
+      )}
       {toolbar}{progressBar}
 
       <div className="flex-1 overflow-y-auto">

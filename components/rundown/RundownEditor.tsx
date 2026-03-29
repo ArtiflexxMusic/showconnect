@@ -27,7 +27,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -74,8 +74,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [isSaving, setIsSaving]         = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
-  const [nudgeActive, setNudgeActive]   = useState(false)
-  const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
+  const [nudgeActive, setNudgeActive]             = useState(false)
+  const [nudgeMessage, setNudgeMessage]           = useState<string | null>(null)
+  const [pingPresenterActive, setPingPresenterActive] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const presenterChannelRef = useRef<any>(null)
   const [showFilterMenu, setShowFilterMenu]     = useState(false)
   const [showViewMenu, setShowViewMenu]         = useState(false)
   const [showRundownMenu, setShowRundownMenu]   = useState(false)
@@ -161,6 +164,17 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       supabase.removeChannel(channel)
     }
   }, [rundown.id, userId, supabase])
+
+  // ── Presenter-channel (voor ping-presenter functie) ──────────────────────
+  useEffect(() => {
+    const ch = supabase.channel(`presenter:${rundown.id}`)
+    ch.subscribe()
+    presenterChannelRef.current = ch
+    return () => {
+      presenterChannelRef.current = null
+      supabase.removeChannel(ch)
+    }
+  }, [rundown.id, supabase])
 
   // ── Profielnaam voor chat ────────────────────────────────────────────────
   useEffect(() => {
@@ -486,7 +500,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     }
   }, [rundown.id, supabase, router])
 
-  // ── Nudge sturen ─────────────────────────────────────────────────────────
+  // ── Nudge sturen (naar crew/editor) ──────────────────────────────────────
   const sendNudge = useCallback(async () => {
     if (nudgeActive || !channelRef.current) return
     setNudgeActive(true)
@@ -497,6 +511,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     })
     setTimeout(() => setNudgeActive(false), 2000)
   }, [nudgeActive, userId])
+
+  // ── Ping presenter (alarm naar het presenterscnerm) ───────────────────────
+  const pingPresenter = useCallback(async () => {
+    if (pingPresenterActive || !presenterChannelRef.current) return
+    setPingPresenterActive(true)
+    await presenterChannelRef.current.send({
+      type: 'broadcast',
+      event: 'nudge',
+      payload: { from: userId, message: '📢 Aandacht van de editor!' },
+    })
+    setTimeout(() => setPingPresenterActive(false), 2000)
+  }, [pingPresenterActive, userId])
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
@@ -844,13 +870,25 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                 isOpen={showChat}
               />
 
-              {/* Nudge */}
+              {/* Nudge crew */}
               <Button size="sm" variant="outline" onClick={sendNudge} disabled={nudgeActive}
                 className={cn('gap-2', nudgeActive
                   ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10'
                   : 'text-muted-foreground')}
-                title="Ping crew">
+                title="Ping crew (alarm naar alle verbonden gebruikers)">
                 {nudgeActive ? <BellRing className="h-3.5 w-3.5 animate-bounce" /> : <Bell className="h-3.5 w-3.5" />}
+              </Button>
+
+              {/* Ping Presenter */}
+              <Button size="sm" variant="outline" onClick={pingPresenter} disabled={pingPresenterActive}
+                className={cn('gap-2', pingPresenterActive
+                  ? 'text-orange-400 border-orange-500/40 bg-orange-500/10'
+                  : 'text-muted-foreground')}
+                title="Ping Presenter (alarm naar het presenterscherm)">
+                {pingPresenterActive
+                  ? <Megaphone className="h-3.5 w-3.5 animate-bounce text-orange-400" />
+                  : <Megaphone className="h-3.5 w-3.5" />
+                }
               </Button>
 
               {/* Reset */}

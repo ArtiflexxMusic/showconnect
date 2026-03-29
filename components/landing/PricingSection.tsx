@@ -13,10 +13,12 @@ const PLANS = [
     period: { monthly: 'voor altijd', yearly: 'voor altijd' },
     yearlyTotal: null,
     saving: null,
-    desc: 'Probeer CueBoard zonder risico.',
+    desc: '3 dagen volledige toegang, daarna altijd gratis.',
+    trial: '3 dagen gratis',
     cta: 'Gratis starten',
     href: { monthly: '/register', yearly: '/register' },
     features: [
+      '3 dagen volledige Pro-toegang',
       '1 show',
       '1 rundown per show',
       'Tot 15 cues',
@@ -28,12 +30,13 @@ const PLANS = [
   {
     name: 'Pro',
     highlight: true,
-    price: { monthly: '€9,95', yearly: '€8,33' },
+    price: { monthly: '€9,99', yearly: '€8,33' },
     period: { monthly: 'per maand', yearly: 'per maand' },
     yearlyTotal: '€99,99/jaar',
-    saving: 'Bespaar €19',
+    saving: 'Bespaar €20',
     desc: 'Voor professionals die meerdere shows draaien.',
-    cta: 'Pro proberen',
+    trial: null,
+    cta: 'Word Pro',
     href: { monthly: '/register?plan=pro', yearly: '/checkout?variant=pro_yearly' },
     features: [
       'Onbeperkt shows & rundowns',
@@ -53,6 +56,7 @@ const PLANS = [
     yearlyTotal: '€299,99/jaar',
     saving: 'Bespaar €60',
     desc: 'Voor AV-bureaus en productieteams.',
+    trial: null,
     cta: 'Team starten',
     href: { monthly: '/register?plan=team', yearly: '/checkout?variant=team_yearly' },
     features: [
@@ -123,6 +127,13 @@ export function PricingSection() {
                 <div className="absolute -top-3 left-6">
                   <span className="flex items-center gap-1 text-[11px] font-extrabold bg-emerald-500 text-black px-3 py-0.5 rounded-full uppercase tracking-wide">
                     <Star className="h-3 w-3" /> Populairste keuze
+                  </span>
+                </div>
+              )}
+              {plan.trial && !plan.highlight && (
+                <div className="absolute -top-3 left-6">
+                  <span className="flex items-center gap-1 text-[11px] font-extrabold bg-white/10 text-white border border-white/15 px-3 py-0.5 rounded-full uppercase tracking-wide">
+                    {plan.trial}
                   </span>
                 </div>
               )}

@@ -34,7 +34,7 @@ export default async function CastPortalPage({ params }: PageProps) {
     .order('created_at')
 
   // Fetch all cues for all rundowns
-  const rundownIds = (rundowns ?? []).map((r: Rundown) => r.id)
+  const rundownIds = (rundowns ?? []).map((r) => r.id)
   let cues: Cue[] = []
   if (rundownIds.length > 0) {
     const { data: allCues } = await supabase

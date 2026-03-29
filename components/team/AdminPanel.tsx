@@ -8,6 +8,7 @@ import {
   Users, Shield, Calendar, ChevronDown, Check,
   Search, Trash2, Crown, ExternalLink, X, Sparkles,
   UserPlus, Clock, Phone, Download, Filter,
+  Mail, Key, Link2, CheckCircle2, Edit2, Loader2, AlertCircle,
 } from 'lucide-react'
 import type { UserRole, UserPlan, PlanSource } from '@/lib/types/database'
 import {
@@ -436,6 +437,12 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const [planFilter, setPlanFilter]     = useState<'all' | 'free' | 'trial' | 'pro' | 'team'>('all')
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
 
+  // Gebruikersacties
+  const [actionLoading, setActionLoading] = useState<string | null>(null)  // userId
+  const [actionMsg, setActionMsg]         = useState<{ userId: string; msg: string; ok: boolean } | null>(null)
+  const [editingField, setEditingField]   = useState<{ userId: string; field: 'email' | 'name' | 'phone' } | null>(null)
+  const [editValue, setEditValue]         = useState('')
+
   const isBeheerder = currentUserRole === 'beheerder'
 
   const assignableRoles: UserRole[] = isBeheerder
@@ -550,6 +557,36 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
     })
     if (res.ok) {
       setUsers(prev => prev.filter(u => u.id !== userId))
+    }
+  }
+
+  // ── Gebruikersactie uitvoeren ────────────────────────────────────────────────
+  const performUserAction = async (userId: string, action: string, extra?: Record<string, string>) => {
+    setActionLoading(userId)
+    setActionMsg(null)
+    try {
+      const res = await fetch('/api/admin/user-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, userId, ...extra }),
+      })
+      const data = await res.json()
+      setActionMsg({ userId, msg: data.message ?? data.error ?? 'Klaar', ok: res.ok })
+      if (res.ok && action === 'change_email' && extra?.newEmail) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, email: extra.newEmail! } : u))
+      }
+      if (res.ok && action === 'change_name' && extra?.newName) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, full_name: extra.newName! } : u))
+      }
+      if (res.ok && action === 'change_phone') {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, phone: extra?.newPhone ?? null } : u))
+      }
+    } catch {
+      setActionMsg({ userId, msg: 'Netwerk fout', ok: false })
+    } finally {
+      setActionLoading(null)
+      setEditingField(null)
+      setTimeout(() => setActionMsg(null), 4000)
     }
   }
 
@@ -817,17 +854,15 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                 )}
               </div>
 
-              {/* Uitklapbare gebruikersdetails */}
+              {/* Uitklapbare gebruikersdetails + acties */}
               {expandedUser === user.id && (
-                <div className="px-6 pb-4 bg-muted/20 border-t border-border/50">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-xs">
+                <div className="px-6 pb-5 bg-muted/20 border-t border-border/50 space-y-4 pt-3">
+
+                  {/* Info grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     <div>
                       <p className="text-muted-foreground mb-0.5">Lid sinds</p>
                       <p className="font-medium">{new Date(user.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-0.5">Telefoonnummer</p>
-                      <p className="font-medium">{user.phone ?? <span className="text-muted-foreground/50 italic">—</span>}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground mb-0.5">Shows aangemaakt</p>
@@ -852,6 +887,106 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                       </div>
                     )}
                   </div>
+
+                  {/* Bewerkbare velden */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    {/* E-mail */}
+                    <div className="flex items-center gap-2 bg-background/60 border border-border/50 rounded-md px-3 py-2">
+                      <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                      {editingField?.userId === user.id && editingField.field === 'email' ? (
+                        <form className="flex-1 flex gap-1" onSubmit={e => { e.preventDefault(); performUserAction(user.id, 'change_email', { newEmail: editValue }) }}>
+                          <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} className="flex-1 text-xs bg-transparent border-b border-primary focus:outline-none min-w-0" placeholder="nieuw@mail.nl" />
+                          <button type="submit" className="text-primary hover:text-primary/80"><Check className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => setEditingField(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                        </form>
+                      ) : (
+                        <span className="flex-1 truncate text-muted-foreground">{user.email}</span>
+                      )}
+                      {editingField?.userId !== user.id && (
+                        <button onClick={() => { setEditingField({ userId: user.id, field: 'email' }); setEditValue(user.email) }} className="text-muted-foreground/50 hover:text-primary transition-colors" title="E-mail wijzigen">
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Naam */}
+                    <div className="flex items-center gap-2 bg-background/60 border border-border/50 rounded-md px-3 py-2">
+                      <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                      {editingField?.userId === user.id && editingField.field === 'name' ? (
+                        <form className="flex-1 flex gap-1" onSubmit={e => { e.preventDefault(); performUserAction(user.id, 'change_name', { newName: editValue }) }}>
+                          <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} className="flex-1 text-xs bg-transparent border-b border-primary focus:outline-none min-w-0" placeholder="Volledige naam" />
+                          <button type="submit" className="text-primary hover:text-primary/80"><Check className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => setEditingField(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                        </form>
+                      ) : (
+                        <span className="flex-1 truncate text-muted-foreground">{user.full_name ?? <em className="opacity-50">Geen naam</em>}</span>
+                      )}
+                      {editingField?.userId !== user.id && (
+                        <button onClick={() => { setEditingField({ userId: user.id, field: 'name' }); setEditValue(user.full_name ?? '') }} className="text-muted-foreground/50 hover:text-primary transition-colors" title="Naam wijzigen">
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Telefoon */}
+                    <div className="flex items-center gap-2 bg-background/60 border border-border/50 rounded-md px-3 py-2">
+                      <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                      {editingField?.userId === user.id && editingField.field === 'phone' ? (
+                        <form className="flex-1 flex gap-1" onSubmit={e => { e.preventDefault(); performUserAction(user.id, 'change_phone', { newPhone: editValue }) }}>
+                          <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} className="flex-1 text-xs bg-transparent border-b border-primary focus:outline-none min-w-0" placeholder="+31 6 …" />
+                          <button type="submit" className="text-primary hover:text-primary/80"><Check className="h-3 w-3" /></button>
+                          <button type="button" onClick={() => setEditingField(null)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                        </form>
+                      ) : (
+                        <span className="flex-1 truncate text-muted-foreground">{user.phone ?? <em className="opacity-50">Geen telefoon</em>}</span>
+                      )}
+                      {editingField?.userId !== user.id && (
+                        <button onClick={() => { setEditingField({ userId: user.id, field: 'phone' }); setEditValue(user.phone ?? '') }} className="text-muted-foreground/50 hover:text-primary transition-colors" title="Telefoon wijzigen">
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actie-knoppen */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { action: 'resend_confirmation', label: 'Bevestigingsmail', icon: Mail,          title: 'Stuur bevestigingsmail opnieuw' },
+                      { action: 'confirm_email',       label: 'Bevestig direct', icon: CheckCircle2,   title: 'Markeer e-mail als bevestigd zonder mail' },
+                      { action: 'send_password_reset', label: 'Wachtwoord reset', icon: Key,           title: 'Stuur wachtwoord-reset mail' },
+                      { action: 'send_magic_link',     label: 'Stuur inloglink', icon: Link2,           title: 'Stuur een passwordless inloglink' },
+                    ].map(({ action, label, icon: Icon, title }) => (
+                      <button
+                        key={action}
+                        onClick={() => performUserAction(user.id, action)}
+                        disabled={actionLoading === user.id}
+                        title={title}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-background border border-border/60 rounded-md hover:bg-muted/60 hover:border-border transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading === user.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <Icon className="h-3 w-3 text-muted-foreground" />
+                        }
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Feedback bericht */}
+                  {actionMsg?.userId === user.id && (
+                    <div className={cn(
+                      'flex items-center gap-2 text-xs px-3 py-2 rounded-md border',
+                      actionMsg.ok
+                        ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                        : 'bg-destructive/10 border-destructive/25 text-destructive'
+                    )}>
+                      {actionMsg.ok
+                        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        : <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      }
+                      {actionMsg.msg}
+                    </div>
+                  )}
                 </div>
               )}
               </div>

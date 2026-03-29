@@ -642,6 +642,36 @@ export type Database = {
         }
         Relationships: []
       }
+      rundown_snapshots: {
+        Row: {
+          id: string
+          rundown_id: string
+          label: string
+          cues_json: Cue[]
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          rundown_id: string
+          label: string
+          cues_json: Cue[]
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'rundown_snapshots_rundown_id_fkey'
+            columns: ['rundown_id']
+            isOneToOne: false
+            referencedRelation: 'rundowns'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       cue_log: {
         Row: {
           id: string

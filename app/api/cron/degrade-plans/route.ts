@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -113,7 +113,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  console.log(`[cron/degrade-plans] Gedegradeerd: ${degraded}, Herinnerd: ${reminded}, Fouten: ${errors.length}`)
+  if (errors.length > 0) {
+    console.error(`[cron/degrade-plans] Fouten (${errors.length}):`, errors)
+  }
 
   return NextResponse.json({
     ok:       true,

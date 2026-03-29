@@ -146,6 +146,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         if (status === 'SUBSCRIBED') {
           await channel.track({ user_id: userId, online_at: new Date().toISOString() })
         }
+        if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          setIsOnline(false)
+          console.warn('[RundownEditor] Realtime verbinding verbroken, status:', status)
+        }
       })
 
     return () => {
@@ -218,7 +222,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     setIsSaving(true)
     // Verwijder alle bestaande cues
     if (cues.length > 0) {
-      await Promise.all(cues.map((c) => supabase.from('cues').delete().eq('id', c.id)))
+      const deleteResults = await Promise.all(cues.map((c) => supabase.from('cues').delete().eq('id', c.id)))
+      const deleteErrors = deleteResults.filter((r) => r.error).map((r) => r.error!.message)
+      if (deleteErrors.length > 0) console.error('Verwijderen bestaande cues (deels) mislukt:', deleteErrors)
     }
     // Voeg template-cues in
     const rows = templateCues.map((tc, i) => ({
@@ -276,11 +282,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     const maxPos = cue.position + 1
     // Schuif alle cues na de duplicaat naar voren
     const toShift = cues.filter((c) => c.position >= maxPos)
-    await Promise.all(
+    const shiftResults = await Promise.all(
       toShift.map((c) =>
         supabase.from('cues').update({ position: c.position + 1 }).eq('id', c.id)
       )
     )
+    const shiftErrors = shiftResults.filter((r) => r.error).map((r) => r.error!.message)
+    if (shiftErrors.length > 0) console.error('Verschuiven cues bij dupliceren mislukt:', shiftErrors)
     await supabase.from('cues').insert({
       rundown_id:       cue.rundown_id,
       position:         maxPos,
@@ -298,7 +306,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   // ── Reset alle cues ──────────────────────────────────────────────────────
   const resetAllCues = useCallback(async () => {
     setShowResetConfirm(false)
-    await Promise.all(
+    const resetResults = await Promise.all(
       cues.map((c) =>
         supabase.from('cues').update({
           status: 'pending',
@@ -306,6 +314,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         }).eq('id', c.id)
       )
     )
+    const resetErrors = resetResults.filter((r) => r.error).map((r) => r.error!.message)
+    if (resetErrors.length > 0) console.error('Reset cues (deels) mislukt:', resetErrors)
   }, [cues, supabase])
 
   const startCue = useCallback(async (id: string) => {
@@ -378,8 +388,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const createSnapshot = useCallback(async () => {
     setSnapshotting(true)
     const label = `Snapshot ${new Date().toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('rundown_snapshots').insert({
+    await supabase.from('rundown_snapshots').insert({
       rundown_id: rundown.id,
       label,
       cues_json: cues,
@@ -494,11 +503,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     const newIndex  = cues.findIndex((c) => c.id === over.id)
     const reordered = arrayMove(cues, oldIndex, newIndex).map((cue, i) => ({ ...cue, position: i }))
     setCues(reordered)
-    await Promise.all(
+    const dragResults = await Promise.all(
       reordered.map((cue) =>
         supabase.from('cues').update({ position: cue.position } as Record<string, unknown>).eq('id', cue.id)
       )
     )
+    const dragErrors = dragResults.filter((r) => r.error).map((r) => r.error!.message)
+    if (dragErrors.length > 0) console.error('Herordenen cues (deels) mislukt:', dragErrors)
   }
 
   // ── Berekeningen ─────────────────────────────────────────────────────────

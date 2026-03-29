@@ -11,14 +11,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Plan, PlanSource } from '@/lib/plans'
+import { isPlatformAdmin } from '@/lib/plans'
 import { sendEmail, buildPaymentRequestEmail } from '@/lib/email'
+import { SUPABASE_URL, SUPABASE_SERVICE_KEY } from '@/lib/env'
 
 function createAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
 }
 
 export async function PATCH(request: NextRequest) {
@@ -29,7 +27,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'beheerder') {
+  if (!isPlatformAdmin(profile?.role)) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 

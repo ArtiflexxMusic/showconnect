@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       // ── Betaling geslaagd – plan activeren ──────────────────────────────
       const expiresAt = nextExpiryDate(interval)
 
-      await supabase
+      const { error: updateErr } = await supabase
         .from('profiles')
         .update({
           plan:            plan,
@@ -65,13 +65,24 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', userId)
 
+      if (updateErr) {
+        console.error(`[mollie/webhook] Plan activeren mislukt voor ${userId} (${paymentId}):`, updateErr.message)
+        // Gooi een fout zodat Mollie later opnieuw probeert
+        throw new Error(`DB update mislukt: ${updateErr.message}`)
+      }
+
     } else if (payment.status === 'paid' && payment.sequenceType === 'recurring') {
       // ── Terugkerende betaling geslaagd – periode verlengen ───────────────
       const expiresAt = nextExpiryDate(interval)
-      await supabase
+      const { error: renewErr } = await supabase
         .from('profiles')
         .update({ plan_expires_at: expiresAt.toISOString() })
         .eq('id', userId)
+
+      if (renewErr) {
+        console.error(`[mollie/webhook] Verlengen mislukt voor ${userId} (${paymentId}):`, renewErr.message)
+        throw new Error(`DB update mislukt: ${renewErr.message}`)
+      }
 
     } else if (['failed', 'canceled', 'expired'].includes(payment.status)) {
       // ── Betaling mislukt – alleen loggen (plan al actief? Niet aanraken) ─

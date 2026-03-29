@@ -5,6 +5,15 @@
  * Twee bronnen:  free | gift (handmatig door admin) | paid (via Mollie)
  */
 
+/** Platform-admin rollen. Gebruik deze constante voor alle admin-checks. */
+export const ADMIN_ROLES = ['admin', 'beheerder'] as const
+export type AdminRole = typeof ADMIN_ROLES[number]
+
+/** Geeft true als het profiel platform-admin rechten heeft */
+export function isPlatformAdmin(role: string | null | undefined): boolean {
+  return ADMIN_ROLES.includes(role as AdminRole)
+}
+
 export type Plan         = 'free' | 'pro' | 'team'
 export type PlanSource   = 'free' | 'gift' | 'paid'
 export type PlanInterval = 'monthly' | 'yearly'

@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
   if (!rl.success) return new NextResponse('rate limit', { status: 429 })
 
   const rundownId = request.nextUrl.searchParams.get('rundownId')
-  const field = request.nextUrl.searchParams.get('field') ?? 'active'
+  const VALID_FIELDS = ['active', 'next', 'rundown'] as const
+  type FieldParam = typeof VALID_FIELDS[number]
+  const rawField = request.nextUrl.searchParams.get('field') ?? 'active'
+  const field: FieldParam = (VALID_FIELDS as readonly string[]).includes(rawField)
+    ? rawField as FieldParam
+    : 'active'
 
   if (!rundownId || !UUID_RE.test(rundownId)) {
     return new NextResponse('invalid rundownId', { status: 400 })

@@ -60,7 +60,9 @@ export async function GET(
   if (!rundown) return NextResponse.json({ error: 'Rundown niet gevonden' }, { status: 404 })
 
   // Toegangscheck: alleen leden of eigenaar
-  const show = (rundown as { shows: { id: string; name: string; created_by: string | null } }).shows
+  const show = (rundown as { shows?: { id: string; name: string; created_by: string | null } }).shows
+  if (!show) return NextResponse.json({ error: 'Show niet gevonden' }, { status: 404 })
+
   const { data: membership } = await supabase
     .from('show_members')
     .select('role')

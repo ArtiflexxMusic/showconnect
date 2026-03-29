@@ -685,12 +685,13 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   }
 
   // ── Trial verlengen ─────────────────────────────────────────────────────────
-  const extendTrial = async (userId: string) => {
+  const extendTrial = async (userId: string, days: number) => {
     setExtendingTrial(userId)
+    setExtendDays(days)
     const res = await fetch('/api/admin/extend-trial', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, days: extendDays }),
+      body: JSON.stringify({ userId, days }),
     })
     const data = await res.json()
     if (res.ok && data.trial_ends_at) {
@@ -734,22 +735,25 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
   const sendDirectEmail = async (userId: string) => {
     if (!emailSubject.trim() || !emailMessage.trim()) return
     setSendingEmail(true)
-    const res = await fetch('/api/admin/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, subject: emailSubject, message: emailMessage }),
-    })
-    const data = await res.json().catch(() => ({}))
-    setActionMsg({
-      userId,
-      msg: data.ok ? `E-mail verstuurd naar ${data.to}` : `Fout: ${data.error ?? 'Onbekend'}`,
-      ok: !!data.ok,
-    })
-    setSendingEmail(false)
-    if (data.ok) {
-      setEmailingUser(null)
-      setEmailSubject('')
-      setEmailMessage('')
+    try {
+      const res = await fetch('/api/admin/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, subject: emailSubject, message: emailMessage }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setActionMsg({
+        userId,
+        msg: data.ok ? `E-mail verstuurd naar ${data.to}` : `Fout: ${data.error ?? 'Onbekend'}`,
+        ok: !!data.ok,
+      })
+      if (data.ok) {
+        setEmailingUser(null)
+        setEmailSubject('')
+        setEmailMessage('')
+      }
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -1246,7 +1250,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole }: Admi
                       {[3, 7, 14, 30].map(d => (
                         <button
                           key={d}
-                          onClick={() => { setExtendDays(d); extendTrial(user.id) }}
+                          onClick={() => extendTrial(user.id, d)}
                           disabled={extendingTrial === user.id}
                           className="flex items-center gap-1 px-2.5 py-1 text-xs border border-amber-500/30 text-amber-400 rounded-md hover:bg-amber-500/10 transition-colors disabled:opacity-50"
                         >

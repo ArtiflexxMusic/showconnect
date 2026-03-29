@@ -32,6 +32,13 @@ export function GlobalSearch() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  // Debounce cleanup bij unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
   // Focus input wanneer open
   useEffect(() => {
     if (open) {

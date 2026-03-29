@@ -60,15 +60,14 @@ export default async function DashboardPage() {
   })
 
   // Onboarding checklist data
-  const hasShows      = myShows.length > 0
-  const hasRundowns   = myShows.some(s => s.rundowns.length > 0)
-  const hasGoneLive   = false // Kan niet server-side eenvoudig worden bepaald (cue log)
-  const hasTeamMembers = sharedShows.length > 0 || myShows.some(s => {
-    // Controleer of er meer dan 1 lid is (de owner zelf)
-    return false // Vereenvoudigd — we checken showleden niet hier om extra query te vermijden
-  })
+  const hasShows       = myShows.length > 0
+  const hasRundowns    = myShows.some(s => s.rundowns.length > 0)
+  const hasGoneLive    = false // Kan niet server-side eenvoudig worden bepaald (cue log)
+  // hasTeamMembers: true als de user op andermans shows is uitgenodigd, of memberships heeft
+  const hasTeamMembers = memberships != null && memberships.length > 0
 
-  const showChecklist = !hasShows || !hasRundowns // Toon alleen voor nieuwe gebruikers
+  // Toon checklist alleen voor gebruikers die nog niet alle basisstappen hebben voltooid
+  const showChecklist  = !hasShows || !hasRundowns || !hasTeamMembers
 
   return (
     <>

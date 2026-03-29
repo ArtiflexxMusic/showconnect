@@ -31,51 +31,55 @@ export async function GET(request: NextRequest) {
 
   const showIds = (memberShowIds ?? []).map(m => m.show_id)
 
-  // Shows zoeken (eigen + gedeeld)
-  const { data: shows } = await supabase
+  // Haal alle toegankelijke shows op (eigen + gedeeld) — los opgebouwd om injectie te voorkomen
+  let showsQuery = supabase
     .from('shows')
     .select('id, name, date, venue, created_by')
-    .or(`created_by.eq.${user.id}${showIds.length > 0 ? `,id.in.(${showIds.join(',')})` : ''}`)
     .ilike('name', qLower)
     .is('archived_at', null)
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Rundowns zoeken — via shows die de gebruiker mag zien
-  const allShowIds = [
-    ...(shows ?? []).map(s => s.id),
-    ...showIds,
-    // ook eigen shows die buiten de top 5 vallen
-  ]
-  const uniqueShowIds = [...new Set([user.id, ...allShowIds])]
+  if (showIds.length > 0) {
+    showsQuery = showsQuery.or(`created_by.eq.${user.id},id.in.(${showIds.join(',')})`)
+  } else {
+    showsQuery = showsQuery.eq('created_by', user.id)
+  }
+
+  const { data: shows } = await showsQuery
+
+  // Haal alle toegankelijke shows op voor rundown-zoekbasis
+  let accessibleQuery = supabase
+    .from('shows')
+    .select('id, name')
+    .is('archived_at', null)
+
+  if (showIds.length > 0) {
+    accessibleQuery = accessibleQuery.or(`created_by.eq.${user.id},id.in.(${showIds.join(',')})`)
+  } else {
+    accessibleQuery = accessibleQuery.eq('created_by', user.id)
+  }
+
+  const { data: accessibleShows } = await accessibleQuery
 
   let rundowns: { id: string; name: string; show_id: string; show_name: string }[] = []
 
-  if (uniqueShowIds.length > 0) {
-    // Haal eerst alle show-ids op die de gebruiker mag zien
-    const { data: accessibleShows } = await supabase
-      .from('shows')
-      .select('id, name')
-      .or(`created_by.eq.${user.id}${showIds.length > 0 ? `,id.in.(${showIds.join(',')})` : ''}`)
-      .is('archived_at', null)
+  if (accessibleShows && accessibleShows.length > 0) {
+    const accessibleIds = accessibleShows.map(s => s.id)
+    const showNameMap: Record<string, string> = {}
+    for (const s of accessibleShows) showNameMap[s.id] = s.name
 
-    if (accessibleShows && accessibleShows.length > 0) {
-      const accessibleIds = accessibleShows.map(s => s.id)
-      const showNameMap: Record<string, string> = {}
-      for (const s of accessibleShows) showNameMap[s.id] = s.name
+    const { data: foundRundowns } = await supabase
+      .from('rundowns')
+      .select('id, name, show_id')
+      .in('show_id', accessibleIds)
+      .ilike('name', qLower)
+      .limit(5)
 
-      const { data: foundRundowns } = await supabase
-        .from('rundowns')
-        .select('id, name, show_id')
-        .in('show_id', accessibleIds)
-        .ilike('name', qLower)
-        .limit(5)
-
-      rundowns = (foundRundowns ?? []).map(r => ({
-        ...r,
-        show_name: showNameMap[r.show_id] ?? '',
-      }))
-    }
+    rundowns = (foundRundowns ?? []).map(r => ({
+      ...r,
+      show_name: showNameMap[r.show_id] ?? '',
+    }))
   }
 
   return NextResponse.json({

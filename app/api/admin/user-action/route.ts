@@ -67,14 +67,15 @@ export async function POST(request: NextRequest) {
   switch (action) {
 
     case 'resend_confirmation': {
-      // Stuur een magic link — werkt voor bestaande onbevestigde users en
-      // bevestigt de email zodra de gebruiker er op klikt
-      const { error } = await admin.auth.admin.generateLink({
-        type: 'magiclink',
+      // auth.resend() stuurt de email daadwerkelijk via de geconfigureerde SMTP
+      // (generateLink() doet dat NIET — die geeft alleen de link terug)
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
         email: targetEmail,
+        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard-app.vercel.app'}/auth/callback` },
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      return NextResponse.json({ success: true, message: `Inloglink (bevestiging) verstuurd naar ${targetEmail}` })
+      return NextResponse.json({ success: true, message: `Bevestigingsmail verstuurd naar ${targetEmail}` })
     }
 
     case 'confirm_email': {
@@ -87,18 +88,19 @@ export async function POST(request: NextRequest) {
     }
 
     case 'send_password_reset': {
-      const { error } = await admin.auth.admin.generateLink({
-        type: 'recovery',
-        email: targetEmail,
+      // resetPasswordForEmail stuurt via SMTP (generateLink doet dat niet)
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard-app.vercel.app'}/auth/callback?next=/reset-password`,
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ success: true, message: `Wachtwoord-resetmail verstuurd naar ${targetEmail}` })
     }
 
     case 'send_magic_link': {
-      const { error } = await admin.auth.admin.generateLink({
-        type: 'magiclink',
+      // signInWithOtp stuurt de magic link via SMTP (generateLink doet dat niet)
+      const { error } = await supabase.auth.signInWithOtp({
         email: targetEmail,
+        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard-app.vercel.app'}/auth/callback` },
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ success: true, message: `Inloglink verstuurd naar ${targetEmail}` })

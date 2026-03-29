@@ -54,6 +54,12 @@ export default async function ShowPage({ params }: PageProps) {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
   const currentMember = (members ?? []).find(m => m.user_id === user.id)
+
+  // Niet-lid en geen platform-admin: toegang geweigerd → terug naar dashboard
+  if (!isPlatformAdmin && !currentMember) {
+    redirect('/dashboard')
+  }
+
   const currentUserRole: ShowMemberRole = isPlatformAdmin ? 'owner' : (currentMember?.role ?? 'viewer')
 
   // Auto-redirect: presenter → presenter view, crew → crew view (alleen als er één rundown is)

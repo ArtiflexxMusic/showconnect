@@ -7,7 +7,7 @@
  *     Vereist: MAILJET_API_KEY + MAILJET_SECRET_KEY
  *     Setup: https://app.mailjet.com → API Keys
  *     Zet ook MAILJET_FROM_EMAIL op het geverifieerde afzenderadres
- *     (bijv. info@artiflexx.nl — Mailjet stuurt een verificatie-link)
+ *     (bijv. info@cueboard.nl — Mailjet stuurt een verificatie-link)
  *
  *  2. Resend (fallback)
  *     Vereist: RESEND_API_KEY + geverifieerd domein in Resend Dashboard
@@ -19,7 +19,7 @@
 
 const MAILJET_API_KEY    = process.env.MAILJET_API_KEY
 const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY
-const MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL ?? 'info@artiflexx.nl'
+const MAILJET_FROM_EMAIL = process.env.MAILJET_FROM_EMAIL ?? 'info@cueboard.nl'
 const MAILJET_FROM_NAME  = process.env.MAILJET_FROM_NAME  ?? 'CueBoard'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
@@ -104,10 +104,17 @@ export async function sendEmail(opts: {
 }): Promise<EmailResult> {
   // Mailjet heeft prioriteit
   if (MAILJET_API_KEY && MAILJET_SECRET_KEY) {
-    return sendViaMailjet(opts)
+    const result = await sendViaMailjet(opts)
+    if (result.ok) return result
+    // Mailjet mislukt (bijv. account gesuspendeerd) → probeer Resend als fallback
+    console.warn('[email] Mailjet mislukt, probeer Resend als fallback:', result.error)
+    if (RESEND_API_KEY) {
+      return sendViaResend(opts)
+    }
+    return result
   }
 
-  // Resend als fallback
+  // Resend als enige provider
   if (RESEND_API_KEY) {
     return sendViaResend(opts)
   }
@@ -200,7 +207,7 @@ export function buildPaymentRequestEmail(opts: {
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
       Heb je vragen? Stuur een mail naar
-      <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>.
+      <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>.
     </p>
   `
 
@@ -237,7 +244,7 @@ export function buildTrialWelcomeEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -277,7 +284,7 @@ export function buildPlanExpiredEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -325,7 +332,7 @@ export function buildTrialExpiringEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -365,7 +372,7 @@ export function buildInviteEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#f97316;text-decoration:none;">info@artiflexx.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 

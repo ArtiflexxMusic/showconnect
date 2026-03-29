@@ -29,6 +29,7 @@ export interface Profile {
   admin_notes: string | null
   notify_trial_emails: boolean
   notify_product_emails: boolean
+  admin_permissions: string[]
 }
 
 export interface Show {
@@ -300,6 +301,7 @@ export type Database = {
           admin_notes: string | null
           notify_trial_emails: boolean
           notify_product_emails: boolean
+          admin_permissions: string[]
         }
         Insert: {
           id: string
@@ -320,6 +322,7 @@ export type Database = {
           admin_notes?: string | null
           notify_trial_emails?: boolean
           notify_product_emails?: boolean
+          admin_permissions?: string[]
         }
         Update: {
           id?: string
@@ -339,6 +342,7 @@ export type Database = {
           admin_notes?: string | null
           notify_trial_emails?: boolean
           notify_product_emails?: boolean
+          admin_permissions?: string[]
         }
         Relationships: []
       }

@@ -20,9 +20,16 @@ export async function POST(request: NextRequest) {
 
   // Alleen admins en beheerders
   const { data: adminProfile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
+    .from('profiles').select('role, admin_permissions').eq('id', user.id).single()
   if (!adminProfile || !['beheerder', 'admin'].includes(adminProfile.role)) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
+  }
+  // Admins need the 'send_email' permission
+  if (adminProfile.role === 'admin') {
+    const perms = (adminProfile.admin_permissions as string[] | null) ?? []
+    if (!perms.includes('send_email')) {
+      return NextResponse.json({ error: 'Geen rechten voor e-mail versturen' }, { status: 403 })
+    }
   }
 
   const body = await request.json().catch(() => null)

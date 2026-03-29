@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AdminPanel } from '@/components/team/AdminPanel'
 import type { Metadata } from 'next'
 import type { UserRole } from '@/lib/types/database'
+import { resolvePermissions } from '@/lib/admin-permissions'
 
 export const metadata: Metadata = { title: 'Admin – CueBoard' }
 
@@ -11,15 +12,18 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Alleen admins en beheerders
+  // Alleen admins en beheerders — haal ook admin_permissions op
   const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
+    .from('profiles').select('role, admin_permissions').eq('id', user.id).single()
   if (profile?.role !== 'admin' && profile?.role !== 'beheerder') redirect('/dashboard')
+
+  // Rechten van de ingelogde beheerder/admin
+  const currentUserPermissions = resolvePermissions(profile.role, profile.admin_permissions as string[] | null)
 
   // Alle gebruikers ophalen incl. plan, trial en admin-velden
   const { data: users } = await supabase
     .from('profiles')
-    .select('id, email, full_name, phone, role, avatar_url, created_at, plan, plan_source, plan_expires_at, trial_ends_at, admin_notes')
+    .select('id, email, full_name, phone, role, avatar_url, created_at, plan, plan_source, plan_expires_at, trial_ends_at, admin_notes, admin_permissions')
     .order('created_at', { ascending: false })
 
   // Alle shows (twee queries om RLS-aggregatie-issue te vermijden)
@@ -48,6 +52,7 @@ export default async function AdminPage() {
       users={users ?? []}
       shows={shows ?? []}
       currentUserRole={profile.role as UserRole}
+      currentUserPermissions={currentUserPermissions}
     />
   )
 }

@@ -103,7 +103,8 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
   }
 
   async function saveMember() {
-    if (!name.trim()) return
+    // Naam is optioneel — standaard 'Bezoeker' als leeg
+    if (!name.trim()) setName('Bezoeker')
     setSaving(true)
     setSaveError(null)
     try {
@@ -155,6 +156,32 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
     await load()
   }
 
+  // Snelle gastlink: maak anonieme member + link in één klik
+  const [quickLinkLoading, setQuickLinkLoading] = useState(false)
+  const [quickLink, setQuickLink]               = useState<string | null>(null)
+
+  async function createQuickGuestLink() {
+    setQuickLinkLoading(true)
+    const guestNum = members.filter(m => m.name.startsWith('Gast')).length + 1
+    const pin = generatePin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: member, error } = await (supabase as any).from('cast_members').insert({
+      show_id: showId,
+      name: `Gast ${guestNum}`,
+      color: COLORS[guestNum % COLORS.length],
+      pin,
+    }).select().single()
+    if (error || !member) { setQuickLinkLoading(false); return }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: link } = await (supabase as any).from('cast_portal_links').insert({
+      show_id: showId,
+      cast_member_id: member.id,
+    }).select().single()
+    if (link) setQuickLink(link.token)
+    await load()
+    setQuickLinkLoading(false)
+  }
+
   async function deleteLink(id: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from('cast_portal_links').delete().eq('id', id)
@@ -204,12 +231,56 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4 space-y-4">
-            {/* Add button */}
-            <div className="flex justify-end">
+            {/* Add buttons */}
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={createQuickGuestLink}
+                disabled={quickLinkLoading}
+                className="gap-1.5 text-xs"
+                title="Maak direct een link zonder naam in te vullen"
+              >
+                {quickLinkLoading
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Link2 className="h-3.5 w-3.5" />
+                }
+                Snelle link
+              </Button>
               <Button size="sm" onClick={openAdd} className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold">
                 <UserPlus className="h-4 w-4" /> Cast member toevoegen
               </Button>
             </div>
+
+            {/* Snelle link resultaat */}
+            {quickLink && (
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3">
+                <Link2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <code className="text-xs text-emerald-400 flex-1 truncate font-mono">
+                  /cast-login?magic={quickLink.slice(0, 16)}…
+                </code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs gap-1 shrink-0"
+                  onClick={() => { navigator.clipboard.writeText(portalUrl(quickLink)); setCopied('quick'); setTimeout(() => setCopied(null), 2000) }}
+                >
+                  {copied === 'quick' ? <><Check className="h-3 w-3 text-emerald-400" /> Gekopieerd</> : <><Copy className="h-3 w-3" /> Kopieer</>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0 shrink-0"
+                  onClick={() => setQrToken(quickLink)}
+                  title="QR-code tonen"
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0" onClick={() => setQuickLink(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
 
             {loading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -412,8 +483,8 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <Label>Naam *</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Sofie de Vries" autoFocus />
+              <Label>Naam <span className="text-muted-foreground/50 font-normal text-xs">(optioneel)</span></Label>
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Bezoeker" autoFocus />
             </div>
             <div className="space-y-1">
               <Label>Rol / functie</Label>
@@ -452,7 +523,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Annuleren</Button>
-            <Button onClick={saveMember} disabled={saving || !name.trim()} className="bg-emerald-600 hover:bg-emerald-500 text-black font-bold">
+            <Button onClick={saveMember} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-black font-bold">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editTarget ? 'Opslaan' : 'Toevoegen'}
             </Button>
           </DialogFooter>

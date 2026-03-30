@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, ChevronRight, SkipForward, Wifi, WifiOff,
   Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell,
-  Music, Video, Volume2, VolumeX, StopCircle, Monitor, Zap, ZapOff,
+  Music, Video, Volume2, VolumeX, StopCircle, Monitor, Zap, ZapOff, MessageSquare,
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 import Link from 'next/link'
@@ -124,6 +124,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [connectedUsers, setConnectedUsers] = useState(1)
   const [isProcessing, setIsProcessing] = useState(false)
   const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
+  const [chatAlert, setChatAlert]       = useState<string | null>(null)
   const [showAlertModal, setShowAlertModal] = useState(false)
   const [alertSending, setAlertSending]     = useState(false)
   const [customTimerInput, setCustomTimerInput] = useState('')
@@ -1213,6 +1214,19 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         onClose={() => setShowMicPatch(false)}
       />
 
+      {/* Chat bericht melding */}
+      {chatAlert && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-sky-600 text-white font-semibold px-4 py-2.5 rounded-xl shadow-2xl text-sm max-w-[85vw] cursor-pointer"
+          style={{ top: nudgeMessage ? '5rem' : '1rem' }}
+          onClick={() => setChatAlert(null)}
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" />
+          <span className="break-words">{chatAlert}</span>
+          <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
+        </div>
+      )}
+
       {/* ── Chat overlay ─────────────────────────────────────────────── */}
       {showChat && (
         <div className="absolute bottom-20 right-6 z-40 w-80 shadow-2xl">
@@ -1221,6 +1235,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             senderName={callerName}
             senderRole="caller"
             onClose={() => setShowChat(false)}
+            onNewMessage={(name, role, msg) => {
+              const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
+              setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
+              setTimeout(() => setChatAlert(null), 6000)
+            }}
           />
         </div>
       )}

@@ -60,6 +60,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [showFilterBar, setShowFilterBar] = useState(false)
   const [nudgeMessage, setNudgeMessage]   = useState<string | null>(null)
   const [micPatchAlert, setMicPatchAlert] = useState<string | null>(null)
+  const [chatAlert, setChatAlert]         = useState<string | null>(null)
 
   // Annotaties
   const [annotations, setAnnotations]   = useState<CrewAnnotation[]>([])
@@ -338,12 +339,25 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       {/* Mic patch wijziging melding */}
       {micPatchAlert && (
         <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
+          className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
           style={{ top: nudgeMessage ? '5rem' : '1rem' }}
           onClick={() => setMicPatchAlert(null)}
         >
           <Radio className="h-4 w-4 shrink-0" />
           <span className="break-words">{micPatchAlert}</span>
+          <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
+        </div>
+      )}
+
+      {/* Chat bericht melding */}
+      {chatAlert && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-sky-600 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
+          style={{ top: `${([nudgeMessage, micPatchAlert].filter(Boolean).length * 4) + 1}rem` }}
+          onClick={() => setChatAlert(null)}
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" />
+          <span className="break-words">{chatAlert}</span>
           <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
         </div>
       )}
@@ -611,6 +625,11 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
             senderName={crewName}
             senderRole="crew"
             className="rounded-none border-0 border-t border-border/30"
+            onNewMessage={(name, role, msg) => {
+              const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
+              setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
+              setTimeout(() => setChatAlert(null), 6000)
+            }}
           />
         )}
 

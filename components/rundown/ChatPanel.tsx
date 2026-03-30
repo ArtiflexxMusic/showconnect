@@ -22,6 +22,7 @@ interface ChatPanelProps {
   senderRole: 'caller' | 'crew' | 'editor' | 'admin'
   onClose?: () => void
   className?: string
+  onNewMessage?: (senderName: string, senderRole: string, message: string) => void
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -42,7 +43,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ChatPanel({ rundownId, senderName, senderRole, onClose, className }: ChatPanelProps) {
+export function ChatPanel({ rundownId, senderName, senderRole, onClose, className, onNewMessage }: ChatPanelProps) {
   const supabase = createClient()
   const [messages, setMessages]   = useState<ChatMessage[]>([])
   const [input, setInput]         = useState('')
@@ -50,13 +51,21 @@ export function ChatPanel({ rundownId, senderName, senderRole, onClose, classNam
   const [userId, setUserId]       = useState<string | null>(null)
   const [unread, setUnread]       = useState(0)
   const [isVisible, setIsVisible] = useState(true)
-  const bottomRef  = useRef<HTMLDivElement>(null)
-  const inputRef   = useRef<HTMLInputElement>(null)
+  const bottomRef   = useRef<HTMLDivElement>(null)
+  const inputRef    = useRef<HTMLInputElement>(null)
+  const userIdRef   = useRef<string | null>(null)
+  const onNewMsgRef = useRef(onNewMessage)
+
+  // Houd refs actueel
+  useEffect(() => { onNewMsgRef.current = onNewMessage }, [onNewMessage])
 
   // Huidige gebruiker ophalen
   useEffect(() => {
     supabase.auth.getUser()
-      .then(({ data: { user } }) => setUserId(user?.id ?? null))
+      .then(({ data: { user } }) => {
+        setUserId(user?.id ?? null)
+        userIdRef.current = user?.id ?? null
+      })
       .catch(() => { /* auth niet beschikbaar */ })
   }, [supabase])
 
@@ -90,6 +99,10 @@ export function ChatPanel({ rundownId, senderName, senderRole, onClose, classNam
         })
         // Unread teller als panel verborgen is
         if (!isVisible) setUnread((n) => n + 1)
+        // Notificatie als bericht van iemand anders komt
+        if (msg.user_id !== userIdRef.current && onNewMsgRef.current) {
+          onNewMsgRef.current(msg.sender_name, msg.sender_role, msg.message)
+        }
       })
       .subscribe()
 

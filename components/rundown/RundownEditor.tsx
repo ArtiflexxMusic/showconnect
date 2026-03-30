@@ -30,7 +30,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Zap, Loader2, Download, Trash2, AlertCircle,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Zap, Loader2, Download, Trash2, AlertCircle, MessageSquare,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -83,6 +83,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [showSettings, setShowSettings] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
   const [nudgeMessage, setNudgeMessage]           = useState<string | null>(null)
+  const [chatAlert, setChatAlert]                 = useState<string | null>(null)
   const [showAlertModal, setShowAlertModal]       = useState(false)
   const [alertSending, setAlertSending]           = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -926,6 +927,19 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         </div>
       )}
 
+      {/* ── Chat bericht melding ──────────────────────────────────────── */}
+      {chatAlert && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-sky-600 text-white font-semibold px-4 py-2.5 rounded-xl shadow-2xl text-sm max-w-[85vw] cursor-pointer"
+          style={{ top: nudgeMessage ? '5rem' : '1rem' }}
+          onClick={() => setChatAlert(null)}
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" />
+          <span className="break-words">{chatAlert}</span>
+          <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
+        </div>
+      )}
+
       {/* ── Alert Modal ───────────────────────────────────────────────── */}
       {showAlertModal && (
         <AlertModal
@@ -1680,6 +1694,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
             senderName={editorName}
             senderRole="editor"
             onClose={() => setShowChat(false)}
+            onNewMessage={(name, role, msg) => {
+              const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
+              setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
+              setTimeout(() => setChatAlert(null), 6000)
+            }}
           />
         </div>
       )}

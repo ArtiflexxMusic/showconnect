@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp, Bell } from 'lucide-react'
+import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp, Bell, Radio } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
 import { MicStatusBar } from './MicStatusBar'
@@ -59,6 +59,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [filter, setFilter]       = useState<FilterType>('all')
   const [showFilterBar, setShowFilterBar] = useState(false)
   const [nudgeMessage, setNudgeMessage]   = useState<string | null>(null)
+  const [micPatchAlert, setMicPatchAlert] = useState<string | null>(null)
 
   // Annotaties
   const [annotations, setAnnotations]   = useState<CrewAnnotation[]>([])
@@ -146,9 +147,55 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       })
       .subscribe()
 
+    // Mic patch wijzigingen — toon popup als er iets verandert tijdens de show
+    const cueIds = initialCues.map(c => c.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const micChannel = (supabase as any)
+      .channel(`crew-mic:${rundown.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cue_audio_assignments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        async (payload: any) => {
+          if (!cueIds.includes(payload.new.cue_id)) return
+          // Haal apparaatnaam en cuenaam op voor de melding
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const [{ data: dev }, { data: cue }] = await Promise.all([
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).from('audio_devices').select('name').eq('id', payload.new.device_id).single(),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).from('cues').select('title').eq('id', payload.new.cue_id).single(),
+          ])
+          const msg = `🎤 ${dev?.name ?? 'Mic'} toegevoegd bij "${cue?.title ?? 'cue'}"`
+          setMicPatchAlert(msg)
+          setTimeout(() => setMicPatchAlert(null), 6000)
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'cue_audio_assignments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        async (payload: any) => {
+          if (!cueIds.includes(payload.old.cue_id)) return
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const [{ data: dev }, { data: cue }] = await Promise.all([
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).from('audio_devices').select('name').eq('id', payload.old.device_id).single(),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).from('cues').select('title').eq('id', payload.old.cue_id).single(),
+          ])
+          const msg = `🎤 ${dev?.name ?? 'Mic'} verwijderd bij "${cue?.title ?? 'cue'}"`
+          setMicPatchAlert(msg)
+          setTimeout(() => setMicPatchAlert(null), 6000)
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(channel)
       supabase.removeChannel(nudgeChannel)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(supabase as any).removeChannel(micChannel)
     }
   }, [rundown.id, supabase])
 
@@ -239,6 +286,19 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
           <Bell className="h-4 w-4 shrink-0 animate-bounce" />
           <span className="break-words">{nudgeMessage}</span>
           <span className="text-black/50 text-xs ml-1 shrink-0">× sluiten</span>
+        </div>
+      )}
+
+      {/* Mic patch wijziging melding */}
+      {micPatchAlert && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-blue-600 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
+          style={{ top: nudgeMessage ? '5rem' : '1rem' }}
+          onClick={() => setMicPatchAlert(null)}
+        >
+          <Radio className="h-4 w-4 shrink-0" />
+          <span className="break-words">{micPatchAlert}</span>
+          <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
         </div>
       )}
 

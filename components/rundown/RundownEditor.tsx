@@ -28,7 +28,7 @@ import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
   Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone, Zap, Loader2, Download, Trash2,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone, Zap, Loader2, Download, Trash2, AlertCircle,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -102,6 +102,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [copiedShareKey, setCopiedShareKey]             = useState<string | null>(null)
   const [showMoreMenu, setShowMoreMenu]                 = useState(false)
   const [saveError, setSaveError]                       = useState<string | null>(null)
+  const [deleteError, setDeleteError]                   = useState<string | null>(null)
   const [upgradeModal, setUpgradeModal]                 = useState<{ message: string; feature: string } | null>(null)
   const [bulkMode, setBulkMode]                         = useState(false)
   const [selectedCues, setSelectedCues]                 = useState<Set<string>>(new Set())
@@ -331,9 +332,23 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   }, [supabase, cues])
 
   const deleteCue = useCallback(async (id: string) => {
-    const { error } = await supabase.from('cues').delete().eq('id', id)
-    if (error) console.error('Fout bij verwijderen cue:', error)
-  }, [supabase])
+    // Optimistic: verwijder direct uit lokale state
+    const removed = cues.find(c => c.id === id)
+    setCues(prev => prev.filter(c => c.id !== id))
+    setDeleteError(null)
+
+    const { error, count } = await supabase
+      .from('cues')
+      .delete({ count: 'exact' })
+      .eq('id', id)
+
+    if (error || count === 0) {
+      // Terugdraaien + foutmelding tonen
+      if (removed) setCues(prev => [...prev, removed].sort((a, b) => a.position - b.position))
+      setDeleteError(error?.message ?? 'Geen toegang om deze cue te verwijderen.')
+      setTimeout(() => setDeleteError(null), 4000)
+    }
+  }, [supabase, cues])
 
   // ── Dupliceer cue ────────────────────────────────────────────────────────
   const duplicateCue = useCallback(async (cue: Cue) => {
@@ -441,8 +456,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   const bulkDelete = useCallback(async () => {
     const ids = Array.from(selectedCues)
-    await Promise.all(ids.map(id => supabase.from('cues').delete().eq('id', id)))
+    // Optimistic: verwijder direct uit lokale state
+    setCues(prev => prev.filter(c => !ids.includes(c.id)))
     exitBulkMode()
+    // Daarna DB-verwijdering (fouten worden genegeerd — realtime synchroniseert)
+    await Promise.all(ids.map(id => supabase.from('cues').delete({ count: 'exact' }).eq('id', id)))
   }, [selectedCues, supabase, exitBulkMode])
 
   const bulkChangeType = useCallback(async (type: CueType) => {
@@ -1146,6 +1164,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           </div>
         )}
       </div>
+
+      {/* ── Delete-fout banner ───────────────────────────────────────── */}
+      {deleteError && (
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{deleteError}</span>
+        </div>
+      )}
 
       {/* ── Vergrendeld banner ────────────────────────────────────────── */}
       {rundown.is_locked && (

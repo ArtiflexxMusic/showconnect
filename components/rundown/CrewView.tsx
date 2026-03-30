@@ -547,16 +547,18 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
                       </div>
                     )}
 
-                    {/* Mic toewijzingen voor deze cue */}
-                    <div className="mt-2">
-                      <MicStatusBar
-                        showId={show.id}
-                        cueId={cue.id}
-                        hideIfEmpty={true}
-                        preloadedDevices={micDevices}
-                        preloadedActiveIds={micAssignMap[cue.id] ?? new Set()}
-                      />
-                    </div>
+                    {/* Mic toewijzingen voor deze cue — altijd zichtbaar als er apparaten zijn */}
+                    {micDevices.length > 0 && (
+                      <div className="mt-2">
+                        <MicStatusBar
+                          showId={show.id}
+                          cueId={cue.id}
+                          hideIfEmpty={false}
+                          preloadedDevices={micDevices}
+                          preloadedActiveIds={micAssignMap[cue.id] ?? new Set()}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Duur */}

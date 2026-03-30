@@ -15,28 +15,16 @@ export default async function PublicStatusPage({ params }: PageProps) {
   // Gebruik de anonieme Supabase client (geen auth vereist)
   const supabase = await createClient()
 
-  const { data: rundownRaw } = await supabase
-    .from('rundowns')
-    .select('*')
-    .eq('id', rundownId)
-    .eq('show_id', showId)
-    .single()
+  const [{ data: rundownRaw }, { data: showRaw }, { data: cues }] = await Promise.all([
+    supabase.from('rundowns').select('*').eq('id', rundownId).eq('show_id', showId).single(),
+    supabase.from('shows').select('name, venue, date').eq('id', showId).single(),
+    supabase.from('cues')
+      .select('id, position, title, type, status, duration_seconds, presenter, color')
+      .eq('rundown_id', rundownId)
+      .order('position', { ascending: true }),
+  ])
 
-  if (!rundownRaw) return notFound()
-
-  const { data: showRaw } = await supabase
-    .from('shows')
-    .select('name, venue, date')
-    .eq('id', showId)
-    .single()
-
-  if (!showRaw) return notFound()
-
-  const { data: cues } = await supabase
-    .from('cues')
-    .select('id, position, title, type, status, duration_seconds, presenter, color')
-    .eq('rundown_id', rundownId)
-    .order('position', { ascending: true })
+  if (!rundownRaw || !showRaw) return notFound()
 
   return (
     <PublicStatusView

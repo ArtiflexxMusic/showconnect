@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp, Bell, Radio } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
-import { MicStatusBar } from './MicStatusBar'
+import { MicStatusBar, type MicDevice } from './MicStatusBar'
 import { ChatPanel } from './ChatPanel'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 
@@ -69,6 +69,10 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [crewName, setCrewName]           = useState('Crew')
   const [bottomTab, setBottomTab]         = useState<'chat' | 'notes'>('chat')
+
+  // ── Mic data — één keer geladen voor alle cues (performance) ─────────────
+  const [micDevices,   setMicDevices]   = useState<MicDevice[]>([])
+  const [micAssignMap, setMicAssignMap] = useState<Record<string, Set<string>>>({})
 
   const activeCue   = cues.find((c) => c.status === 'running')
   const pendingCues = cues.filter((c) => c.status === 'pending')
@@ -169,6 +173,77 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
 
     return () => { supabase.removeChannel(ch) }
   }, [rundown.id, supabase])
+
+  // ── Mic devices + assignments: 1× laden, 1× Realtime ────────────────────
+  useEffect(() => {
+    const cueIds = cues.map(c => c.id)
+
+    // Laad apparaten + alle toewijzingen parallel
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('audio_devices')
+        .select('id, name, color, channel')
+        .eq('show_id', show.id)
+        .order('name'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cueIds.length > 0
+        ? (supabase as any)
+            .from('cue_audio_assignments')
+            .select('cue_id, device_id')
+            .in('cue_id', cueIds)
+        : Promise.resolve({ data: [] }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ]).then(([{ data: devs }, { data: asgns }]: [{ data: MicDevice[] | null }, { data: { cue_id: string; device_id: string }[] | null }]) => {
+      setMicDevices(devs ?? [])
+      const map: Record<string, Set<string>> = {}
+      for (const a of (asgns ?? [])) {
+        if (!map[a.cue_id]) map[a.cue_id] = new Set()
+        map[a.cue_id].add(a.device_id)
+      }
+      setMicAssignMap(map)
+    })
+
+    // Eén Realtime-subscription voor alle toewijzingen (geen N× per cue)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const micCh = (supabase as any)
+      .channel(`crew-mic:${rundown.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cue_audio_assignments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          const { cue_id, device_id } = payload.new
+          setMicAssignMap(prev => {
+            const next = { ...prev }
+            next[cue_id] = new Set(next[cue_id] ?? [])
+            next[cue_id].add(device_id)
+            return next
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'cue_audio_assignments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          const { cue_id, device_id } = payload.old
+          setMicAssignMap(prev => {
+            if (!prev[cue_id]) return prev
+            const next = { ...prev }
+            next[cue_id] = new Set(next[cue_id])
+            next[cue_id].delete(device_id)
+            return next
+          })
+        }
+      )
+      .subscribe()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return () => { ;(supabase as any).removeChannel(micCh) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show.id, rundown.id, supabase]) // bewust GEEN `cues` dep — Realtime vangt wijzigingen op
 
   // Annotaties laden + user ophalen
   useEffect(() => {
@@ -317,7 +392,13 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
               </div>
             </div>
             {/* Mic status voor actieve cue */}
-            <MicStatusBar showId={show.id} cueId={activeCue.id} hideIfEmpty={true} />
+            <MicStatusBar
+              showId={show.id}
+              cueId={activeCue.id}
+              hideIfEmpty={true}
+              preloadedDevices={micDevices}
+              preloadedActiveIds={micAssignMap[activeCue.id] ?? new Set()}
+            />
           </div>
         )}
 
@@ -454,7 +535,13 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
 
                     {/* Mic toewijzingen voor deze cue */}
                     <div className="mt-2">
-                      <MicStatusBar showId={show.id} cueId={cue.id} hideIfEmpty={true} />
+                      <MicStatusBar
+                        showId={show.id}
+                        cueId={cue.id}
+                        hideIfEmpty={true}
+                        preloadedDevices={micDevices}
+                        preloadedActiveIds={micAssignMap[cue.id] ?? new Set()}
+                      />
                     </div>
                   </div>
 

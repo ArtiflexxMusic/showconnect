@@ -16,21 +16,12 @@ export default async function OutputPage({ params }: PageProps) {
   const { showId, rundownId } = await params
   const supabase = await createClient()
 
-  const { data: rundownRaw } = await supabase
-    .from('rundowns')
-    .select('*')
-    .eq('id', rundownId)
-    .single()
+  const [{ data: rundownRaw }, { data: showRaw }] = await Promise.all([
+    supabase.from('rundowns').select('*').eq('id', rundownId).single(),
+    supabase.from('shows').select('*').eq('id', showId).single(),
+  ])
 
-  if (!rundownRaw) return notFound()
-
-  const { data: showRaw } = await supabase
-    .from('shows')
-    .select('*')
-    .eq('id', showId)
-    .single()
-
-  if (!showRaw) return notFound()
+  if (!rundownRaw || !showRaw) return notFound()
 
   return (
     <StageOutputView

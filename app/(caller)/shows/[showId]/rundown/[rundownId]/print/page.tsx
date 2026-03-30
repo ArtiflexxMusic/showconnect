@@ -27,18 +27,13 @@ export default async function PrintPage({ params }: PageProps) {
   const { showId, rundownId } = await params
   const supabase = await createClient()
 
-  const { data: rundownRaw } = await supabase
-    .from('rundowns').select('*').eq('id', rundownId).single()
+  const [{ data: rundownRaw }, { data: showRaw }, { data: cuesRaw }] = await Promise.all([
+    supabase.from('rundowns').select('*').eq('id', rundownId).single(),
+    supabase.from('shows').select('*').eq('id', showId).single(),
+    supabase.from('cues').select('*').eq('rundown_id', rundownId).order('position', { ascending: true }),
+  ])
 
-  if (!rundownRaw) return notFound()
-
-  const { data: showRaw } = await supabase
-    .from('shows').select('*').eq('id', showId).single()
-
-  if (!showRaw) return notFound()
-
-  const { data: cuesRaw } = await supabase
-    .from('cues').select('*').eq('rundown_id', rundownId).order('position', { ascending: true })
+  if (!rundownRaw || !showRaw) return notFound()
 
   const rundown = rundownRaw as unknown as Rundown
   const show    = showRaw    as unknown as Show

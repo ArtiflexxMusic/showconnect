@@ -62,12 +62,14 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [chatAlert, setChatAlert]         = useState<string | null>(null)
   const [chatUnread, setChatUnread]       = useState(0)
 
-  // ── Toast queue voor mic-patch meldingen (meerdere tegelijk) ─────────────
-  const [micAlerts, setMicAlerts] = useState<{ id: number; msg: string }[]>([])
+  // ── Toast queue voor mic-patch meldingen (meerdere tegelijk, met fade-out) ─
+  const [micAlerts, setMicAlerts] = useState<{ id: number; msg: string; leaving: boolean }[]>([])
   const micAlertCounterRef = useRef(0)
   const addMicAlert = useCallback((msg: string) => {
     const id = ++micAlertCounterRef.current
-    setMicAlerts(prev => [...prev, { id, msg }])
+    setMicAlerts(prev => [...prev, { id, msg, leaving: false }])
+    // Start fade-out 500ms voor het echte verwijderen
+    setTimeout(() => setMicAlerts(prev => prev.map(a => a.id === id ? { ...a, leaving: true } : a)), 6500)
     setTimeout(() => setMicAlerts(prev => prev.filter(a => a.id !== id)), 7000)
   }, [])
 
@@ -160,11 +162,26 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         setTimeout(() => setNudgeMessage(null), 6000)
       })
       .on('broadcast', { event: 'mic_patch_change' }, (payload) => {
-        const { deviceName, cueName, added } = payload.payload ?? {}
+        const { deviceId, deviceName, cueId: pCueId, cueName, added } = payload.payload ?? {}
         const msg = added
           ? `🎤 ${deviceName} toegevoegd bij "${cueName}"`
           : `🎤 ${deviceName} verwijderd bij "${cueName}"`
         addMicAlert(msg)
+        // Update micAssignMap direct vanuit broadcast — betrouwbaarder dan postgres_changes DELETE
+        if (deviceId && pCueId) {
+          setMicAssignMap(prev => {
+            const next = { ...prev }
+            if (added) {
+              next[pCueId] = new Set(next[pCueId] ?? [])
+              next[pCueId].add(deviceId)
+            } else {
+              if (!next[pCueId]) return prev
+              next[pCueId] = new Set(next[pCueId])
+              next[pCueId].delete(deviceId)
+            }
+            return next
+          })
+        }
       })
       .subscribe()
 
@@ -340,7 +357,10 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         {micAlerts.map(a => (
           <div
             key={a.id}
-            className="pointer-events-auto flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer"
+            className={cn(
+              'pointer-events-auto flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer transition-all duration-500',
+              a.leaving ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'
+            )}
             onClick={() => setMicAlerts(prev => prev.filter(x => x.id !== a.id))}
           >
             <Radio className="h-4 w-4 shrink-0" />

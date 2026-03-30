@@ -229,13 +229,17 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   }
 
   // ── Broadcast mic patch wijziging naar crew ───────────────────────────────
-  async function broadcastMicChange(deviceName: string, cueName: string, added: boolean) {
+  async function broadcastMicChange(
+    deviceId: string, deviceName: string,
+    cueId: string, cueName: string,
+    added: boolean
+  ) {
     if (!broadcastRef.current) return
     try {
       await broadcastRef.current.send({
         type: 'broadcast',
         event: 'mic_patch_change',
-        payload: { deviceName, cueName, added },
+        payload: { deviceId, deviceName, cueId, cueName, added },
       })
     } catch (e) {
       console.warn('[MicPatchPanel] Broadcast mic patch wijziging mislukt:', e)
@@ -272,7 +276,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         setSaveError(`Fout: ${error.message ?? 'kon niet verwijderen'}`)
         setTimeout(() => setSaveError(null), 5000)
       } else {
-        broadcastMicChange(devName, cueName, false)
+        broadcastMicChange(deviceId, devName, cueId, cueName, false)
       }
     } else {
       // Optimistic: voeg toe met tijdelijk id
@@ -301,7 +305,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         setTimeout(() => setSaveError(null), 5000)
       } else {
         if (data) setAssignMap(prev => ({ ...prev, [key]: data as Assignment }))
-        broadcastMicChange(devName, cueName, true)
+        broadcastMicChange(deviceId, devName, cueId, cueName, true)
       }
     }
   }

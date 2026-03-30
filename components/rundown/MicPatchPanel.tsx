@@ -194,10 +194,30 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     await load()
   }
 
+  // ── Broadcast mic patch wijziging naar crew ───────────────────────────────
+  async function broadcastMicChange(deviceName: string, cueName: string, added: boolean) {
+    try {
+      const ch = supabase.channel(`rundown:${rundownId}`)
+      await ch.send({
+        type: 'broadcast',
+        event: 'mic_patch_change',
+        payload: { deviceName, cueName, added },
+      })
+    } catch {
+      // best-effort
+    }
+  }
+
   // ── Optimistic toggle — geen full reload, scroll blijft staan ─────────────
   async function toggleAssignment(cueId: string, deviceId: string) {
     const key = `${cueId}-${deviceId}`
     const existing = assignMap[key]
+
+    // Zoek namen voor de melding
+    const dev  = devices.find(d => d.id === deviceId)
+    const cue  = cues.find(c => c.id === cueId)
+    const devName = dev?.name ?? 'Apparaat'
+    const cueName = cue?.title ?? 'cue'
 
     if (existing) {
       // Optimistic: verwijder direct
@@ -213,8 +233,9 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         .eq('cue_id', cueId)
         .eq('device_id', deviceId)
       if (error) {
-        // Rollback op fout
         setAssignMap(prev => ({ ...prev, [key]: existing }))
+      } else {
+        broadcastMicChange(devName, cueName, false)
       }
     } else {
       // Optimistic: voeg toe met tijdelijk id
@@ -233,15 +254,14 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         .select()
         .single()
       if (error) {
-        // Rollback op fout
         setAssignMap(prev => {
           const next = { ...prev }
           delete next[key]
           return next
         })
-      } else if (data) {
-        // Vervang tijdelijk id met echte assignment
-        setAssignMap(prev => ({ ...prev, [key]: data as Assignment }))
+      } else {
+        if (data) setAssignMap(prev => ({ ...prev, [key]: data as Assignment }))
+        broadcastMicChange(devName, cueName, true)
       }
     }
   }

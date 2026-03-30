@@ -147,56 +147,27 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       })
       .subscribe()
 
-    // Mic patch wijzigingen — toon popup als er iets verandert tijdens de show
-    const cueIds = initialCues.map(c => c.id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const micChannel = (supabase as any)
-      .channel(`crew-mic:${rundown.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'cue_audio_assignments' },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async (payload: any) => {
-          if (!cueIds.includes(payload.new.cue_id)) return
-          // Haal apparaatnaam en cuenaam op voor de melding
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const [{ data: dev }, { data: cue }] = await Promise.all([
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (supabase as any).from('audio_devices').select('name').eq('id', payload.new.device_id).single(),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (supabase as any).from('cues').select('title').eq('id', payload.new.cue_id).single(),
-          ])
-          const msg = `🎤 ${dev?.name ?? 'Mic'} toegevoegd bij "${cue?.title ?? 'cue'}"`
-          setMicPatchAlert(msg)
-          setTimeout(() => setMicPatchAlert(null), 6000)
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'cue_audio_assignments' },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async (payload: any) => {
-          if (!cueIds.includes(payload.old.cue_id)) return
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const [{ data: dev }, { data: cue }] = await Promise.all([
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (supabase as any).from('audio_devices').select('name').eq('id', payload.old.device_id).single(),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (supabase as any).from('cues').select('title').eq('id', payload.old.cue_id).single(),
-          ])
-          const msg = `🎤 ${dev?.name ?? 'Mic'} verwijderd bij "${cue?.title ?? 'cue'}"`
-          setMicPatchAlert(msg)
-          setTimeout(() => setMicPatchAlert(null), 6000)
-        }
-      )
-      .subscribe()
-
     return () => {
       supabase.removeChannel(channel)
       supabase.removeChannel(nudgeChannel)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(supabase as any).removeChannel(micChannel)
     }
+  }, [rundown.id, supabase])
+
+  // ── Mic patch broadcast listener ─────────────────────────────────────────
+  useEffect(() => {
+    const ch = supabase
+      .channel(`rundown:${rundown.id}`)
+      .on('broadcast', { event: 'mic_patch_change' }, (payload) => {
+        const { deviceName, cueName, added } = payload.payload ?? {}
+        const msg = added
+          ? `🎤 ${deviceName} toegevoegd bij "${cueName}"`
+          : `🎤 ${deviceName} verwijderd bij "${cueName}"`
+        setMicPatchAlert(msg)
+        setTimeout(() => setMicPatchAlert(null), 7000)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(ch) }
   }, [rundown.id, supabase])
 
   // Annotaties laden + user ophalen

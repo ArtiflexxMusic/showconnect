@@ -123,6 +123,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
   const [showAlertModal, setShowAlertModal] = useState(false)
   const [alertSending, setAlertSending]     = useState(false)
+  const [customTimerInput, setCustomTimerInput] = useState('')
   const [mediaPlaying, setMediaPlaying]         = useState(false)
   const [mediaMuted, setMediaMuted]             = useState(false)
   const [mediaPaused, setMediaPaused]           = useState(false)
@@ -865,30 +866,75 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                 </p>
               </div>
 
-              {/* Tijd aanpassen knoppen */}
-              <div className="flex items-center justify-center gap-2 mb-2">
-                {[
-                  { label: '−1m', delta: -60 },
-                  { label: '−30s', delta: -30 },
-                  { label: '+30s', delta: +30 },
-                  { label: '+1m', delta: +60 },
-                ].map(({ label, delta }) => (
+              {/* Tijd aanpassen */}
+              <div className="flex flex-col items-center gap-2 mb-2">
+                {/* Preset knoppen */}
+                <div className="flex items-center gap-1.5">
+                  {[
+                    { label: '−5m', delta: -300 },
+                    { label: '−1m', delta: -60 },
+                    { label: '−30s', delta: -30 },
+                    { label: '+30s', delta: +30 },
+                    { label: '+1m', delta: +60 },
+                    { label: '+5m', delta: +300 },
+                  ].map(({ label, delta }) => (
+                    <button
+                      key={label}
+                      onClick={() => {
+                        const newDur = Math.max(5, activeCue.duration_seconds + delta)
+                        handleCueUpdate(activeCue.id, { duration_seconds: newDur })
+                      }}
+                      className={cn(
+                        'px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border transition-all',
+                        delta < 0
+                          ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+                          : 'border-green-500/30 text-green-400 hover:bg-green-500/10'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {/* Eigen tijd invullen */}
+                <form
+                  className="flex items-center gap-1.5"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    const raw = customTimerInput.trim()
+                    if (!raw) return
+                    // Accepteer: "90" (seconden), "1:30" (min:sec), "2m", "45s"
+                    let seconds = 0
+                    if (/^\d+:\d+$/.test(raw)) {
+                      const [m, s] = raw.split(':').map(Number)
+                      seconds = m * 60 + s
+                    } else if (/^\d+m$/i.test(raw)) {
+                      seconds = parseInt(raw) * 60
+                    } else if (/^\d+s$/i.test(raw)) {
+                      seconds = parseInt(raw)
+                    } else {
+                      seconds = parseInt(raw) || 0
+                    }
+                    if (seconds > 0) {
+                      handleCueUpdate(activeCue.id, { duration_seconds: seconds })
+                    }
+                    setCustomTimerInput('')
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={customTimerInput}
+                    onChange={e => setCustomTimerInput(e.target.value)}
+                    placeholder="bijv. 2:30 of 90s"
+                    className="w-28 bg-muted/40 border border-border/40 rounded-lg px-2 py-1 text-xs font-mono text-center placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  />
                   <button
-                    key={label}
-                    onClick={() => {
-                      const newDur = Math.max(5, activeCue.duration_seconds + delta)
-                      handleCueUpdate(activeCue.id, { duration_seconds: newDur })
-                    }}
-                    className={cn(
-                      'px-3 py-1 rounded-lg text-sm font-mono font-semibold border transition-all',
-                      delta < 0
-                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-                        : 'border-green-500/30 text-green-400 hover:bg-green-500/10'
-                    )}
+                    type="submit"
+                    disabled={!customTimerInput.trim()}
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border border-primary/30 text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
                   >
-                    {label}
+                    Stel in
                   </button>
-                ))}
+                </form>
               </div>
 
               {/* Voortgangsbalk */}

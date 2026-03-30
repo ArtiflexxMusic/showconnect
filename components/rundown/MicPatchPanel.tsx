@@ -74,9 +74,24 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   const [assignMap, setAssignMap] = useState<Record<string, Assignment>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  // Realtime channel ref
+  // Realtime channel ref (voor ontvangen van wijzigingen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const realtimeRef = useRef<any>(null)
+  // Broadcast channel ref — moet gesubscribed zijn voor .send() werkt
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const broadcastRef = useRef<any>(null)
+
+  // ── Broadcast channel — moet gesubscribed zijn vóór .send() ─────────────
+  useEffect(() => {
+    if (!open) return
+    const ch = supabase.channel(`rundown:${rundownId}`)
+    ch.subscribe()
+    broadcastRef.current = ch
+    return () => {
+      supabase.removeChannel(ch)
+      broadcastRef.current = null
+    }
+  }, [open, rundownId, supabase])
 
   // ── Initieel laden ────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -196,9 +211,9 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
 
   // ── Broadcast mic patch wijziging naar crew ───────────────────────────────
   async function broadcastMicChange(deviceName: string, cueName: string, added: boolean) {
+    if (!broadcastRef.current) return
     try {
-      const ch = supabase.channel(`rundown:${rundownId}`)
-      await ch.send({
+      await broadcastRef.current.send({
         type: 'broadcast',
         event: 'mic_patch_change',
         payload: { deviceName, cueName, added },
@@ -233,7 +248,10 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         .eq('cue_id', cueId)
         .eq('device_id', deviceId)
       if (error) {
+        // Rollback + toon fout
         setAssignMap(prev => ({ ...prev, [key]: existing }))
+        setSaveError(`Fout: ${error.message ?? 'kon niet verwijderen'}`)
+        setTimeout(() => setSaveError(null), 5000)
       } else {
         broadcastMicChange(devName, cueName, false)
       }
@@ -254,11 +272,14 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         .select()
         .single()
       if (error) {
+        // Rollback + toon fout
         setAssignMap(prev => {
           const next = { ...prev }
           delete next[key]
           return next
         })
+        setSaveError(`Fout: ${error.message ?? 'kon niet opslaan'}`)
+        setTimeout(() => setSaveError(null), 5000)
       } else {
         if (data) setAssignMap(prev => ({ ...prev, [key]: data as Assignment }))
         broadcastMicChange(devName, cueName, true)
@@ -339,6 +360,14 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Toewijzing per cue</h3>
                       <span className="text-xs text-muted-foreground/50">Klik op een cel om een mic aan of uit te zetten</span>
                     </div>
+
+                    {/* Foutmelding als een toggle mislukt */}
+                    {saveError && (
+                      <div className="flex items-center gap-2 mb-3 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        {saveError}
+                      </div>
+                    )}
 
                     {/* Horizontaal scrollbaar, maar de eerste kolom blijft sticky */}
                     <div className="overflow-x-auto rounded-lg border border-border/30">

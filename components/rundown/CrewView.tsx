@@ -76,14 +76,24 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
     : pendingCues[0] ?? null
 
   // Auto-scroll: houd de actieve cue in beeld met 1 cue context erboven
-  const cueRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const cueRefs   = useRef<Map<string, HTMLDivElement>>(new Map())
+  const headerRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!activeCue) return
-    const runningIdx = cues.findIndex(c => c.id === activeCue.id)
-    // Toon de cue erboven als die er is, anders de actieve cue zelf
-    const targetId = runningIdx > 0 ? cues[runningIdx - 1].id : activeCue.id
-    const el = cueRefs.current.get(targetId)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Kleine delay zodat DOM volledig geüpdatet is vóór we meten
+    const timer = setTimeout(() => {
+      const runningIdx = cues.findIndex(c => c.id === activeCue.id)
+      const targetId   = runningIdx > 0 ? cues[runningIdx - 1].id : activeCue.id
+      const el         = cueRefs.current.get(targetId)
+      if (!el) return
+      // Meet de werkelijke hoogte van de sticky header (varieert met/zonder actieve cue banner)
+      const headerHeight = headerRef.current?.offsetHeight ?? 120
+      const margin       = 12 // kleine ademruimte onder de header
+      const elementTop   = el.getBoundingClientRect().top + window.scrollY
+      window.scrollTo({ top: elementTop - headerHeight - margin, behavior: 'smooth' })
+    }, 80)
+    return () => clearTimeout(timer)
   }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const expectedTimes = calculateCueStartTimes(cues, rundown.show_start_time)
@@ -225,7 +235,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b border-border/50">
+      <div ref={headerRef} className="sticky top-0 z-10 bg-background border-b border-border/50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="min-w-0">
             <h1 className="font-bold text-sm truncate">{show.name}</h1>

@@ -27,11 +27,12 @@ interface SortableCueRowProps {
   bulkMode?: boolean
   selected?: boolean
   onSelect?: () => void
+  isNext?: boolean           // Eerste cue na de lopende cue
 }
 
 export function SortableCueRow({
   cue, index, expectedTime, onEdit, onDelete, onDuplicate, onStart, onSkip, onReset, locked = false,
-  bulkMode = false, selected = false, onSelect,
+  bulkMode = false, selected = false, onSelect, isNext = false,
 }: SortableCueRowProps) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging
@@ -47,6 +48,7 @@ export function SortableCueRow({
   const isRunning = cue.status === 'running'
   const isDone    = cue.status === 'done'
   const isSkipped = cue.status === 'skipped'
+  const isNextCue = isNext && !isRunning && cue.status === 'pending'
   const hasDetails = !!(cue.notes || cue.tech_notes || cue.presenter || cue.location || cue.media_filename || cue.presentation_filename)
 
   return (
@@ -57,18 +59,29 @@ export function SortableCueRow({
         'group relative rounded-md border border-transparent transition-all duration-150 overflow-hidden',
         isDragging  && 'shadow-2xl border-primary/50 bg-accent z-50',
         isRunning   && 'cue-running',
+        isNextCue   && 'border-amber-500/40 bg-amber-500/5',
         isDone      && 'opacity-50',
         isSkipped   && 'opacity-40',
         !isDragging && !selected && 'hover:bg-accent/30',
         selected    && 'border-primary/40 bg-primary/8'
       )}
     >
-      {/* Kleurlabel balk links */}
+      {/* Kleurlabel balk links / volgende-indicator */}
+      {isNextCue && !cue.color && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md bg-amber-500/60" />
+      )}
       {cue.color && (
         <div
           className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md"
           style={{ backgroundColor: cue.color }}
         />
+      )}
+      {/* "Volgende" badge */}
+      {isNextCue && (
+        <div className="absolute top-1.5 right-2 flex items-center gap-1 text-[9px] font-semibold tracking-widest uppercase text-amber-400/70">
+          <span className="w-1 h-1 rounded-full bg-amber-400/60 animate-pulse" />
+          Volgende
+        </div>
       )}
       <div className="rundown-grid px-2 py-2 items-center">
 

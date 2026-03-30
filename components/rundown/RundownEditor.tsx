@@ -112,6 +112,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [bulkTypeTarget, setBulkTypeTarget]             = useState<CueType | null>(null)
   const [companionStatus, setCompanionStatus]           = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
   const [elapsed, setElapsed]                           = useState(0)  // seconden verstreken voor lopende cue
+  const [reconnectCountdown, setReconnectCountdown]     = useState(0)  // seconden tot auto-reconnect
 
   // DnD sensors
   const sensors = useSensors(
@@ -181,6 +182,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
           setIsOnline(false)
           console.warn('[RundownEditor] Realtime verbinding verbroken, status:', status)
+          // Start afteller voor auto-reconnect (15 sec)
+          let remaining = 15
+          setReconnectCountdown(remaining)
+          const tick = setInterval(() => {
+            remaining -= 1
+            setReconnectCountdown(remaining)
+            if (remaining <= 0) {
+              clearInterval(tick)
+              setReconnectCountdown(0)
+              channel.subscribe()
+            }
+          }, 1000)
         }
       })
 
@@ -723,10 +736,23 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       if (e.key === 'a' || e.key === 'A') { e.preventDefault(); setShowAddModal(true) }
       if (e.key === '?') { e.preventDefault(); setShowShortcutHelp(v => !v) }
       if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null); setShowShortcutHelp(false); setShowSharePanel(false) }
+      // Spatiebalk: start volgende pending cue (GO)
+      if (e.key === ' ' && !rundown.is_locked) {
+        e.preventDefault()
+        setCues(prev => {
+          const runningIdx = prev.findIndex(c => c.status === 'running')
+          const next = runningIdx >= 0
+            ? prev.slice(runningIdx + 1).find(c => c.status === 'pending')
+            : prev.find(c => c.status === 'pending')
+          if (next) startCue(next.id)
+          return prev
+        })
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rundown.is_locked])
 
   // ── Live cue timer ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -895,10 +921,26 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* Status badges */}
-            <Badge variant="outline" className={cn('gap-1 text-xs', isOnline ? 'text-green-400 border-green-500/30' : 'text-red-400 border-red-500/30')}>
-              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isOnline ? 'Live' : 'Offline'}
-            </Badge>
+            {isOnline ? (
+              <Badge variant="outline" className="gap-1 text-xs text-green-400 border-green-500/30">
+                <Wifi className="h-3 w-3" /> Live
+              </Badge>
+            ) : (
+              <button
+                onClick={() => {
+                  setReconnectCountdown(0)
+                  channelRef.current?.subscribe()
+                }}
+                className="flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-2.5 py-0.5 text-xs text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                <WifiOff className="h-3 w-3" />
+                Offline
+                {reconnectCountdown > 0 && (
+                  <span className="text-red-400/60">· {reconnectCountdown}s</span>
+                )}
+                <span className="text-red-300 font-medium">Herverbinden</span>
+              </button>
+            )}
             <Badge variant="outline" className="gap-1 text-xs">
               <Users className="h-3 w-3" /> {connectedUsers}
             </Badge>
@@ -1396,27 +1438,34 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <SortableContext items={cues.map((c) => c.id)} strategy={verticalListSortingStrategy}>
             <div className="flex flex-col gap-px">
-              {filteredCues.map((cue) => {
-                const globalIndex = cues.findIndex((c) => c.id === cue.id)
-                return (
-                  <SortableCueRow
-                    key={cue.id}
-                    cue={cue}
-                    index={globalIndex}
-                    expectedTime={expectedTimes[globalIndex]}
-                    onEdit={rundown.is_locked || bulkMode ? undefined : () => setEditingCue(cue)}
-                    onDelete={rundown.is_locked || bulkMode ? undefined : () => deleteCue(cue.id)}
-                    onDuplicate={rundown.is_locked || bulkMode ? undefined : () => duplicateCue(cue)}
-                    onStart={() => startCue(cue.id)}
-                    onSkip={() => skipCue(cue.id)}
-                    onReset={() => resetCue(cue.id)}
-                    locked={rundown.is_locked}
-                    bulkMode={bulkMode}
-                    selected={selectedCues.has(cue.id)}
-                    onSelect={() => toggleCueSelection(cue.id)}
-                  />
-                )
-              })}
+              {(() => {
+                const runningIdx = cues.findIndex(c => c.status === 'running')
+                const nextCueId  = runningIdx >= 0
+                  ? cues.slice(runningIdx + 1).find(c => c.status === 'pending')?.id
+                  : undefined
+                return filteredCues.map((cue) => {
+                  const globalIndex = cues.findIndex((c) => c.id === cue.id)
+                  return (
+                    <SortableCueRow
+                      key={cue.id}
+                      cue={cue}
+                      index={globalIndex}
+                      expectedTime={expectedTimes[globalIndex]}
+                      isNext={cue.id === nextCueId}
+                      onEdit={rundown.is_locked || bulkMode ? undefined : () => setEditingCue(cue)}
+                      onDelete={rundown.is_locked || bulkMode ? undefined : () => deleteCue(cue.id)}
+                      onDuplicate={rundown.is_locked || bulkMode ? undefined : () => duplicateCue(cue)}
+                      onStart={() => startCue(cue.id)}
+                      onSkip={() => skipCue(cue.id)}
+                      onReset={() => resetCue(cue.id)}
+                      locked={rundown.is_locked}
+                      bulkMode={bulkMode}
+                      selected={selectedCues.has(cue.id)}
+                      onSelect={() => toggleCueSelection(cue.id)}
+                    />
+                  )
+                })
+              })()}
             </div>
           </SortableContext>
         </DndContext>

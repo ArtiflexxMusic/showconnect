@@ -26,16 +26,9 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, admin_permissions').eq('id', user.id).single()
+    .from('profiles').select('role').eq('id', user.id).single()
   if (!isPlatformAdmin(profile?.role)) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
-  }
-  // Admins need the 'change_plan' permission
-  if (profile?.role === 'admin') {
-    const perms = (profile.admin_permissions as string[] | null) ?? []
-    if (!perms.includes('change_plan')) {
-      return NextResponse.json({ error: 'Geen rechten voor plan-wijziging' }, { status: 403 })
-    }
   }
 
   const body = await request.json()

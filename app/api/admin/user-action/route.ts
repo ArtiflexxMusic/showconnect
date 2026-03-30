@@ -28,14 +28,13 @@ export async function POST(request: NextRequest) {
 
   const { data: myProfile } = await supabase
     .from('profiles')
-    .select('role, admin_permissions')
+    .select('role')
     .eq('id', me.id)
     .single()
 
   if (!isPlatformAdmin(myProfile?.role)) {
     return NextResponse.json({ error: 'Geen beheerderrechten' }, { status: 403 })
   }
-
 
   const body = await request.json() as {
     action: string
@@ -50,15 +49,6 @@ export async function POST(request: NextRequest) {
   const { action, userId } = body
   if (!action || !userId) {
     return NextResponse.json({ error: 'action en userId zijn verplicht' }, { status: 400 })
-  }
-
-  // Admins need 'edit_users' permission for profile field changes
-  const editActions = ['change_email', 'change_name', 'change_phone']
-  if (myProfile?.role === 'admin' && editActions.includes(action)) {
-    const perms = (myProfile.admin_permissions as string[] | null) ?? []
-    if (!perms.includes('edit_users')) {
-      return NextResponse.json({ error: 'Geen rechten voor gebruikersbewerking' }, { status: 403 })
-    }
   }
 
   // Admin client met service role voor Supabase Auth Admin API

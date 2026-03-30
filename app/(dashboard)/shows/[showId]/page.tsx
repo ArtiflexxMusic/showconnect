@@ -23,35 +23,32 @@ export default async function ShowPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: show } = await supabase
-    .from('shows').select('*').eq('id', showId).single()
+  // Alle queries parallel uitvoeren voor maximale snelheid
+  const [
+    { data: show },
+    { data: rundowns },
+    { data: members },
+    { data: invitations },
+    { data: profile },
+  ] = await Promise.all([
+    supabase.from('shows').select('*').eq('id', showId).single(),
+    supabase.from('rundowns')
+      .select('*, cues(count)')
+      .eq('show_id', showId)
+      .order('created_at', { ascending: true }),
+    supabase.from('show_members')
+      .select('*, profile:profiles!show_members_user_id_fkey(id, email, full_name, avatar_url)')
+      .eq('show_id', showId)
+      .order('created_at', { ascending: true }),
+    supabase.from('invitations')
+      .select('*')
+      .eq('show_id', showId)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false }),
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
+  ])
+
   if (!show) notFound()
-
-  // Rundowns met cue-count
-  const { data: rundowns } = await supabase
-    .from('rundowns')
-    .select('*, cues(count)')
-    .eq('show_id', showId)
-    .order('created_at', { ascending: true })
-
-  // Leden met profiel
-  const { data: members } = await supabase
-    .from('show_members')
-    .select('*, profile:profiles!show_members_user_id_fkey(id, email, full_name, avatar_url)')
-    .eq('show_id', showId)
-    .order('created_at', { ascending: true })
-
-  // Openstaande uitnodigingen
-  const { data: invitations } = await supabase
-    .from('invitations')
-    .select('*')
-    .eq('show_id', showId)
-    .is('accepted_at', null)
-    .order('created_at', { ascending: false })
-
-  // Huidige gebruikersrol in deze show
-  // Platform-beheerder en admin krijgen altijd owner-rechten zodat ze shows kunnen beheren
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
   const currentMember = (members ?? []).find(m => m.user_id === user.id)
 

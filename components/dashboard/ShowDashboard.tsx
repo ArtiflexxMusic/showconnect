@@ -151,103 +151,140 @@ export function ShowDashboard({
     <div className="max-w-3xl mx-auto">
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-5">
         <Link href="/dashboard" className="hover:text-foreground flex items-center gap-1 transition-colors">
-          <ChevronLeft className="h-3.5 w-3.5" /> Dashboard
+          <ChevronLeft className="h-3.5 w-3.5" /> Overzicht
         </Link>
       </div>
 
       {/* Show header */}
-      <div className="flex items-start justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">{show.name}</h1>
-          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
-            {show.date && (
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {formatDate(show.date)}
-              </span>
-            )}
-            {show.venue && (
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                {show.venue}
-              </span>
-            )}
-          </div>
-          {show.description && (
-            <p className="text-sm text-muted-foreground mt-2 max-w-xl">{show.description}</p>
+      <div className="mb-7">
+        {/* Titel + meta */}
+        <h1 className="text-3xl font-bold tracking-tight">{show.name}</h1>
+        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
+          {show.date && (
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {formatDate(show.date)}
+            </span>
+          )}
+          {show.venue && (
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />
+              {show.venue}
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1">
+        {show.description && (
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{show.description}</p>
+        )}
+
+        {/* Actie-toolbar */}
+        <div className="flex items-center gap-2 flex-wrap mt-5 pt-4 border-t border-border/40">
+
+          {/* Samenwerking-groep (Uitnodigen / Team / Cast) */}
+          <div className="flex items-center rounded-lg border border-border/60 bg-muted/20 overflow-hidden divide-x divide-border/40">
+            <div className="flex items-center">
+              <button
+                onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
+                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Uitnodigen
+              </button>
+              <span className="pr-1">
+                <InfoButton section="uitnodigen" text="Nodig collega's uit om de rundown mee te bewerken of mee te kijken." />
+              </span>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }}
+                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
+              >
+                <Users className="h-3.5 w-3.5" /> Team
+                {members.length > 0 && (
+                  <span className="ml-0.5 text-[10px] bg-primary/10 text-primary rounded-full px-1.5 py-0.5 leading-none font-semibold">
+                    {members.length}
+                  </span>
+                )}
+              </button>
+              <span className="pr-1">
+                <InfoButton section="uitnodigen" text="Bekijk en beheer alle teamleden en hun rollen." />
+              </span>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => setShowCast(true)}
+                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
+              >
+                <Radio className="h-3.5 w-3.5" /> Cast
+              </button>
+              <span className="pr-1">
+                <InfoButton section="cast" text="Voeg sprekers of artiesten toe met een 6-cijferige PIN — zonder account." />
+              </span>
+            </div>
+          </div>
+
+          {/* Scheiding */}
+          <div className="w-px h-5 bg-border/60 hidden sm:block" />
+
+          {/* Show-acties */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               variant="outline" size="sm"
-              onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
-              className="gap-2 text-primary border-primary/30 hover:bg-primary/10"
+              onClick={() => setEditShowOpen(true)}
+              className="gap-1.5 h-8 text-xs"
             >
-              <UserPlus className="h-3.5 w-3.5" />
-              Uitnodigen
+              <Pencil className="h-3.5 w-3.5" /> Bewerken
             </Button>
-            <InfoButton section="uitnodigen" text="Nodig collega's uit om de rundown mee te bewerken of mee te kijken." />
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={() => setShowCast(true)} className="gap-2">
-              <Radio className="h-3.5 w-3.5" />
-              Cast
-            </Button>
-            <InfoButton section="cast" text="Voeg sprekers of artiesten toe met een 6-cijferige PIN — zonder account." />
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }} className="gap-2">
-              <Users className="h-3.5 w-3.5" />
-              Team
-              {members.length > 0 && (
-                <span className="ml-0.5 text-xs bg-muted rounded-full px-1.5 py-0.5 leading-none">
-                  {members.length}
-                </span>
-              )}
-            </Button>
-            <InfoButton section="uitnodigen" text="Bekijk en beheer alle teamleden en hun rollen." />
-          </div>
-          <Button
-            variant="outline" size="sm"
-            className="gap-2"
-            onClick={async () => {
-              const url = `${window.location.origin}/p/${show.id}`
-              await navigator.clipboard.writeText(url)
-              setShareCopied(true)
-              setTimeout(() => setShareCopied(false), 2500)
-            }}
-          >
-            {sharecopied
-              ? <><Check className="h-3.5 w-3.5 text-emerald-400" /> Gekopieerd!</>
-              : <><Share2 className="h-3.5 w-3.5" /> Delen</>
-            }
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleDuplicateShow} disabled={duplicating} className="gap-2">
-            {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
-            Dupliceren
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setEditShowOpen(true)} className="gap-2">
-            <Pencil className="h-3.5 w-3.5" /> Bewerken
-          </Button>
-          {currentUserRole === 'owner' && (
             <Button
               variant="outline" size="sm"
-              className="gap-2 text-muted-foreground hover:text-foreground"
-              onClick={handleArchiveShow}
-              disabled={archiving}
-              title={show.archived_at ? 'Uit archief halen' : 'Show archiveren'}
+              onClick={handleDuplicateShow}
+              disabled={duplicating}
+              className="gap-1.5 h-8 text-xs"
             >
-              {archiving
+              {duplicating
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : show.archived_at
-                  ? <ArchiveRestore className="h-3.5 w-3.5" />
-                  : <Archive className="h-3.5 w-3.5" />
+                : <Copy className="h-3.5 w-3.5" />
               }
-              {show.archived_at ? 'Dearchiveren' : 'Archiveren'}
+              Dupliceren
             </Button>
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5 h-8 text-xs"
+              onClick={async () => {
+                const url = `${window.location.origin}/p/${show.id}`
+                await navigator.clipboard.writeText(url)
+                setShareCopied(true)
+                setTimeout(() => setShareCopied(false), 2500)
+              }}
+            >
+              {sharecopied
+                ? <><Check className="h-3.5 w-3.5 text-emerald-400" /> Gekopieerd!</>
+                : <><Share2 className="h-3.5 w-3.5" /> Delen</>
+              }
+            </Button>
+          </div>
+
+          {/* Archiveren (secundaire actie) */}
+          {currentUserRole === 'owner' && (
+            <>
+              <div className="w-px h-5 bg-border/60 hidden sm:block" />
+              <Button
+                variant="ghost" size="sm"
+                className="gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground"
+                onClick={handleArchiveShow}
+                disabled={archiving}
+                title={show.archived_at ? 'Uit archief halen' : 'Show archiveren'}
+              >
+                {archiving
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : show.archived_at
+                    ? <ArchiveRestore className="h-3.5 w-3.5" />
+                    : <Archive className="h-3.5 w-3.5" />
+                }
+                {show.archived_at ? 'Dearchiveren' : 'Archiveren'}
+              </Button>
+            </>
           )}
         </div>
       </div>

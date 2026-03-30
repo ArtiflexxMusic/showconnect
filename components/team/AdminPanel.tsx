@@ -18,10 +18,6 @@ import {
 } from '@/lib/plans'
 import type { Plan } from '@/lib/plans'
 import { cn } from '@/lib/utils'
-import {
-  ADMIN_PERMISSION_DEFS, ALL_PERMISSIONS, DEFAULT_ADMIN_PERMISSIONS,
-  type AdminPermission,
-} from '@/lib/admin-permissions'
 
 interface UserRow {
   id: string
@@ -36,7 +32,6 @@ interface UserRow {
   plan_expires_at: string | null
   trial_ends_at: string | null
   admin_notes?: string | null
-  admin_permissions?: string[] | null
 }
 
 interface ShowRow {
@@ -51,7 +46,6 @@ interface AdminPanelProps {
   users: UserRow[]
   shows: ShowRow[]
   currentUserRole: UserRole
-  currentUserPermissions: AdminPermission[]
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -434,7 +428,7 @@ function PlanDropdown({
 }
 
 // ── Hoofd component ──────────────────────────────────────────────────────────
-export function AdminPanel({ users: initialUsers, shows, currentUserRole, currentUserPermissions }: AdminPanelProps) {
+export function AdminPanel({ users: initialUsers, shows, currentUserRole }: AdminPanelProps) {
   const [users, setUsers]               = useState(initialUsers)
   const [changingRole, setChangingRole] = useState<string | null>(null)
   const [openMenu, setOpenMenu]         = useState<string | null>(null)
@@ -464,10 +458,6 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
   const [emailSubject, setEmailSubject]   = useState('')
   const [emailMessage, setEmailMessage]   = useState('')
   const [sendingEmail, setSendingEmail]   = useState(false)
-  // Admin-rechten bewerken
-  const [editingPermissions, setEditingPermissions] = useState<string | null>(null)
-  const [permissionsDraft, setPermissionsDraft]     = useState<AdminPermission[]>([])
-  const [savingPermissions, setSavingPermissions]   = useState(false)
 
   // Gebruikersacties
   const [actionLoading, setActionLoading] = useState<string | null>(null)  // userId
@@ -476,7 +466,6 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
   const [editValue, setEditValue]         = useState('')
 
   const isBeheerder = currentUserRole === 'beheerder'
-  const hasPermission = (p: AdminPermission) => currentUserPermissions.includes(p)
 
   const assignableRoles: UserRole[] = isBeheerder
     ? ['beheerder', 'admin', 'crew']
@@ -768,23 +757,6 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
     }
   }
 
-  // ── Admin-rechten opslaan ────────────────────────────────────────────────────
-  const savePermissions = async (userId: string) => {
-    setSavingPermissions(true)
-    const res = await fetch('/api/admin/save-permissions', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, permissions: permissionsDraft }),
-    })
-    if (res.ok) {
-      setUsers(prev => prev.map(u =>
-        u.id === userId ? { ...u, admin_permissions: permissionsDraft } : u
-      ))
-      setEditingPermissions(null)
-    }
-    setSavingPermissions(false)
-  }
-
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
@@ -803,25 +775,21 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
               : 'Beheer gebruikers en bekijk alle shows in CueBoard'}
           </p>
         </div>
-        {(hasPermission('view_charts') || isBeheerder) && (
+        {isBeheerder && (
           <div className="flex items-center gap-2">
-            {hasPermission('view_charts') && (
-              <button
-                onClick={() => setShowCharts(!showCharts)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md transition-colors ${showCharts ? 'bg-primary/10 text-primary border-primary/30' : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'}`}
-              >
-                <BarChart2 className="h-3.5 w-3.5" /> Grafieken
-              </button>
-            )}
-            {isBeheerder && (
-              <button
-                onClick={exportCsv}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground border border-border rounded-md hover:bg-muted/80 transition-colors"
-                title="Exporteer gebruikerslijst als CSV"
-              >
-                <Download className="h-3.5 w-3.5" /> CSV exporteren
-              </button>
-            )}
+            <button
+              onClick={() => setShowCharts(!showCharts)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md transition-colors ${showCharts ? 'bg-primary/10 text-primary border-primary/30' : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'}`}
+            >
+              <BarChart2 className="h-3.5 w-3.5" /> Grafieken
+            </button>
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground border border-border rounded-md hover:bg-muted/80 transition-colors"
+              title="Exporteer gebruikerslijst als CSV"
+            >
+              <Download className="h-3.5 w-3.5" /> CSV exporteren
+            </button>
           </div>
         )}
       </div>
@@ -872,7 +840,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
       </div>
 
       {/* Grafieken */}
-      {showCharts && hasPermission('view_charts') && (
+      {showCharts && isBeheerder && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -1012,7 +980,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
         </CardHeader>
         <CardContent className="p-0">
           {/* Bulk acties bar */}
-          {selectedUsers.size > 0 && hasPermission('change_plan') && (
+          {selectedUsers.size > 0 && isBeheerder && (
             <div className="flex items-center gap-3 px-6 py-2.5 bg-primary/5 border-b border-primary/20 flex-wrap">
               <span className="text-xs font-semibold text-primary">{selectedUsers.size} geselecteerd</span>
               <span className="w-px h-4 bg-border/60" />
@@ -1043,7 +1011,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
               <div key={user.id} className={cn('border-b border-border last:border-0', selectedUsers.has(user.id) && 'bg-primary/5')}>
               <div className="flex items-center gap-3 px-6 py-3.5 flex-wrap sm:flex-nowrap">
                 {/* Selectievakje */}
-                {hasPermission('change_plan') && (
+                {isBeheerder && (
                   <button
                     onClick={() => toggleUserSelect(user.id)}
                     className="shrink-0"
@@ -1100,7 +1068,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                 </div>
 
                 {/* Plan dropdown */}
-                {hasPermission('change_plan') && (
+                {isBeheerder && (
                   <PlanDropdown user={user} onUpdate={updatePlan} />
                 )}
 
@@ -1152,8 +1120,8 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                   )}
                 </div>
 
-                {/* Verwijder */}
-                {hasPermission('delete_users') && (
+                {/* Verwijder (alleen beheerder) */}
+                {isBeheerder && (
                   deleteConfirm === user.id ? (
                     <div className="flex items-center gap-1 shrink-0">
                       <button
@@ -1229,7 +1197,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                       ) : (
                         <span className="flex-1 truncate text-muted-foreground">{user.email}</span>
                       )}
-                      {editingField?.userId !== user.id && hasPermission('edit_users') && (
+                      {editingField?.userId !== user.id && (
                         <button onClick={() => { setEditingField({ userId: user.id, field: 'email' }); setEditValue(user.email) }} className="text-muted-foreground/50 hover:text-primary transition-colors" title="E-mail wijzigen">
                           <Edit2 className="h-3 w-3" />
                         </button>
@@ -1248,7 +1216,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                       ) : (
                         <span className="flex-1 truncate text-muted-foreground">{user.full_name ?? <em className="opacity-50">Geen naam</em>}</span>
                       )}
-                      {editingField?.userId !== user.id && hasPermission('edit_users') && (
+                      {editingField?.userId !== user.id && (
                         <button onClick={() => { setEditingField({ userId: user.id, field: 'name' }); setEditValue(user.full_name ?? '') }} className="text-muted-foreground/50 hover:text-primary transition-colors" title="Naam wijzigen">
                           <Edit2 className="h-3 w-3" />
                         </button>
@@ -1267,7 +1235,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                       ) : (
                         <span className="flex-1 truncate text-muted-foreground">{user.phone ?? <em className="opacity-50">Geen telefoon</em>}</span>
                       )}
-                      {editingField?.userId !== user.id && hasPermission('edit_users') && (
+                      {editingField?.userId !== user.id && (
                         <button onClick={() => { setEditingField({ userId: user.id, field: 'phone' }); setEditValue(user.phone ?? '') }} className="text-muted-foreground/50 hover:text-primary transition-colors" title="Telefoon wijzigen">
                           <Edit2 className="h-3 w-3" />
                         </button>
@@ -1276,7 +1244,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                   </div>
 
                   {/* Trial verlengen / verwijderen */}
-                  {hasPermission('extend_trial') && (
+                  {isBeheerder && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground font-medium">Trial:</span>
                       {[3, 7, 14, 30].map(d => (
@@ -1311,7 +1279,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                   )}
 
                   {/* Admin notities */}
-                  {hasPermission('admin_notes') && (
+                  {isBeheerder && (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <StickyNote className="h-3 w-3 text-muted-foreground" />
@@ -1357,90 +1325,6 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                     </div>
                   )}
 
-                  {/* Admin-rechten (alleen voor admin-gebruikers, alleen beheerder kan bewerken) */}
-                  {user.role === 'admin' && isBeheerder && (
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Key className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground">Admin-rechten</span>
-                          <span className="text-[10px] text-muted-foreground/60">
-                            ({((user.admin_permissions ?? []) as string[]).length} van {ALL_PERMISSIONS.length})
-                          </span>
-                        </div>
-                        {editingPermissions !== user.id ? (
-                          <button
-                            onClick={() => {
-                              setEditingPermissions(user.id)
-                              setPermissionsDraft(((user.admin_permissions ?? []) as string[]).filter(
-                                (p): p is AdminPermission => ALL_PERMISSIONS.includes(p as AdminPermission)
-                              ))
-                            }}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Bewerken
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => savePermissions(user.id)}
-                              disabled={savingPermissions}
-                              className="text-xs text-primary hover:underline disabled:opacity-50"
-                            >
-                              {savingPermissions ? 'Opslaan…' : 'Opslaan'}
-                            </button>
-                            <button
-                              onClick={() => setEditingPermissions(null)}
-                              className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                              Annuleren
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {ALL_PERMISSIONS.map(perm => {
-                          const def = ADMIN_PERMISSION_DEFS[perm]
-                          const isEditing = editingPermissions === user.id
-                          const isChecked = isEditing
-                            ? permissionsDraft.includes(perm)
-                            : ((user.admin_permissions ?? []) as string[]).includes(perm)
-                          return (
-                            <label
-                              key={perm}
-                              className={cn(
-                                'flex items-start gap-2 p-2 rounded-md border text-xs transition-colors',
-                                isEditing ? 'cursor-pointer hover:bg-muted/40' : 'cursor-default',
-                                isChecked
-                                  ? 'border-primary/30 bg-primary/5'
-                                  : 'border-border/40 bg-background/40 opacity-50'
-                              )}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={!isEditing}
-                                onChange={e => {
-                                  if (!isEditing) return
-                                  setPermissionsDraft(prev =>
-                                    e.target.checked
-                                      ? [...prev, perm]
-                                      : prev.filter(p => p !== perm)
-                                  )
-                                }}
-                                className="mt-0.5 h-3 w-3 accent-primary rounded border-border shrink-0"
-                              />
-                              <div className="min-w-0">
-                                <p className="font-medium leading-tight">{def.label}</p>
-                                <p className="text-muted-foreground text-[10px] leading-tight mt-0.5">{def.desc}</p>
-                              </div>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Actie-knoppen */}
                   <div className="flex flex-wrap gap-2">
                     {[
@@ -1464,7 +1348,7 @@ export function AdminPanel({ users: initialUsers, shows, currentUserRole, curren
                       </button>
                     ))}
                     {/* Direct e-mail sturen */}
-                    {hasPermission('send_email') && (
+                    {isBeheerder && (
                       <button
                         onClick={() => {
                           setEmailingUser(emailingUser === user.id ? null : user.id)

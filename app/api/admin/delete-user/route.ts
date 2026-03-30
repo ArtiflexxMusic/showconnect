@@ -22,16 +22,9 @@ export async function DELETE(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, admin_permissions').eq('id', user.id).single()
+    .from('profiles').select('role').eq('id', user.id).single()
   if (!isPlatformAdmin(profile?.role)) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
-  }
-  // Admins need the 'delete_users' permission
-  if (profile?.role === 'admin') {
-    const perms = (profile.admin_permissions as string[] | null) ?? []
-    if (!perms.includes('delete_users')) {
-      return NextResponse.json({ error: 'Geen rechten voor gebruikers verwijderen' }, { status: 403 })
-    }
   }
 
   const { userId } = await request.json()

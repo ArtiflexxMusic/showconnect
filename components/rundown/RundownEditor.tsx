@@ -68,9 +68,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const supabase = createClient()
   const router = useRouter()
 
-  const channelRef   = useRef<ReturnType<typeof supabase.channel> | null>(null)
-  const isDragging   = useRef(false)
-  const isFirstConn  = useRef(true)
+  const channelRef          = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const reconnectTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isDragging          = useRef(false)
+  const isFirstConn         = useRef(true)
 
   const [rundown, setRundown]           = useState<Rundown>(initialRundown)
   const [cues, setCues]                 = useState<Cue[]>(initialCues)
@@ -196,20 +197,31 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           // Start afteller voor auto-reconnect (15 sec)
           let remaining = 15
           setReconnectCountdown(remaining)
-          const tick = setInterval(() => {
+          reconnectTimerRef.current = setInterval(() => {
             remaining -= 1
             setReconnectCountdown(remaining)
             if (remaining <= 0) {
-              clearInterval(tick)
+              clearInterval(reconnectTimerRef.current ?? undefined)
+              reconnectTimerRef.current = null
               setReconnectCountdown(0)
               channel.subscribe()
             }
           }, 1000)
         }
+        // Verbinding hersteld: stop eventuele lopende afteller
+        if (status === 'SUBSCRIBED' && reconnectTimerRef.current) {
+          clearInterval(reconnectTimerRef.current)
+          reconnectTimerRef.current = null
+          setReconnectCountdown(0)
+        }
       })
 
     return () => {
       channelRef.current = null
+      if (reconnectTimerRef.current) {
+        clearInterval(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
       supabase.removeChannel(channel)
     }
   }, [rundown.id, userId, supabase])
@@ -227,15 +239,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
   // ── Profielnaam voor chat ────────────────────────────────────────────────
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('full_name, email')
-      .eq('id', userId)
-      .single()
-      .then(({ data }) => {
+    async function loadProfile() {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', userId)
+          .single()
         if (data?.full_name) setEditorName(data.full_name)
         else if (data?.email) setEditorName(data.email.split('@')[0])
-      })
+      } catch { /* profielnaam niet beschikbaar, standaard gebruiken */ }
+    }
+    loadProfile()
   }, [userId, supabase])
 
   // ── CRUD ────────────────────────────────────────────────────────────────
@@ -342,7 +357,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       status:           'pending' as const,
     }))
     const { error } = await supabase.from('cues').insert(rows)
-    if (error) { console.error('Import fout:', error); throw error }
+    if (error) {
+      console.error('Import fout:', error)
+      setSaveError(`Import mislukt: ${error.message}`)
+    }
     setIsSaving(false)
   }, [cues, rundown.id, supabase])
 
@@ -369,7 +387,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     }))
     if (rows.length > 0) {
       const { error } = await supabase.from('cues').insert(rows)
-      if (error) console.error('Template toepassen mislukt:', error)
+      if (error) {
+        console.error('Template toepassen mislukt:', error)
+        setSaveError(`Template toepassen mislukt: ${error.message}`)
+      }
     }
     setIsSaving(false)
   }, [cues, rundown.id, supabase])

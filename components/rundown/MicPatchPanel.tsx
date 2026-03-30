@@ -106,20 +106,27 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   // Gebruik cueIdsRef voor de query; load is nu stabiel.
   const load = useCallback(async () => {
     setLoading(true)
-    // Parallel laden — scheelt 200–500ms per request
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: devs }, { data: asgns }] = await Promise.all([
-      (supabase as any).from('audio_devices').select('*').eq('show_id', showId).order('name'),
-      (supabase as any).from('cue_audio_assignments').select('*').in('cue_id', cueIdsRef.current),
-    ])
-    setDevices(devs ?? [])
-    const map: Record<string, Assignment> = {}
-    ;(asgns ?? []).forEach((a: Assignment) => {
-      const key = `${a.cue_id}-${a.device_id}`
-      if (!map[key]) map[key] = a
-    })
-    setAssignMap(map)
-    setLoading(false)
+    try {
+      // Parallel laden — scheelt 200–500ms per request
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [{ data: devs, error: devErr }, { data: asgns, error: asgErr }] = await Promise.all([
+        (supabase as any).from('audio_devices').select('*').eq('show_id', showId).order('name'),
+        (supabase as any).from('cue_audio_assignments').select('*').in('cue_id', cueIdsRef.current),
+      ])
+      if (devErr) console.warn('[MicPatchPanel] Apparaten laden mislukt:', devErr)
+      if (asgErr) console.warn('[MicPatchPanel] Toewijzingen laden mislukt:', asgErr)
+      setDevices(devs ?? [])
+      const map: Record<string, Assignment> = {}
+      ;(asgns ?? []).forEach((a: Assignment) => {
+        const key = `${a.cue_id}-${a.device_id}`
+        if (!map[key]) map[key] = a
+      })
+      setAssignMap(map)
+    } catch (e) {
+      console.warn('[MicPatchPanel] Laden mislukt:', e)
+    } finally {
+      setLoading(false)
+    }
   }, [showId, supabase]) // geen cues — cueIdsRef is altijd actueel
 
   useEffect(() => {
@@ -230,8 +237,8 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         event: 'mic_patch_change',
         payload: { deviceName, cueName, added },
       })
-    } catch {
-      // best-effort
+    } catch (e) {
+      console.warn('[MicPatchPanel] Broadcast mic patch wijziging mislukt:', e)
     }
   }
 

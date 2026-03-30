@@ -174,15 +174,18 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
   // ── Profielnaam ophalen voor chat ────────────────────────────────────────
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('full_name, email')
-      .eq('id', userId)
-      .single()
-      .then(({ data }) => {
+    async function loadProfile() {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', userId)
+          .single()
         if (data?.full_name) setCallerName(data.full_name)
         else if (data?.email) setCallerName(data.email.split('@')[0])
-      })
+      } catch { /* profielnaam niet beschikbaar, standaard gebruiken */ }
+    }
+    loadProfile()
   }, [userId, supabase])
 
   // ── Supabase Realtime ────────────────────────────────────────────────────

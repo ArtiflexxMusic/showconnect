@@ -55,7 +55,9 @@ export function ChatPanel({ rundownId, senderName, senderRole, onClose, classNam
 
   // Huidige gebruiker ophalen
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => setUserId(user?.id ?? null))
+      .catch(() => { /* auth niet beschikbaar */ })
   }, [supabase])
 
   // Bestaande berichten laden

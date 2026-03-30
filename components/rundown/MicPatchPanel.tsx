@@ -93,13 +93,25 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     }
   }, [open, rundownId, supabase])
 
+  // ── Stabiele cue-ID ref — voorkomt herladen bij elke timer-tick ──────────
+  const cueIdsRef = useRef<string[]>(cues.map(c => c.id))
+  useEffect(() => {
+    const newIds = cues.map(c => c.id)
+    const changed = newIds.join(',') !== cueIdsRef.current.join(',')
+    if (changed) cueIdsRef.current = newIds
+  }, [cues])
+
   // ── Initieel laden ────────────────────────────────────────────────────────
+  // Geen 'cues' als dep — dat zou bij elke timer-tick herladen veroorzaken.
+  // Gebruik cueIdsRef voor de query; load is nu stabiel.
   const load = useCallback(async () => {
     setLoading(true)
+    // Parallel laden — scheelt 200–500ms per request
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: devs } = await (supabase as any).from('audio_devices').select('*').eq('show_id', showId).order('name')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: asgns } = await (supabase as any).from('cue_audio_assignments').select('*').in('cue_id', cues.map(c => c.id))
+    const [{ data: devs }, { data: asgns }] = await Promise.all([
+      (supabase as any).from('audio_devices').select('*').eq('show_id', showId).order('name'),
+      (supabase as any).from('cue_audio_assignments').select('*').in('cue_id', cueIdsRef.current),
+    ])
     setDevices(devs ?? [])
     const map: Record<string, Assignment> = {}
     ;(asgns ?? []).forEach((a: Assignment) => {
@@ -108,7 +120,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     })
     setAssignMap(map)
     setLoading(false)
-  }, [showId, cues, supabase])
+  }, [showId, supabase]) // geen cues — cueIdsRef is altijd actueel
 
   useEffect(() => {
     if (!open) return
@@ -117,9 +129,9 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
 
   // ── Realtime subscription op cue_audio_assignments ────────────────────────
   useEffect(() => {
-    if (!open || cues.length === 0) return
+    if (!open || cueIdsRef.current.length === 0) return
 
-    const cueIds = cues.map(c => c.id)
+    const cueIds = cueIdsRef.current
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ch = (supabase as any)
@@ -158,7 +170,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
       ;(supabase as any).removeChannel(ch)
       realtimeRef.current = null
     }
-  }, [open, rundownId, cues, supabase])
+  }, [open, rundownId, supabase]) // geen cues — subscription is stabiel zolang panel open is
 
   // ── Device CRUD ───────────────────────────────────────────────────────────
   function openAddDevice() {
@@ -381,22 +393,29 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
                             >
                               Apparaat
                             </th>
-                            {cues.map(cue => (
-                              <th key={cue.id} className="p-2 min-w-[4.5rem] max-w-[5.5rem] bg-background">
-                                <div className={cn(
-                                  'text-center leading-tight',
-                                  cue.status === 'running' ? 'text-emerald-400' :
-                                  cue.status === 'done'    ? 'text-muted-foreground/25' :
-                                  'text-muted-foreground/60'
-                                )}>
-                                  <div className="font-mono text-[10px] opacity-60">#{cue.position + 1}</div>
-                                  <div className="font-semibold truncate text-[11px] max-w-[4.5rem] mx-auto">{cue.title}</div>
-                                  {cue.status === 'running' && (
-                                    <div className="text-[9px] text-emerald-400/70 mt-0.5">● live</div>
-                                  )}
-                                </div>
-                              </th>
-                            ))}
+                            {cues.map(cue => {
+                              const hasMic = devices.some(dev => !!assignMap[`${cue.id}-${dev.id}`])
+                              return (
+                                <th key={cue.id} className="p-2 min-w-[4.5rem] max-w-[5.5rem] bg-background">
+                                  <div className={cn(
+                                    'text-center leading-tight',
+                                    cue.status === 'running' ? 'text-emerald-400' :
+                                    cue.status === 'done'    ? 'text-muted-foreground/25' :
+                                    hasMic                   ? 'text-green-400' :
+                                    'text-muted-foreground/60'
+                                  )}>
+                                    <div className="font-mono text-[10px] opacity-60">#{cue.position + 1}</div>
+                                    <div className="font-semibold truncate text-[11px] max-w-[4.5rem] mx-auto">{cue.title}</div>
+                                    {cue.status === 'running' && (
+                                      <div className="text-[9px] text-emerald-400/70 mt-0.5">● live</div>
+                                    )}
+                                    {cue.status !== 'running' && hasMic && (
+                                      <div className="text-[9px] text-green-400/70 mt-0.5">🎤</div>
+                                    )}
+                                  </div>
+                                </th>
+                              )
+                            })}
                           </tr>
                         </thead>
                         <tbody>

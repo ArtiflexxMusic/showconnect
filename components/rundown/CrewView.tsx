@@ -263,7 +263,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
       {/* Mic patch wijziging melding */}
       {micPatchAlert && (
         <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-blue-600 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
           style={{ top: nudgeMessage ? '5rem' : '1rem' }}
           onClick={() => setMicPatchAlert(null)}
         >

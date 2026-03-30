@@ -16,9 +16,16 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
+    .from('profiles').select('role, admin_permissions').eq('id', user.id).single()
   if (!profile || !['beheerder', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
+  }
+  // Admins need the 'extend_trial' permission
+  if (profile.role === 'admin') {
+    const perms = (profile.admin_permissions as string[] | null) ?? []
+    if (!perms.includes('extend_trial')) {
+      return NextResponse.json({ error: 'Geen rechten voor trial-beheer' }, { status: 403 })
+    }
   }
 
   const body = await request.json().catch(() => null)

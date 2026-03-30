@@ -508,6 +508,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     const now = new Date().toISOString()
     const runningCue = cues.find((c) => c.status === 'running')
     // Optimistic: pas status direct aan — geen wachten op Realtime
+    setElapsed(0)
     setCues(prev => prev.map(c => {
       if (c.id === runningCue?.id) return { ...c, status: 'done' as const }
       if (c.id === id)             return { ...c, status: 'running' as const, started_at: now }
@@ -824,7 +825,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     const running = cues.find(c => c.status === 'running')
     if (!running) { setElapsed(0); return }
     const startedAt = running.started_at ? new Date(running.started_at).getTime() : Date.now()
-    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000))
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)

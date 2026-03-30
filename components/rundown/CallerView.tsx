@@ -34,7 +34,8 @@ function useWallClock() {
   const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
     setNow(new Date())
-    const id = setInterval(() => setNow(new Date()), 1000)
+    // 250ms voor vloeiende countdown en directe reactie bij cue-start
+    const id = setInterval(() => setNow(new Date()), 250)
     return () => clearInterval(id)
   }, [])
   return now ?? new Date()
@@ -53,15 +54,17 @@ function formatShowClock(startedAt: Date | null, now: Date) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-function calcCountdown(cue: Cue, now: Date): number {
+// Gebruik altijd Date.now() voor berekeningen — 'now' triggert alleen re-renders.
+// Dit voorkomt de off-by-one die ontstaat als de 1s-ticker iets achteroploopt.
+function calcCountdown(cue: Cue, _now: Date): number {
   if (cue.status !== 'running' || !cue.started_at) return cue.duration_seconds
-  const elapsed = Math.floor((now.getTime() - new Date(cue.started_at).getTime()) / 1000)
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(cue.started_at).getTime()) / 1000))
   return Math.max(0, cue.duration_seconds - elapsed)
 }
 
-function calcProgress(cue: Cue, now: Date): number {
+function calcProgress(cue: Cue, _now: Date): number {
   if (cue.status !== 'running' || !cue.started_at) return 0
-  const elapsed = (now.getTime() - new Date(cue.started_at).getTime()) / 1000
+  const elapsed = Math.max(0, (Date.now() - new Date(cue.started_at).getTime()) / 1000)
   return Math.min(100, (elapsed / cue.duration_seconds) * 100)
 }
 
@@ -206,7 +209,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         (payload) => {
           const updated = payload.new as Cue
           setCues((prev) =>
-            prev.map((c) => (c.id === updated.id ? updated : c)).sort((a, b) => a.position - b.position)
+            prev.map((c) => {
+              if (c.id !== updated.id) return c
+              // Als we recentelijk zelf een duration geschreven hebben, negeer dan
+              // stale Realtime-events die een oudere duration_seconds meebrengen.
+              const lastWritten = lastWrittenDurationRef.current[c.id]
+              if (lastWritten !== undefined && updated.duration_seconds !== lastWritten) {
+                return { ...updated, duration_seconds: lastWritten }
+              }
+              return updated
+            }).sort((a, b) => a.position - b.position)
           )
         }
       )
@@ -444,10 +456,19 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     setTotalSlidesInCue(0) // Wordt opnieuw ingesteld zodra SlideViewer de PDF heeft geladen
   }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Bijhouden wat we zelf geschreven hebben (race condition fix) ──────────
+  // Voorkomt dat trage Realtime-events de optimistische update overschrijven.
+  const lastWrittenDurationRef = useRef<Record<string, number>>({})
+
   // ── Cue duration aanpassen (live timer ± knoppen) ────────────────────────
   const handleCueUpdate = useCallback(async (id: string, updates: Partial<{ duration_seconds: number }>) => {
+    if (updates.duration_seconds !== undefined) {
+      lastWrittenDurationRef.current[id] = updates.duration_seconds
+    }
     setCues(prev => prev.map(c => c.id === id ? { ...c, ...updates } as typeof c : c))
     await supabase.from('cues').update(updates as Record<string, unknown>).eq('id', id)
+    // Na de DB-write is de Realtime event onderweg — ref mag nu gecleared worden
+    delete lastWrittenDurationRef.current[id]
   }, [supabase])
 
   // ── Alert sturen ─────────────────────────────────────────────────────────
@@ -902,20 +923,25 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                     e.preventDefault()
                     const raw = customTimerInput.trim()
                     if (!raw) return
-                    // Accepteer: "90" (seconden), "1:30" (min:sec), "2m", "45s"
-                    let seconds = 0
+                    // Accepteer: "5" (minuten), "1:30" (min:sec), "2m", "45s"
+                    // De ingevoerde waarde = nieuwe resterende tijd
+                    let remainSeconds = 0
                     if (/^\d+:\d+$/.test(raw)) {
                       const [m, s] = raw.split(':').map(Number)
-                      seconds = m * 60 + s
+                      remainSeconds = m * 60 + s
                     } else if (/^\d+m$/i.test(raw)) {
-                      seconds = parseInt(raw) * 60
+                      remainSeconds = parseInt(raw) * 60
                     } else if (/^\d+s$/i.test(raw)) {
-                      seconds = parseInt(raw)
+                      remainSeconds = parseInt(raw)
                     } else {
-                      seconds = parseInt(raw) || 0
+                      // Kaal getal = minuten (meest intuïtief voor een caller)
+                      remainSeconds = (parseInt(raw) || 0) * 60
                     }
-                    if (seconds > 0) {
-                      handleCueUpdate(activeCue.id, { duration_seconds: seconds })
+                    if (remainSeconds > 0) {
+                      // Nieuwe totaalduur = verstreken tijd + gewenste resterende tijd
+                      const elapsed = activeCue.duration_seconds - countdown
+                      const newDur = Math.max(5, elapsed + remainSeconds)
+                      handleCueUpdate(activeCue.id, { duration_seconds: newDur })
                     }
                     setCustomTimerInput('')
                   }}
@@ -924,7 +950,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                     type="text"
                     value={customTimerInput}
                     onChange={e => setCustomTimerInput(e.target.value)}
-                    placeholder="bijv. 2:30 of 90s"
+                    placeholder="bijv. 5 of 2:30"
                     className="w-28 bg-muted/40 border border-border/40 rounded-lg px-2 py-1 text-xs font-mono text-center placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                   <button

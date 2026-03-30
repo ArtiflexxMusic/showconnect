@@ -158,7 +158,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
 
   // Snelle gastlink: maak anonieme member + link in één klik
   const [quickLinkLoading, setQuickLinkLoading] = useState(false)
-  const [quickLink, setQuickLink]               = useState<string | null>(null)
+  const [quickLink, setQuickLink]               = useState<{ token: string; pin: string } | null>(null)
 
   async function createQuickGuestLink() {
     setQuickLinkLoading(true)
@@ -177,7 +177,7 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
       show_id: showId,
       cast_member_id: member.id,
     }).select().single()
-    if (link) setQuickLink(link.token)
+    if (link) setQuickLink({ token: link.token, pin })
     await load()
     setQuickLinkLoading(false)
   }
@@ -254,31 +254,43 @@ export function CastMembersPanel({ showId, open, onClose }: CastMembersPanelProp
 
             {/* Snelle link resultaat */}
             {quickLink && (
-              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3">
-                <Link2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <code className="text-xs text-emerald-400 flex-1 truncate font-mono">
-                  /cast-login?magic={quickLink.slice(0, 16)}…
-                </code>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs gap-1 shrink-0"
-                  onClick={() => { navigator.clipboard.writeText(portalUrl(quickLink)); setCopied('quick'); setTimeout(() => setCopied(null), 2000) }}
-                >
-                  {copied === 'quick' ? <><Check className="h-3 w-3 text-emerald-400" /> Gekopieerd</> : <><Copy className="h-3 w-3" /> Kopieer</>}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 p-0 shrink-0"
-                  onClick={() => setQrToken(quickLink)}
-                  title="QR-code tonen"
-                >
-                  <QrCode className="h-3.5 w-3.5" />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0" onClick={() => setQuickLink(null)}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+              <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <code className="text-xs text-emerald-400 flex-1 truncate font-mono">
+                    /cast-login?magic={quickLink.token.slice(0, 16)}…
+                  </code>
+                  <Button
+                    size="sm" variant="ghost" className="h-7 text-xs gap-1 shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `${portalUrl(quickLink.token)}\nPIN: ${quickLink.pin}`
+                      )
+                      setCopied('quick')
+                      setTimeout(() => setCopied(null), 2000)
+                    }}
+                  >
+                    {copied === 'quick'
+                      ? <><Check className="h-3 w-3 text-emerald-400" /> Gekopieerd</>
+                      : <><Copy className="h-3 w-3" /> Kopieer link + PIN</>}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0"
+                    onClick={() => setQrToken(quickLink.token)} title="QR-code tonen">
+                    <QrCode className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0"
+                    onClick={() => setQuickLink(null)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {/* PIN duidelijk tonen */}
+                <div className="flex items-center gap-3 pt-1 border-t border-emerald-500/20">
+                  <span className="text-xs text-emerald-400/60">PIN voor de gast:</span>
+                  <code className="text-xl font-mono font-bold tracking-[0.3em] text-emerald-400">
+                    {quickLink.pin}
+                  </code>
+                  <span className="text-xs text-emerald-400/40">— stuur dit mee met de link</span>
+                </div>
               </div>
             )}
 

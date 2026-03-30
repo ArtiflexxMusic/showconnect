@@ -245,13 +245,19 @@ export function ChatToggleButton({ onClick, unread = 0, isOpen }: ChatToggleProp
         'relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
         isOpen
           ? 'bg-primary/20 text-primary'
+          : unread > 0
+          ? 'text-sky-400 bg-sky-500/10'
           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
       )}
     >
-      <MessageSquare className="h-3.5 w-3.5" />
+      {/* Pulserende ring als er ongelezen berichten zijn */}
+      {unread > 0 && !isOpen && (
+        <span className="absolute inset-0 rounded-lg animate-ping bg-sky-500/20 pointer-events-none" />
+      )}
+      <MessageSquare className={cn('h-3.5 w-3.5', unread > 0 && !isOpen && 'animate-bounce')} />
       <span>Chat</span>
       {unread > 0 && (
-        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-sky-500 text-white text-[10px] flex items-center justify-center font-bold">
           {unread > 9 ? '9+' : unread}
         </span>
       )}

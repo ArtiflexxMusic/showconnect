@@ -60,6 +60,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [showFilterBar, setShowFilterBar] = useState(false)
   const [nudgeMessage, setNudgeMessage]   = useState<string | null>(null)
   const [chatAlert, setChatAlert]         = useState<string | null>(null)
+  const [chatUnread, setChatUnread]       = useState(0)
 
   // ── Toast queue voor mic-patch meldingen (meerdere tegelijk) ─────────────
   const [micAlerts, setMicAlerts] = useState<{ id: number; msg: string }[]>([])
@@ -582,16 +583,30 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         {/* Tab balk */}
         <div className="flex items-center px-4 pt-2 gap-3">
           <button
-            onClick={() => setBottomTab(bottomTab === 'chat' ? 'notes' : 'chat')}
+            onClick={() => {
+              setBottomTab(bottomTab === 'chat' ? 'notes' : 'chat')
+              if (bottomTab !== 'chat') setChatUnread(0)
+            }}
             className={cn(
-              'flex items-center gap-1.5 text-xs pb-2 border-b-2 transition-colors',
+              'relative flex items-center gap-1.5 text-xs pb-2 border-b-2 transition-colors',
               bottomTab === 'chat'
                 ? 'border-primary text-primary font-medium'
+                : chatUnread > 0
+                ? 'border-sky-500 text-sky-400 font-medium'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
-            <MessageSquare className="h-3.5 w-3.5" />
+            {/* Pulserende ring bij ongelezen berichten */}
+            {chatUnread > 0 && bottomTab !== 'chat' && (
+              <span className="absolute -top-1 -left-0.5 h-2 w-2 rounded-full bg-sky-500 animate-ping" />
+            )}
+            <MessageSquare className={cn('h-3.5 w-3.5', chatUnread > 0 && bottomTab !== 'chat' && 'animate-bounce')} />
             Chat
+            {chatUnread > 0 && (
+              <span className="bg-sky-500/20 text-sky-400 rounded-full px-1.5 text-[10px] font-semibold">
+                {chatUnread > 9 ? '9+' : chatUnread}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setBottomTab(bottomTab === 'notes' ? 'chat' : 'notes')}
@@ -620,7 +635,8 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
           </button>
         </div>
 
-        {showAnnotations && bottomTab === 'chat' && (
+        {/* Altijd gemount zodat Realtime actief blijft, verborgen als tab dicht is */}
+        <div className={cn(!(showAnnotations && bottomTab === 'chat') && 'hidden')}>
           <ChatPanel
             rundownId={rundown.id}
             senderName={crewName}
@@ -630,9 +646,11 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
               const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
               setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
               setTimeout(() => setChatAlert(null), 6000)
+              const chatVisible = showAnnotations && bottomTab === 'chat'
+              if (!chatVisible) setChatUnread(prev => prev + 1)
             }}
           />
-        )}
+        </div>
 
         {showAnnotations && bottomTab === 'notes' && (
           <div className="border-t border-border/30 bg-background/95">

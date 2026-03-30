@@ -1686,22 +1686,21 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onClose={() => setShowMicPatch(false)}
       />
 
-      {/* ── Chat overlay ─────────────────────────────────────────────────── */}
-      {showChat && (
-        <div className="fixed bottom-16 right-6 z-50 w-80 shadow-2xl">
-          <ChatPanel
-            rundownId={rundown.id}
-            senderName={editorName}
-            senderRole="editor"
-            onClose={() => setShowChat(false)}
-            onNewMessage={(name, role, msg) => {
-              const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
-              setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
-              setTimeout(() => setChatAlert(null), 6000)
-            }}
-          />
-        </div>
-      )}
+      {/* ── Chat overlay — altijd gemount zodat Realtime actief blijft ── */}
+      <div className={cn('fixed bottom-16 right-6 z-50 w-80 shadow-2xl', !showChat && 'hidden')}>
+        <ChatPanel
+          rundownId={rundown.id}
+          senderName={editorName}
+          senderRole="editor"
+          onClose={() => setShowChat(false)}
+          onNewMessage={(name, role, msg) => {
+            const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
+            setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
+            setTimeout(() => setChatAlert(null), 6000)
+            if (!showChat) setChatUnread(prev => prev + 1)
+          }}
+        />
+      </div>
 
       {/* Sluit menu's bij klik buiten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (

@@ -1227,22 +1227,21 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
       )}
 
-      {/* ── Chat overlay ─────────────────────────────────────────────── */}
-      {showChat && (
-        <div className="absolute bottom-20 right-6 z-40 w-80 shadow-2xl">
-          <ChatPanel
-            rundownId={rundown.id}
-            senderName={callerName}
-            senderRole="caller"
-            onClose={() => setShowChat(false)}
-            onNewMessage={(name, role, msg) => {
-              const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
-              setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
-              setTimeout(() => setChatAlert(null), 6000)
-            }}
-          />
-        </div>
-      )}
+      {/* ── Chat overlay — altijd gemount zodat Realtime actief blijft ── */}
+      <div className={cn('absolute bottom-20 right-6 z-40 w-80 shadow-2xl', !showChat && 'hidden')}>
+        <ChatPanel
+          rundownId={rundown.id}
+          senderName={callerName}
+          senderRole="caller"
+          onClose={() => setShowChat(false)}
+          onNewMessage={(name, role, msg) => {
+            const label = { caller: 'Caller', editor: 'Editor', crew: 'Crew', admin: 'Admin' }[role] ?? role
+            setChatAlert(`💬 ${name} (${label}): ${msg.slice(0, 60)}${msg.length > 60 ? '…' : ''}`)
+            setTimeout(() => setChatAlert(null), 6000)
+            if (!showChat) setChatUnread(prev => prev + 1)
+          }}
+        />
+      </div>
 
       {/* ── Alert Modal ──────────────────────────────────────────────── */}
       {showAlertModal && (

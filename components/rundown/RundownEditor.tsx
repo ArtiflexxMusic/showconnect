@@ -765,6 +765,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     return () => clearInterval(interval)
   }, [cues])
 
+  // ── Auto-advance: start volgende cue als timer op 0 staat ───────────────
+  const autoAdvanceFired = useRef<string | null>(null) // voorkomt dubbel vuren
+  useEffect(() => {
+    const running = cues.find(c => c.status === 'running')
+    if (!running || !running.auto_advance) return
+    if (elapsed < running.duration_seconds) return
+    if (autoAdvanceFired.current === running.id) return // al gevuurd voor deze cue
+    autoAdvanceFired.current = running.id
+    const next = cues.find(c => c.position > running.position && c.status === 'pending')
+    if (next) startCue(next.id)
+  }, [elapsed, cues]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Drag & Drop ──────────────────────────────────────────────────────────
   function handleDragStart() {
     isDragging.current = true

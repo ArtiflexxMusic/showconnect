@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -74,6 +74,17 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const nextCue     = activeCue
     ? cues.find((c) => c.position > activeCue.position && c.status === 'pending')
     : pendingCues[0] ?? null
+
+  // Auto-scroll: houd de actieve cue in beeld met 1 cue context erboven
+  const cueRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  useEffect(() => {
+    if (!activeCue) return
+    const runningIdx = cues.findIndex(c => c.id === activeCue.id)
+    // Toon de cue erboven als die er is, anders de actieve cue zelf
+    const targetId = runningIdx > 0 ? cues[runningIdx - 1].id : activeCue.id
+    const el = cueRefs.current.get(targetId)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const expectedTimes = calculateCueStartTimes(cues, rundown.show_start_time)
 
@@ -313,6 +324,10 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
             return (
               <div
                 key={cue.id}
+                ref={el => {
+                  if (el) cueRefs.current.set(cue.id, el)
+                  else cueRefs.current.delete(cue.id)
+                }}
                 className={cn(
                   'rounded-xl border p-3.5 transition-all',
                   isRunning

@@ -21,15 +21,16 @@ import { CueLogPanel } from './CueLogPanel'
 import { ShortcutHelp } from './ShortcutHelp'
 import { MicPatchPanel } from './MicPatchPanel'
 import { ChatPanel, ChatToggleButton } from './ChatPanel'
+import { AlertModal, type AlertTarget } from './AlertModal'
 import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
 import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Plus, Users, Clock, ChevronLeft, Wifi, WifiOff, Radio,
-  Settings, Bell, BellRing, Filter, Printer, Monitor, Smartphone,
+  Settings, Bell, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
-  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Megaphone, Zap, Loader2, Download, Trash2, AlertCircle,
+  Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Zap, Loader2, Download, Trash2, AlertCircle,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -80,11 +81,18 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [isSaving, setIsSaving]         = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
-  const [nudgeActive, setNudgeActive]             = useState(false)
   const [nudgeMessage, setNudgeMessage]           = useState<string | null>(null)
-  const [pingPresenterActive, setPingPresenterActive] = useState(false)
+  const [showAlertModal, setShowAlertModal]       = useState(false)
+  const [alertSending, setAlertSending]           = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const presenterChannelRef = useRef<any>(null)
+  // Offline queue
+  const [networkOnline, setNetworkOnline]         = useState(true)
+  const [pendingCount, setPendingCount]           = useState(0)
+  type QueuedMutation =
+    | { type: 'updateCue'; id: string; updates: UpdateCueInput }
+    | { type: 'deleteCue'; id: string; cue: Cue }
+  const mutationQueueRef = useRef<QueuedMutation[]>([])
   const [showFilterMenu, setShowFilterMenu]     = useState(false)
   const [showViewMenu, setShowViewMenu]         = useState(false)
   const [showRundownMenu, setShowRundownMenu]   = useState(false)
@@ -159,10 +167,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           setCues((prev) => prev.filter((c) => c.id !== payload.old.id))
         }
       )
-      // Broadcast: nudges van andere gebruikers ontvangen
+      // Broadcast: alerts van andere gebruikers ontvangen
       .on('broadcast', { event: 'nudge' }, (payload) => {
-        setNudgeMessage(payload.payload?.message ?? '🔔 Nudge!')
-        setTimeout(() => setNudgeMessage(null), 4000)
+        const target = payload.payload?.target as string | undefined
+        // Editor is 'crew' — toon alleen als target crew of iedereen is
+        if (target === 'presenter') return
+        setNudgeMessage(payload.payload?.message ?? '🔔 Alert!')
+        setTimeout(() => setNudgeMessage(null), 5000)
       })
       .subscribe(async (status) => {
         setIsOnline(status === 'SUBSCRIBED')
@@ -371,6 +382,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     setCues((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } as Cue : c))
     )
+    // Offline: voeg toe aan queue, sla lokaal op
+    if (!networkOnline) {
+      mutationQueueRef.current = mutationQueueRef.current.filter(m => !(m.type === 'updateCue' && m.id === id))
+      mutationQueueRef.current.push({ type: 'updateCue', id, updates })
+      setPendingCount(mutationQueueRef.current.length)
+      setIsSaving(false)
+      setEditingCue(null)
+      return
+    }
     const { error } = await supabase.from('cues').update(updates).eq('id', id)
     if (error) {
       console.error('Fout bij updaten cue:', error)
@@ -394,6 +414,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     const removed = cues.find(c => c.id === id)
     setCues(prev => prev.filter(c => c.id !== id))
     setDeleteError(null)
+
+    // Offline: queue de delete
+    if (!networkOnline) {
+      if (removed) {
+        mutationQueueRef.current.push({ type: 'deleteCue', id, cue: removed })
+        setPendingCount(mutationQueueRef.current.length)
+        toast.success(`"${removed.title}" verwijderd (wordt gesynchroniseerd als je online bent)`)
+      }
+      return
+    }
 
     const { error, count } = await supabase
       .from('cues')
@@ -704,29 +734,64 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     }
   }, [rundown.id, supabase, router])
 
-  // ── Nudge sturen (naar crew/editor) ──────────────────────────────────────
-  const sendNudge = useCallback(async () => {
-    if (nudgeActive || !channelRef.current) return
-    setNudgeActive(true)
+  // ── Alert sturen (met bericht + doelgroep) ───────────────────────────────
+  const sendAlert = useCallback(async (message: string, target: AlertTarget) => {
+    if (!channelRef.current) return
+    setAlertSending(true)
+    // Broadcast op de rundown-channel — iedereen luistert hier
     await channelRef.current.send({
       type: 'broadcast',
       event: 'nudge',
-      payload: { from: userId, message: '🔔 Aandacht van de caller!' },
+      payload: { from: userId, message, target },
     })
-    setTimeout(() => setNudgeActive(false), 2000)
-  }, [nudgeActive, userId])
+    // Presenter luistert ook op een aparte channel — stuur ook daar naartoe
+    if ((target === 'presenter' || target === 'all') && presenterChannelRef.current) {
+      await presenterChannelRef.current.send({
+        type: 'broadcast',
+        event: 'nudge',
+        payload: { from: userId, message, target },
+      })
+    }
+    setAlertSending(false)
+    setShowAlertModal(false)
+    toast.success(`Alert verstuurd naar ${target === 'crew' ? 'crew' : target === 'presenter' ? 'presenter' : 'iedereen'}`)
+  }, [userId])
 
-  // ── Ping presenter (alarm naar het presenterscnerm) ───────────────────────
-  const pingPresenter = useCallback(async () => {
-    if (pingPresenterActive || !presenterChannelRef.current) return
-    setPingPresenterActive(true)
-    await presenterChannelRef.current.send({
-      type: 'broadcast',
-      event: 'nudge',
-      payload: { from: userId, message: '📢 Aandacht van de editor!' },
-    })
-    setTimeout(() => setPingPresenterActive(false), 2000)
-  }, [pingPresenterActive, userId])
+  // ── Offline detectie + mutation queue ───────────────────────────────────
+  useEffect(() => {
+    setNetworkOnline(navigator.onLine)
+
+    async function flushQueue() {
+      const queue = [...mutationQueueRef.current]
+      mutationQueueRef.current = []
+      setPendingCount(0)
+      for (const mutation of queue) {
+        try {
+          if (mutation.type === 'updateCue') {
+            await supabase.from('cues').update(mutation.updates).eq('id', mutation.id)
+          } else if (mutation.type === 'deleteCue') {
+            await supabase.from('cues').delete().eq('id', mutation.cue.id)
+          }
+        } catch (e) {
+          console.warn('[Offline queue] flush mislukt voor', mutation, e)
+        }
+      }
+      if (queue.length > 0) toast.success(`${queue.length} offline ${queue.length === 1 ? 'wijziging' : 'wijzigingen'} gesynchroniseerd`)
+    }
+
+    function handleOnline() {
+      setNetworkOnline(true)
+      flushQueue()
+    }
+    function handleOffline() { setNetworkOnline(false) }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [supabase])
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
@@ -831,11 +896,21 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   return (
     <div className="flex flex-col h-full gap-0 relative">
 
-      {/* ── Nudge melding ─────────────────────────────────────────────── */}
+      {/* ── Alert melding (ontvangen van anderen) ─────────────────────── */}
       {nudgeMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl animate-bounce text-sm">
-          {nudgeMessage}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-yellow-500 text-black font-bold px-5 py-3 rounded-full shadow-xl animate-bounce text-sm max-w-sm text-center">
+          <Bell className="h-4 w-4 shrink-0" />
+          <span>{nudgeMessage}</span>
         </div>
+      )}
+
+      {/* ── Alert Modal ───────────────────────────────────────────────── */}
+      {showAlertModal && (
+        <AlertModal
+          onClose={() => setShowAlertModal(false)}
+          onSend={sendAlert}
+          isSending={alertSending}
+        />
       )}
 
       {/* ── Reset bevestiging overlay ─────────────────────────────────── */}
@@ -1169,26 +1244,20 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                 isOpen={showChat}
               />
 
-              {/* Nudge crew */}
-              <Button size="sm" variant="outline" onClick={sendNudge} disabled={nudgeActive}
-                className={cn('gap-2', nudgeActive
-                  ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10'
-                  : 'text-muted-foreground')}
-                title="Ping crew (alarm naar alle verbonden gebruikers)">
-                {nudgeActive ? <BellRing className="h-3.5 w-3.5 animate-bounce" /> : <Bell className="h-3.5 w-3.5" />}
+              {/* Alert */}
+              <Button size="sm" variant="outline" onClick={() => setShowAlertModal(true)}
+                className="gap-2 text-muted-foreground hover:text-yellow-400 hover:border-yellow-500/40"
+                title="Alert sturen (eigen bericht naar crew of presenter)">
+                <Bell className="h-3.5 w-3.5" />
               </Button>
 
-              {/* Ping Presenter */}
-              <Button size="sm" variant="outline" onClick={pingPresenter} disabled={pingPresenterActive}
-                className={cn('gap-2', pingPresenterActive
-                  ? 'text-orange-400 border-orange-500/40 bg-orange-500/10'
-                  : 'text-muted-foreground')}
-                title="Ping Presenter (alarm naar het presenterscherm)">
-                {pingPresenterActive
-                  ? <Megaphone className="h-3.5 w-3.5 animate-bounce text-orange-400" />
-                  : <Megaphone className="h-3.5 w-3.5" />
-                }
-              </Button>
+              {/* Offline pending indicator */}
+              {pendingCount > 0 && (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs">
+                  <WifiOff className="h-3 w-3" />
+                  {pendingCount}
+                </div>
+              )}
 
               {/* Reset */}
               {hasRunningOrDone && (
@@ -1254,9 +1323,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left disabled:opacity-40">
                       <Camera className="h-3.5 w-3.5 text-muted-foreground" /> Versie opslaan
                     </button>
-                    <button onClick={() => { setShowMoreMenu(false); sendNudge() }}
+                    <button onClick={() => { setShowMoreMenu(false); setShowAlertModal(true) }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
-                      <Bell className="h-3.5 w-3.5 text-muted-foreground" /> Ping crew
+                      <Bell className="h-3.5 w-3.5 text-yellow-400" /> Alert sturen
                     </button>
                     <hr className="border-border/50 my-1" />
                     <button onClick={() => { setShowMoreMenu(false); setShowImportModal(true) }}
@@ -1320,20 +1389,41 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         const overrun   = remaining < 0
         return (
           <div className={cn(
-            'mx-4 mt-3 flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm',
+            'mx-4 mt-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
             overrun
               ? 'border-destructive/40 bg-destructive/10 text-destructive'
               : 'border-green-500/30 bg-green-500/10 text-green-400'
           )}>
             <Radio className="h-4 w-4 shrink-0 animate-pulse" />
-            <span className="font-medium truncate">{running.title}</span>
-            <span className="ml-auto shrink-0 font-mono tabular-nums">
+            <span className="font-medium truncate flex-1 min-w-0">{running.title}</span>
+            {/* Tijd aftrekken */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => updateCue(running.id, { duration_seconds: Math.max(5, running.duration_seconds - 60) })}
+                className="h-6 px-1.5 rounded text-xs font-mono border border-current/30 hover:bg-white/10 transition-colors"
+                title="−1 minuut">−1m</button>
+              <button
+                onClick={() => updateCue(running.id, { duration_seconds: Math.max(5, running.duration_seconds - 30) })}
+                className="h-6 px-1.5 rounded text-xs font-mono border border-current/30 hover:bg-white/10 transition-colors"
+                title="−30 seconden">−30s</button>
+            </div>
+            <span className="shrink-0 font-mono tabular-nums text-base font-bold">
               {overrun
                 ? `+${formatDuration(Math.abs(remaining))} over`
                 : formatDuration(remaining)
               }
             </span>
-            <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => updateCue(running.id, { duration_seconds: running.duration_seconds + 30 })}
+                className="h-6 px-1.5 rounded text-xs font-mono border border-current/30 hover:bg-white/10 transition-colors"
+                title="+30 seconden">+30s</button>
+              <button
+                onClick={() => updateCue(running.id, { duration_seconds: running.duration_seconds + 60 })}
+                className="h-6 px-1.5 rounded text-xs font-mono border border-current/30 hover:bg-white/10 transition-colors"
+                title="+1 minuut">+1m</button>
+            </div>
+            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden shrink-0">
               <div
                 className={cn('h-full rounded-full transition-all duration-1000', overrun ? 'bg-destructive' : 'bg-green-500')}
                 style={{ width: `${Math.min(100, (elapsed / running.duration_seconds) * 100)}%` }}

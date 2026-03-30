@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
 import {
   Mic, Plus, Trash2, Pencil, Loader2, AlertTriangle, Headphones,
   Volume2, Radio, Monitor,
@@ -58,24 +57,28 @@ function deviceTypeLabel(type: AudioDeviceType) {
 export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPatchPanelProps) {
   const supabase = createClient()
 
-  const [devices, setDevices]           = useState<AudioDevice[]>([])
-  const [assignments, setAssignments]   = useState<Assignment[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [saving, setSaving]             = useState(false)
+  const [devices, setDevices]         = useState<AudioDevice[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
   const [addDeviceOpen, setAddDeviceOpen] = useState(false)
-  const [editDevice, setEditDevice]     = useState<AudioDevice | null>(null)
+  const [editDevice, setEditDevice]   = useState<AudioDevice | null>(null)
 
   // Device form state
-  const [dName, setDName]     = useState('')
-  const [dType, setDType]     = useState<AudioDeviceType>('handheld')
+  const [dName, setDName]       = useState('')
+  const [dType, setDType]       = useState<AudioDeviceType>('handheld')
   const [dChannel, setDChannel] = useState('')
-  const [dColor, setDColor]   = useState(COLORS[0])
-  const [dNotes, setDNotes]   = useState('')
+  const [dColor, setDColor]     = useState(COLORS[0])
+  const [dNotes, setDNotes]     = useState('')
 
-  // Assignment state: { [cueId-deviceId]: assignment }  (één per cel, ongeacht fase)
+  // Assignment map: { [cueId-deviceId]: Assignment }
   const [assignMap, setAssignMap] = useState<Record<string, Assignment>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Realtime channel ref
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const realtimeRef = useRef<any>(null)
+
+  // ── Initieel laden ────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,19 +86,66 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: asgns } = await (supabase as any).from('cue_audio_assignments').select('*').in('cue_id', cues.map(c => c.id))
     setDevices(devs ?? [])
-    setAssignments(asgns ?? [])
-    // Gebruik cueId-deviceId als sleutel (fases samengevouwen)
     const map: Record<string, Assignment> = {}
     ;(asgns ?? []).forEach((a: Assignment) => {
       const key = `${a.cue_id}-${a.device_id}`
-      if (!map[key]) map[key] = a           // bewaar eerste match per device+cue
+      if (!map[key]) map[key] = a
     })
     setAssignMap(map)
     setLoading(false)
   }, [showId, cues, supabase])
 
-  useEffect(() => { if (open) load() }, [open, load])
+  useEffect(() => {
+    if (!open) return
+    load()
+  }, [open, load])
 
+  // ── Realtime subscription op cue_audio_assignments ────────────────────────
+  useEffect(() => {
+    if (!open || cues.length === 0) return
+
+    const cueIds = cues.map(c => c.id)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ch = (supabase as any)
+      .channel(`mic-patch:${rundownId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cue_audio_assignments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          const a = payload.new as Assignment
+          if (!cueIds.includes(a.cue_id)) return
+          const key = `${a.cue_id}-${a.device_id}`
+          setAssignMap(prev => ({ ...prev, [key]: a }))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'cue_audio_assignments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          const a = payload.old as Assignment
+          if (!cueIds.includes(a.cue_id)) return
+          const key = `${a.cue_id}-${a.device_id}`
+          setAssignMap(prev => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+        }
+      )
+      .subscribe()
+
+    realtimeRef.current = ch
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(supabase as any).removeChannel(ch)
+      realtimeRef.current = null
+    }
+  }, [open, rundownId, cues, supabase])
+
+  // ── Device CRUD ───────────────────────────────────────────────────────────
   function openAddDevice() {
     setEditDevice(null)
     setDName(''); setDType('handheld'); setDChannel(''); setDColor(COLORS[0]); setDNotes('')
@@ -130,10 +180,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
         const result = await (supabase as any).from('audio_devices').insert(payload)
         error = result.error
       }
-      if (error) {
-        setSaveError(error.message ?? 'Opslaan mislukt')
-        return
-      }
+      if (error) { setSaveError(error.message ?? 'Opslaan mislukt'); return }
       await load()
       setAddDeviceOpen(false)
     } finally {
@@ -147,32 +194,56 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
     await load()
   }
 
+  // ── Optimistic toggle — geen full reload, scroll blijft staan ─────────────
   async function toggleAssignment(cueId: string, deviceId: string) {
     const key = `${cueId}-${deviceId}`
     const existing = assignMap[key]
+
     if (existing) {
-      // Verwijder alle assignments voor dit apparaat + cue (ongeacht fase)
+      // Optimistic: verwijder direct
+      setAssignMap(prev => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      const { error } = await (supabase as any)
         .from('cue_audio_assignments')
         .delete()
         .eq('cue_id', cueId)
         .eq('device_id', deviceId)
+      if (error) {
+        // Rollback op fout
+        setAssignMap(prev => ({ ...prev, [key]: existing }))
+      }
     } else {
+      // Optimistic: voeg toe met tijdelijk id
+      const tempAssignment: Assignment = {
+        id: `temp-${Date.now()}`,
+        cue_id: cueId,
+        device_id: deviceId,
+        person_name: null,
+        phase: 'during',
+      }
+      setAssignMap(prev => ({ ...prev, [key]: tempAssignment }))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('cue_audio_assignments')
         .insert({ cue_id: cueId, device_id: deviceId, phase: 'during' })
+        .select()
+        .single()
+      if (error) {
+        // Rollback op fout
+        setAssignMap(prev => {
+          const next = { ...prev }
+          delete next[key]
+          return next
+        })
+      } else if (data) {
+        // Vervang tijdelijk id met echte assignment
+        setAssignMap(prev => ({ ...prev, [key]: data as Assignment }))
+      }
     }
-    await load()
-  }
-
-  // Conflict detectie: zelfde device, zelfde fase, overlappende cues (vereenvoudigd: consecutive running cues)
-  function hasConflict(deviceId: string, phase: string): string[] {
-    // Vind alle cues die dit device gebruiken in deze fase
-    const usedInCues = assignments.filter(a => a.device_id === deviceId && a.phase === phase).map(a => a.cue_id)
-    // Voor nu: geen echte overlap detectie, maar als device in >1 gelijktijdige cues — simpele check
-    return usedInCues
   }
 
   if (!open) return null
@@ -180,7 +251,7 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col p-0 gap-0">
           <DialogHeader className="shrink-0 px-6 pt-6 pb-4 border-b border-border/30">
             <DialogTitle className="flex items-center gap-2">
               <Mic className="h-5 w-5 text-blue-400" />
@@ -189,136 +260,147 @@ export function MicPatchPanel({ showId, rundownId, cues, open, onClose }: MicPat
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Laden…
-            </div>
-          ) : (
-            <div className="space-y-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Laden…
+              </div>
+            ) : (
+              <div className="space-y-6">
 
-              {/* Device beheer */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Apparaten</h3>
-                  <Button size="sm" onClick={openAddDevice} className="gap-1.5 h-7 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold">
-                    <Plus className="h-3.5 w-3.5" /> Apparaat toevoegen
-                  </Button>
+                {/* Device beheer */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Apparaten</h3>
+                    <Button size="sm" onClick={openAddDevice} className="gap-1.5 h-7 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold">
+                      <Plus className="h-3.5 w-3.5" /> Apparaat toevoegen
+                    </Button>
+                  </div>
+
+                  {devices.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-xl">
+                      <Mic className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Nog geen apparaten. Voeg een microfoon of IEM toe.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {devices.map(dev => {
+                        const Icon = deviceTypeIcon(dev.type)
+                        return (
+                          <div
+                            key={dev.id}
+                            className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 bg-muted/20"
+                            style={{ borderLeftColor: dev.color, borderLeftWidth: 3 }}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: dev.color }} />
+                            <span className="text-sm font-medium">{dev.name}</span>
+                            {dev.channel && (
+                              <span className="text-xs font-mono text-muted-foreground">ch.{dev.channel}</span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground/50">{deviceTypeLabel(dev.type)}</span>
+                            <div className="flex gap-1 ml-1">
+                              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => openEditDevice(dev)}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => deleteDevice(dev.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {devices.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border border-dashed border-border/50 rounded-xl">
-                    <Mic className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Nog geen apparaten. Voeg een microfoon of IEM toe.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {devices.map(dev => {
-                      const Icon = deviceTypeIcon(dev.type)
-                      return (
-                        <div
-                          key={dev.id}
-                          className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 bg-muted/20"
-                          style={{ borderLeftColor: dev.color, borderLeftWidth: 3 }}
-                        >
-                          <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: dev.color }} />
-                          <span className="text-sm font-medium">{dev.name}</span>
-                          {dev.channel && (
-                            <span className="text-xs font-mono text-muted-foreground">ch.{dev.channel}</span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground/50">{deviceTypeLabel(dev.type)}</span>
-                          <div className="flex gap-1 ml-1">
-                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => openEditDevice(dev)}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => deleteDevice(dev.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
+                {/* Cue × Device matrix */}
+                {devices.length > 0 && cues.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Toewijzing per cue</h3>
+                      <span className="text-xs text-muted-foreground/50">Klik op een cel om een mic aan of uit te zetten</span>
+                    </div>
+
+                    {/* Horizontaal scrollbaar, maar de eerste kolom blijft sticky */}
+                    <div className="overflow-x-auto rounded-lg border border-border/30">
+                      <table className="text-xs border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                        <thead>
+                          <tr className="border-b border-border/30">
+                            {/* Sticky header cel — apparaatnaam kolom */}
+                            <th
+                              className="text-left p-2 text-muted-foreground font-medium w-44 min-w-[11rem] bg-background"
+                              style={{ position: 'sticky', left: 0, zIndex: 2, boxShadow: '2px 0 4px rgba(0,0,0,0.15)' }}
+                            >
+                              Apparaat
+                            </th>
+                            {cues.map(cue => (
+                              <th key={cue.id} className="p-2 min-w-[4.5rem] max-w-[5.5rem] bg-background">
+                                <div className={cn(
+                                  'text-center leading-tight',
+                                  cue.status === 'running' ? 'text-emerald-400' :
+                                  cue.status === 'done'    ? 'text-muted-foreground/25' :
+                                  'text-muted-foreground/60'
+                                )}>
+                                  <div className="font-mono text-[10px] opacity-60">#{cue.position + 1}</div>
+                                  <div className="font-semibold truncate text-[11px] max-w-[4.5rem] mx-auto">{cue.title}</div>
+                                  {cue.status === 'running' && (
+                                    <div className="text-[9px] text-emerald-400/70 mt-0.5">● live</div>
+                                  )}
+                                </div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {devices.map(dev => (
+                            <tr key={dev.id} className="border-t border-border/20">
+                              {/* Sticky device-naam cel */}
+                              <td
+                                className="p-2 bg-background"
+                                style={{ position: 'sticky', left: 0, zIndex: 1, boxShadow: '2px 0 4px rgba(0,0,0,0.15)' }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: dev.color }} />
+                                  <span className="font-medium truncate max-w-[8rem]">{dev.name}</span>
+                                  {dev.channel && (
+                                    <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0">ch.{dev.channel}</span>
+                                  )}
+                                </div>
+                              </td>
+                              {cues.map(cue => {
+                                const key = `${cue.id}-${dev.id}`
+                                const isOn = !!assignMap[key]
+                                return (
+                                  <td key={cue.id} className="p-1 text-center">
+                                    <button
+                                      onClick={() => toggleAssignment(cue.id, dev.id)}
+                                      title={isOn ? `Uit: ${dev.name} bij "${cue.title}"` : `Aan: ${dev.name} bij "${cue.title}"`}
+                                      className={cn(
+                                        'h-7 w-full rounded-lg border transition-all duration-150 text-[11px] font-bold',
+                                        isOn
+                                          ? 'border-transparent text-white shadow-sm'
+                                          : 'bg-transparent border-border/20 hover:border-border/50 text-muted-foreground/30 hover:text-muted-foreground/50'
+                                      )}
+                                      style={isOn ? {
+                                        backgroundColor: dev.color + '30',
+                                        borderColor: dev.color + '70',
+                                        color: dev.color,
+                                        boxShadow: `0 0 6px ${dev.color}30`,
+                                      } : {}}
+                                    >
+                                      {isOn ? '●' : '○'}
+                                    </button>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Cue × Device matrix */}
-              {devices.length > 0 && cues.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Toewijzing per cue</h3>
-                    <span className="text-xs text-muted-foreground/50">Klik op een cel om een mic aan of uit te zetten bij een cue</span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="text-left p-2 text-muted-foreground font-medium w-44 min-w-[11rem]">Apparaat</th>
-                          {cues.map(cue => (
-                            <th key={cue.id} className="p-2 min-w-[4.5rem] max-w-[5.5rem]">
-                              <div className={cn(
-                                'text-center leading-tight',
-                                cue.status === 'running' ? 'text-emerald-400' :
-                                cue.status === 'done'    ? 'text-muted-foreground/25' :
-                                'text-muted-foreground/60'
-                              )}>
-                                <div className="font-mono text-[10px] opacity-60">#{cue.position + 1}</div>
-                                <div className="font-semibold truncate text-[11px] max-w-[4.5rem] mx-auto">{cue.title}</div>
-                                {cue.status === 'running' && (
-                                  <div className="text-[9px] text-emerald-400/70 mt-0.5">● live</div>
-                                )}
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {devices.map(dev => (
-                          <tr key={dev.id} className="border-t border-border/20">
-                            <td className="p-2">
-                              <div className="flex items-center gap-2">
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: dev.color }} />
-                                <span className="font-medium truncate max-w-[8rem]">{dev.name}</span>
-                                {dev.channel && (
-                                  <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0">ch.{dev.channel}</span>
-                                )}
-                              </div>
-                            </td>
-                            {cues.map(cue => {
-                              const key = `${cue.id}-${dev.id}`
-                              const isOn = !!assignMap[key]
-                              return (
-                                <td key={cue.id} className="p-1 text-center">
-                                  <button
-                                    onClick={() => toggleAssignment(cue.id, dev.id)}
-                                    title={isOn ? `Uit: ${dev.name} bij "${cue.title}"` : `Aan: ${dev.name} bij "${cue.title}"`}
-                                    className={cn(
-                                      'h-7 w-full rounded-lg border transition-all duration-150 text-[11px] font-bold',
-                                      isOn
-                                        ? 'border-transparent text-white shadow-sm'
-                                        : 'bg-transparent border-border/20 hover:border-border/50 text-muted-foreground/30 hover:text-muted-foreground/50'
-                                    )}
-                                    style={isOn ? {
-                                      backgroundColor: dev.color + '30',
-                                      borderColor: dev.color + '70',
-                                      color: dev.color,
-                                      boxShadow: `0 0 6px ${dev.color}30`,
-                                    } : {}}
-                                  >
-                                    {isOn ? '●' : '○'}
-                                  </button>
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            )}
           </div>
         </DialogContent>
       </Dialog>

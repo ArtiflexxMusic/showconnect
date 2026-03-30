@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, ChevronRight, SkipForward, Wifi, WifiOff,
-  Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell, BellRing,
+  Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell,
   Music, Video, Volume2, VolumeX, StopCircle, Monitor, Zap, ZapOff,
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
@@ -18,6 +18,7 @@ import { SlideViewer } from './SlideViewer'
 import { MicPatchPanel } from './MicPatchPanel'
 import { MicStatusBar } from './MicStatusBar'
 import { ChatPanel, ChatToggleButton } from './ChatPanel'
+import { AlertModal, type AlertTarget } from './AlertModal'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 
 interface CallerViewProps {
@@ -119,8 +120,9 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [sessionExpired, setSessionExpired] = useState(false)
   const [connectedUsers, setConnectedUsers] = useState(1)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [nudgeActive, setNudgeActive]   = useState(false)
   const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
+  const [showAlertModal, setShowAlertModal] = useState(false)
+  const [alertSending, setAlertSending]     = useState(false)
   const [mediaPlaying, setMediaPlaying]         = useState(false)
   const [mediaMuted, setMediaMuted]             = useState(false)
   const [mediaPaused, setMediaPaused]           = useState(false)
@@ -214,10 +216,13 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           setCues((prev) => prev.filter((c) => c.id !== payload.old.id))
         }
       )
-      // Nudges ontvangen
+      // Alerts ontvangen
       .on('broadcast', { event: 'nudge' }, (payload) => {
-        setNudgeMessage(payload.payload?.message ?? '🔔 Nudge!')
-        setTimeout(() => setNudgeMessage(null), 4000)
+        const target = payload.payload?.target as string | undefined
+        // Caller is crew — toon alleen als target crew of iedereen is
+        if (target === 'presenter') return
+        setNudgeMessage(payload.payload?.message ?? '🔔 Alert!')
+        setTimeout(() => setNudgeMessage(null), 6000)
       })
       .subscribe(async (status) => {
         setIsOnline(status === 'SUBSCRIBED')
@@ -237,8 +242,10 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     const nudgeChannel = supabase
       .channel(`rundown:${rundown.id}`)
       .on('broadcast', { event: 'nudge' }, (payload) => {
-        setNudgeMessage(payload.payload?.message ?? '🔔 Nudge!')
-        setTimeout(() => setNudgeMessage(null), 4000)
+        const target = payload.payload?.target as string | undefined
+        if (target === 'presenter') return
+        setNudgeMessage(payload.payload?.message ?? '🔔 Alert!')
+        setTimeout(() => setNudgeMessage(null), 6000)
       })
       .subscribe()
 
@@ -436,25 +443,40 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     setTotalSlidesInCue(0) // Wordt opnieuw ingesteld zodra SlideViewer de PDF heeft geladen
   }, [activeCue?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Nudge sturen ─────────────────────────────────────────────────────────
-  const sendNudge = useCallback(async () => {
-    if (nudgeActive) return
-    setNudgeActive(true)
-    // Stuur op de gedeelde rundown-channel zodat ook CrewView het ontvangt
+  // ── Cue duration aanpassen (live timer ± knoppen) ────────────────────────
+  const handleCueUpdate = useCallback(async (id: string, updates: Partial<{ duration_seconds: number }>) => {
+    setCues(prev => prev.map(c => c.id === id ? { ...c, ...updates } as typeof c : c))
+    await supabase.from('cues').update(updates as Record<string, unknown>).eq('id', id)
+  }, [supabase])
+
+  // ── Alert sturen ─────────────────────────────────────────────────────────
+  const sendAlert = useCallback(async (message: string, target: AlertTarget) => {
+    setAlertSending(true)
+    // Stuur op de gedeelde rundown-channel
     const channel = supabase.channel(`rundown:${rundown.id}`)
     await channel.send({
       type: 'broadcast',
       event: 'nudge',
-      payload: { from: userId, message: '🔔 Aandacht van de caller!' },
+      payload: { from: userId, message, target },
     })
-    // Stuur ook push notificatie (best-effort, voor leden met app in achtergrond)
+    // Presenter apart aanspreken als nodig
+    if (target === 'presenter' || target === 'all') {
+      const presenterCh = supabase.channel(`presenter:${rundown.id}`)
+      await presenterCh.send({
+        type: 'broadcast',
+        event: 'nudge',
+        payload: { from: userId, message, target },
+      })
+    }
+    // Push notificatie (best-effort)
     fetch('/api/push/nudge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rundownId: rundown.id }),
+      body: JSON.stringify({ rundownId: rundown.id, message }),
     }).catch(() => {})
-    setTimeout(() => setNudgeActive(false), 2000)
-  }, [nudgeActive, rundown.id, userId, supabase])
+    setAlertSending(false)
+    setShowAlertModal(false)
+  }, [rundown.id, userId, supabase])
 
   const autoAdvanceRef   = useRef(false)
   const beepedAt30Ref    = useRef(false)
@@ -502,11 +524,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       if (e.code === 'ArrowRight' || e.code === 'ArrowDown') { e.preventDefault(); handleGo() }
       if (e.code === 'ArrowLeft' || e.code === 'ArrowUp')    { e.preventDefault(); handlePrev() }
       if (e.code === 'KeyS')                         { e.preventDefault(); handleSkip() }
-      if (e.code === 'KeyN')                         { e.preventDefault(); sendNudge() }
+      if (e.code === 'KeyN')                         { e.preventDefault(); setShowAlertModal(true) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleGo, handlePrev, handleSkip, sendNudge])
+  }, [handleGo, handlePrev, handleSkip, setShowAlertModal])
 
   // ── Media afspelen bij actieve cue ───────────────────────────────────────
   useEffect(() => {
@@ -624,10 +646,14 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         <div className="pointer-events-none absolute inset-0 z-[60] bg-orange-500/30 animate-pulse" />
       )}
 
-      {/* ── Nudge melding ────────────────────────────────────────────── */}
+      {/* ── Alert melding ────────────────────────────────────────────── */}
       {nudgeMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl text-sm animate-bounce">
-          {nudgeMessage}
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-yellow-500 text-black font-bold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[85vw] cursor-pointer"
+          onClick={() => setNudgeMessage(null)}
+        >
+          <Bell className="h-4 w-4 shrink-0 animate-bounce" />
+          <span className="break-words">{nudgeMessage}</span>
         </div>
       )}
 
@@ -702,18 +728,14 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             isOpen={showChat}
           />
 
-          {/* Nudge knop */}
+          {/* Alert knop */}
           <Button
             variant="ghost" size="sm"
-            onClick={sendNudge}
-            disabled={nudgeActive}
-            className={cn('gap-1.5 h-8', nudgeActive && 'text-yellow-400')}
-            title="Ping crew (N)"
+            onClick={() => setShowAlertModal(true)}
+            className="gap-1.5 h-8 hover:text-yellow-400"
+            title="Alert sturen (N)"
           >
-            {nudgeActive
-              ? <BellRing className="h-4 w-4 animate-bounce" />
-              : <Bell className="h-4 w-4" />
-            }
+            <Bell className="h-4 w-4" />
           </Button>
 
           {/* Media-indicator */}
@@ -830,7 +852,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               <h2 className="text-3xl font-bold mb-5 leading-tight">{activeCue.title}</h2>
 
               {/* Countdown — het hart van de interface */}
-              <div className="text-center mb-3">
+              <div className="text-center mb-2">
                 <span className={cn(
                   'text-9xl font-mono font-black tabular-nums leading-none block',
                   countdownColor(countdown, activeCue.duration_seconds),
@@ -838,9 +860,35 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                 )}>
                   {formatDuration(countdown)}
                 </span>
-                <p className="text-sm text-muted-foreground mt-2 font-mono">
+                <p className="text-sm text-muted-foreground mt-1 font-mono">
                   {formatDuration(activeCue.duration_seconds)} totaal
                 </p>
+              </div>
+
+              {/* Tijd aanpassen knoppen */}
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {[
+                  { label: '−1m', delta: -60 },
+                  { label: '−30s', delta: -30 },
+                  { label: '+30s', delta: +30 },
+                  { label: '+1m', delta: +60 },
+                ].map(({ label, delta }) => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      const newDur = Math.max(5, activeCue.duration_seconds + delta)
+                      handleCueUpdate(activeCue.id, { duration_seconds: newDur })
+                    }}
+                    className={cn(
+                      'px-3 py-1 rounded-lg text-sm font-mono font-semibold border transition-all',
+                      delta < 0
+                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+                        : 'border-green-500/30 text-green-400 hover:bg-green-500/10'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
               {/* Voortgangsbalk */}
@@ -1100,6 +1148,15 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             onClose={() => setShowChat(false)}
           />
         </div>
+      )}
+
+      {/* ── Alert Modal ──────────────────────────────────────────────── */}
+      {showAlertModal && (
+        <AlertModal
+          onClose={() => setShowAlertModal(false)}
+          onSend={sendAlert}
+          isSending={alertSending}
+        />
       )}
     </div>
   )

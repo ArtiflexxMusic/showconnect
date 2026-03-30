@@ -165,13 +165,16 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
         })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cues', filter: `rundown_id=eq.${rundown.id}` },
         (payload) => setCues(prev => prev.filter(c => c.id !== payload.old.id)))
-      // Nudge/alarm van editor of caller
+      // Alert van editor of caller
       .on('broadcast', { event: 'nudge' }, (payload) => {
-        const msg = payload.payload?.message ?? '🔔 Aandacht!'
+        const target = payload.payload?.target as string | undefined
+        // Presenter toont alerts voor presenter of iedereen (niet puur crew)
+        if (target === 'crew') return
+        const msg = payload.payload?.message ?? '🔔 Alert!'
         setNudgeMsg(msg)
         setNudgeFlash(true)
-        setTimeout(() => setNudgeFlash(false), 800)
-        setTimeout(() => setNudgeMsg(null), 4000)
+        setTimeout(() => setNudgeFlash(false), 1000)
+        setTimeout(() => setNudgeMsg(null), 6000)
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -479,11 +482,14 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
       {nudgeFlash && (
         <div className="pointer-events-none absolute inset-0 z-[70] bg-yellow-400/40 animate-pulse" />
       )}
-      {/* ── Nudge melding ───────────────────────────────────────────────── */}
+      {/* ── Alert melding ───────────────────────────────────────────────── */}
       {nudgeMsg && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl text-base animate-bounce">
-          <Bell className="h-5 w-5" />
-          {nudgeMsg}
+        <div
+          className="absolute top-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-yellow-500 text-black font-bold px-6 py-4 rounded-xl shadow-2xl text-lg max-w-[85vw] cursor-pointer"
+          onClick={() => setNudgeMsg(null)}
+        >
+          <Bell className="h-6 w-6 shrink-0 animate-bounce" />
+          <span className="break-words">{nudgeMsg}</span>
         </div>
       )}
       {toolbar}{progressBar}

@@ -45,12 +45,14 @@ export function MicStatusBar({ showId, cueId, hideIfEmpty = false }: MicStatusBa
       })
   }, [showId, supabase])
 
-  // Laad assignments voor de actieve cue
+  // Laad assignments voor de actieve cue + Realtime sync
   useEffect(() => {
     if (!cueId) {
       setActiveIds(new Set())
       return
     }
+
+    // Initieel laden
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(supabase as any)
       .from('cue_audio_assignments')
@@ -59,6 +61,37 @@ export function MicStatusBar({ showId, cueId, hideIfEmpty = false }: MicStatusBa
       .then(({ data }: { data: { device_id: string }[] | null }) => {
         setActiveIds(new Set((data ?? []).map(a => a.device_id)))
       })
+
+    // Realtime: luister naar wijzigingen voor deze cue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ch = (supabase as any)
+      .channel(`mic-status:${cueId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cue_audio_assignments', filter: `cue_id=eq.${cueId}` },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          setActiveIds(prev => new Set([...prev, payload.new.device_id]))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'cue_audio_assignments', filter: `cue_id=eq.${cueId}` },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (payload: any) => {
+          setActiveIds(prev => {
+            const next = new Set(prev)
+            next.delete(payload.old.device_id)
+            return next
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(supabase as any).removeChannel(ch)
+    }
   }, [cueId, supabase])
 
   if (devices.length === 0) return null

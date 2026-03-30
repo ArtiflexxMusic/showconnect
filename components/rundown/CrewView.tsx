@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp } from 'lucide-react'
+import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Cue, Rundown, Show, CueType } from '@/lib/types/database'
 import { MicStatusBar } from './MicStatusBar'
@@ -138,8 +138,11 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
     const nudgeChannel = supabase
       .channel(`rundown:${rundown.id}`)
       .on('broadcast', { event: 'nudge' }, (payload) => {
-        setNudgeMessage(payload.payload?.message ?? '🔔 Aandacht gevraagd!')
-        setTimeout(() => setNudgeMessage(null), 5000)
+        const target = payload.payload?.target as string | undefined
+        // Crew toont alleen alerts voor crew of iedereen
+        if (target === 'presenter') return
+        setNudgeMessage(payload.payload?.message ?? '🔔 Alert!')
+        setTimeout(() => setNudgeMessage(null), 6000)
       })
       .subscribe()
 
@@ -227,10 +230,15 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
 
-      {/* Nudge melding */}
+      {/* Alert melding */}
       {nudgeMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl text-sm animate-bounce">
-          {nudgeMessage}
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-yellow-500 text-black font-bold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
+          onClick={() => setNudgeMessage(null)}
+        >
+          <Bell className="h-4 w-4 shrink-0 animate-bounce" />
+          <span className="break-words">{nudgeMessage}</span>
+          <span className="text-black/50 text-xs ml-1 shrink-0">× sluiten</span>
         </div>
       )}
 

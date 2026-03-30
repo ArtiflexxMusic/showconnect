@@ -51,17 +51,13 @@ export function MicStatusBar({
 }: MicStatusBarProps) {
   const isPreloaded = preloadedDevices !== undefined && preloadedActiveIds !== undefined
 
-  const [devices, setDevices]     = useState<MicDevice[]>(preloadedDevices ?? [])
-  const [activeIds, setActiveIds] = useState<Set<string>>(preloadedActiveIds ?? new Set())
+  // In preloaded-mode: gebruik de props direct zodat updates meteen zichtbaar zijn
+  // In fallback-mode: eigen state bijhouden
+  const [ownDevices, setOwnDevices]     = useState<MicDevice[]>([])
+  const [ownActiveIds, setOwnActiveIds] = useState<Set<string>>(new Set())
 
-  // Sync als preloaded props veranderen (parent update via Realtime)
-  useEffect(() => {
-    if (preloadedDevices !== undefined) setDevices(preloadedDevices)
-  }, [preloadedDevices])
-
-  useEffect(() => {
-    if (preloadedActiveIds !== undefined) setActiveIds(preloadedActiveIds)
-  }, [preloadedActiveIds])
+  const devices   = isPreloaded ? (preloadedDevices ?? [])      : ownDevices
+  const activeIds = isPreloaded ? (preloadedActiveIds ?? new Set()) : ownActiveIds
 
   // ── Fallback: eigen fetches als er geen preloaded data is ────────────────
   useEffect(() => {
@@ -74,13 +70,13 @@ export function MicStatusBar({
       .eq('show_id', showId)
       .order('name')
       .then(({ data }: { data: MicDevice[] | null }) => {
-        setDevices(data ?? [])
+        setOwnDevices(data ?? [])
       })
   }, [showId, isPreloaded])
 
   useEffect(() => {
     if (isPreloaded || !cueId) {
-      if (!cueId) setActiveIds(new Set())
+      if (!cueId) setOwnActiveIds(new Set())
       return
     }
     const supabase = createClient()
@@ -91,7 +87,7 @@ export function MicStatusBar({
       .select('device_id')
       .eq('cue_id', cueId)
       .then(({ data }: { data: { device_id: string }[] | null }) => {
-        setActiveIds(new Set((data ?? []).map(a => a.device_id)))
+        setOwnActiveIds(new Set((data ?? []).map(a => a.device_id)))
       })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,7 +98,7 @@ export function MicStatusBar({
         { event: 'INSERT', schema: 'public', table: 'cue_audio_assignments', filter: `cue_id=eq.${cueId}` },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
-          setActiveIds(prev => new Set([...prev, payload.new.device_id]))
+          setOwnActiveIds(prev => new Set([...prev, payload.new.device_id]))
         }
       )
       .on(
@@ -110,7 +106,7 @@ export function MicStatusBar({
         { event: 'DELETE', schema: 'public', table: 'cue_audio_assignments', filter: `cue_id=eq.${cueId}` },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (payload: any) => {
-          setActiveIds(prev => {
+          setOwnActiveIds(prev => {
             const next = new Set(prev)
             next.delete(payload.old.device_id)
             return next

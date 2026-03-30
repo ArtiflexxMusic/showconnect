@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -59,8 +59,16 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const [filter, setFilter]       = useState<FilterType>('all')
   const [showFilterBar, setShowFilterBar] = useState(false)
   const [nudgeMessage, setNudgeMessage]   = useState<string | null>(null)
-  const [micPatchAlert, setMicPatchAlert] = useState<string | null>(null)
   const [chatAlert, setChatAlert]         = useState<string | null>(null)
+
+  // ── Toast queue voor mic-patch meldingen (meerdere tegelijk) ─────────────
+  const [micAlerts, setMicAlerts] = useState<{ id: number; msg: string }[]>([])
+  const micAlertCounterRef = useRef(0)
+  const addMicAlert = useCallback((msg: string) => {
+    const id = ++micAlertCounterRef.current
+    setMicAlerts(prev => [...prev, { id, msg }])
+    setTimeout(() => setMicAlerts(prev => prev.filter(a => a.id !== id)), 7000)
+  }, [])
 
   // Annotaties
   const [annotations, setAnnotations]   = useState<CrewAnnotation[]>([])
@@ -140,40 +148,30 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
         setIsOnline(status === 'SUBSCRIBED')
       })
 
-    // Aparte channel voor nudge-broadcasts (gedeeld met CallerView en RundownEditor)
-    const nudgeChannel = supabase
+    // ÉÉN broadcast-channel voor nudge + mic_patch_change
+    // (Supabase geeft hetzelfde object terug bij dubbele naam — dus nooit twee .channel() met dezelfde naam)
+    const broadcastChannel = supabase
       .channel(`rundown:${rundown.id}`)
       .on('broadcast', { event: 'nudge' }, (payload) => {
         const target = payload.payload?.target as string | undefined
-        // Crew toont alleen alerts voor crew of iedereen
         if (target === 'presenter') return
         setNudgeMessage(payload.payload?.message ?? '🔔 Alert!')
         setTimeout(() => setNudgeMessage(null), 6000)
       })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-      supabase.removeChannel(nudgeChannel)
-    }
-  }, [rundown.id, supabase])
-
-  // ── Mic patch broadcast listener ─────────────────────────────────────────
-  useEffect(() => {
-    const ch = supabase
-      .channel(`rundown:${rundown.id}`)
       .on('broadcast', { event: 'mic_patch_change' }, (payload) => {
         const { deviceName, cueName, added } = payload.payload ?? {}
         const msg = added
           ? `🎤 ${deviceName} toegevoegd bij "${cueName}"`
           : `🎤 ${deviceName} verwijderd bij "${cueName}"`
-        setMicPatchAlert(msg)
-        setTimeout(() => setMicPatchAlert(null), 7000)
+        addMicAlert(msg)
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(ch) }
-  }, [rundown.id, supabase])
+    return () => {
+      supabase.removeChannel(channel)
+      supabase.removeChannel(broadcastChannel)
+    }
+  }, [rundown.id, supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mic devices + assignments: 1× laden, 1× Realtime ────────────────────
   useEffect(() => {
@@ -324,43 +322,44 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
 
-      {/* Alert melding */}
-      {nudgeMessage && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-yellow-500 text-black font-bold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
-          onClick={() => setNudgeMessage(null)}
-        >
-          <Bell className="h-4 w-4 shrink-0 animate-bounce" />
-          <span className="break-words">{nudgeMessage}</span>
-          <span className="text-black/50 text-xs ml-1 shrink-0">× sluiten</span>
-        </div>
-      )}
+      {/* ── Toast container — altijd gecentreerd, stapelt automatisch ── */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-max max-w-[92vw] pointer-events-none">
 
-      {/* Mic patch wijziging melding */}
-      {micPatchAlert && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
-          style={{ top: nudgeMessage ? '5rem' : '1rem' }}
-          onClick={() => setMicPatchAlert(null)}
-        >
-          <Radio className="h-4 w-4 shrink-0" />
-          <span className="break-words">{micPatchAlert}</span>
-          <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
-        </div>
-      )}
+        {nudgeMessage && (
+          <div
+            className="pointer-events-auto flex items-center gap-3 bg-yellow-500 text-black font-bold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer"
+            onClick={() => setNudgeMessage(null)}
+          >
+            <Bell className="h-4 w-4 shrink-0 animate-bounce" />
+            <span className="break-words">{nudgeMessage}</span>
+            <span className="text-black/50 text-xs ml-1 shrink-0">× sluiten</span>
+          </div>
+        )}
 
-      {/* Chat bericht melding */}
-      {chatAlert && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-sky-600 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm max-w-[90vw] cursor-pointer"
-          style={{ top: `${([nudgeMessage, micPatchAlert].filter(Boolean).length * 4) + 1}rem` }}
-          onClick={() => setChatAlert(null)}
-        >
-          <MessageSquare className="h-4 w-4 shrink-0" />
-          <span className="break-words">{chatAlert}</span>
-          <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
-        </div>
-      )}
+        {micAlerts.map(a => (
+          <div
+            key={a.id}
+            className="pointer-events-auto flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer"
+            onClick={() => setMicAlerts(prev => prev.filter(x => x.id !== a.id))}
+          >
+            <Radio className="h-4 w-4 shrink-0" />
+            <span className="break-words">{a.msg}</span>
+            <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
+          </div>
+        ))}
+
+        {chatAlert && (
+          <div
+            className="pointer-events-auto flex items-center gap-3 bg-sky-600 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer"
+            onClick={() => setChatAlert(null)}
+          >
+            <MessageSquare className="h-4 w-4 shrink-0" />
+            <span className="break-words">{chatAlert}</span>
+            <span className="text-white/50 text-xs ml-1 shrink-0">× sluiten</span>
+          </div>
+        )}
+
+      </div>
 
       {/* Header */}
       <div ref={headerRef} className="sticky top-0 z-10 bg-background border-b border-border/50">

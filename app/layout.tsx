@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Space_Grotesk } from 'next/font/google'
+import { Toaster } from '@/components/ui/toast'
 import './globals.css'
 
 const spaceGrotesk = Space_Grotesk({
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="nl" className={`dark ${spaceGrotesk.variable}`}>
       <body className={spaceGrotesk.className}>
         {children}
+        <Toaster />
         <script
           dangerouslySetInnerHTML={{
             __html: `

@@ -22,6 +22,7 @@ import { ShortcutHelp } from './ShortcutHelp'
 import { MicPatchPanel } from './MicPatchPanel'
 import { ChatPanel, ChatToggleButton } from './ChatPanel'
 import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
+import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -391,6 +392,31 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       if (removed) setCues(prev => [...prev, removed].sort((a, b) => a.position - b.position))
       setDeleteError(error?.message ?? 'Geen toegang om deze cue te verwijderen.')
       setTimeout(() => setDeleteError(null), 4000)
+    } else {
+      // Succes: toast met undo-optie
+      toast.success(`"${removed?.title ?? 'Cue'}" verwijderd`, {
+        action: {
+          label: 'Ongedaan maken',
+          onClick: async () => {
+            if (!removed) return
+            const { data } = await supabase.from('cues').insert({
+              rundown_id:       removed.rundown_id,
+              position:         removed.position,
+              title:            removed.title,
+              type:             removed.type,
+              duration_seconds: removed.duration_seconds,
+              notes:            removed.notes,
+              tech_notes:       removed.tech_notes,
+              presenter:        removed.presenter,
+              location:         removed.location,
+              status:           'pending',
+              color:            removed.color,
+              auto_advance:     removed.auto_advance,
+            }).select().single()
+            if (data) setCues(prev => [...prev, data as Cue].sort((a, b) => a.position - b.position))
+          },
+        },
+      })
     }
   }, [supabase, cues])
 

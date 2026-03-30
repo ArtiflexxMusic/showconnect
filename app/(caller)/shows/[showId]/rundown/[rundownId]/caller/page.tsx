@@ -14,46 +14,29 @@ export default async function CallerPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Controleer of de gebruiker toegang heeft (owner, editor, caller of platform admin)
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  // Alle queries parallel — toegangscheck en data tegelijk ophalen
+  const [
+    { data: profile },
+    { data: membership },
+    { data: rundownData },
+    { data: showData },
+    { data: cues },
+  ] = await Promise.all([
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
+    supabase.from('show_members').select('role').eq('show_id', showId).eq('user_id', user.id).single(),
+    supabase.from('rundowns').select('*').eq('id', rundownId).eq('show_id', showId).single(),
+    supabase.from('shows').select('*').eq('id', showId).single(),
+    supabase.from('cues').select('*').eq('rundown_id', rundownId).order('position', { ascending: true }),
+  ])
+
   const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
-
-  if (!isPlatformAdmin) {
-    const { data: membership } = await supabase
-      .from('show_members')
-      .select('role')
-      .eq('show_id', showId)
-      .eq('user_id', user.id)
-      .single()
-
-    const allowedRoles = ['owner', 'editor', 'caller']
-    if (!membership || !allowedRoles.includes(membership.role)) {
-      redirect(`/shows/${showId}`)
-    }
+  const allowedRoles = ['owner', 'editor', 'caller']
+  if (!isPlatformAdmin && (!membership || !allowedRoles.includes(membership.role))) {
+    redirect(`/shows/${showId}`)
   }
 
-  const { data: rundownData } = await supabase
-    .from('rundowns')
-    .select('*')
-    .eq('id', rundownId)
-    .eq('show_id', showId)
-    .single()
-
   if (!rundownData) notFound()
-
-  const { data: showData } = await supabase
-    .from('shows')
-    .select('*')
-    .eq('id', showId)
-    .single()
-
   if (!showData) notFound()
-
-  const { data: cues } = await supabase
-    .from('cues')
-    .select('*')
-    .eq('rundown_id', rundownId)
-    .order('position', { ascending: true })
 
   return (
     <CallerView

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ShowDashboard } from '@/components/dashboard/ShowDashboard'
@@ -8,22 +9,15 @@ interface PageProps {
   params: Promise<{ showId: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { showId } = await params
-  const supabase = await createClient()
-  const { data } = await supabase.from('shows').select('name').eq('id', showId).single()
-  const name = (data as { name?: string } | null)?.name
-  return { title: name ? `${name} – CueBoard` : 'Show' }
-}
-
-export default async function ShowPage({ params }: PageProps) {
-  const { showId } = await params
+// Gedeelde data-fetch — React.cache() zorgt dat generateMetadata
+// en de page component exact dezelfde Promise delen (één roundtrip).
+const loadShowPage = cache(async (showId: string) => {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return null
 
-  // Alle queries parallel uitvoeren voor maximale snelheid
+  // Alle queries parallel uitvoeren
   const [
     { data: show },
     { data: rundowns },
@@ -48,26 +42,37 @@ export default async function ShowPage({ params }: PageProps) {
     supabase.from('profiles').select('role').eq('id', user.id).single(),
   ])
 
-  if (!show) notFound()
+  return { user, show, rundowns, members, invitations, profile }
+})
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { showId } = await params
+  const data = await loadShowPage(showId)
+  const name = (data?.show as { name?: string } | null)?.name
+  return { title: name ? `${name} – CueBoard` : 'Show' }
+}
+
+export default async function ShowPage({ params }: PageProps) {
+  const { showId } = await params
+  const data = await loadShowPage(showId)
+
+  if (!data?.user) redirect('/login')
+  if (!data.show) notFound()
+
+  const { user, show, rundowns, members, invitations, profile } = data
+
   const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
   const currentMember = (members ?? []).find(m => m.user_id === user.id)
 
-  // Niet-lid en geen platform-admin: toegang geweigerd → terug naar dashboard
-  if (!isPlatformAdmin && !currentMember) {
-    redirect('/dashboard')
-  }
+  if (!isPlatformAdmin && !currentMember) redirect('/dashboard')
 
   const currentUserRole: ShowMemberRole = isPlatformAdmin ? 'owner' : (currentMember?.role ?? 'viewer')
 
   // Auto-redirect: presenter → presenter view, crew → crew view (alleen als er één rundown is)
   if (!isPlatformAdmin && rundowns && rundowns.length === 1) {
     const activeOrFirst = rundowns[0]
-    if (currentUserRole === 'presenter') {
-      redirect(`/shows/${showId}/rundown/${activeOrFirst.id}/presenter`)
-    }
-    if (currentUserRole === 'crew') {
-      redirect(`/shows/${showId}/rundown/${activeOrFirst.id}/crew`)
-    }
+    if (currentUserRole === 'presenter') redirect(`/shows/${showId}/rundown/${activeOrFirst.id}/presenter`)
+    if (currentUserRole === 'crew') redirect(`/shows/${showId}/rundown/${activeOrFirst.id}/crew`)
   }
 
   return (

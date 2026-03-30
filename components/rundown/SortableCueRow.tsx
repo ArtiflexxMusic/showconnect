@@ -11,7 +11,7 @@ import {
   Pencil, Trash2, ChevronDown, Mic, MapPin, Wrench, Copy, Music, Video, FastForward, Presentation
 } from 'lucide-react'
 import type { Cue } from '@/lib/types/database'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 
 interface SortableCueRowProps {
   cue: Cue
@@ -30,7 +30,10 @@ interface SortableCueRowProps {
   isNext?: boolean           // Eerste cue na de lopende cue
 }
 
-export function SortableCueRow({
+// memo met aangepaste vergelijking: callbacks worden genegeerd (inline arrow-functies
+// zijn per definitie nieuwe referenties bij elke parent-render maar functioneel stabiel).
+// Alleen de weergegeven data bepaalt of een rij opnieuw gerenderd moet worden.
+export const SortableCueRow = memo(function SortableCueRow({
   cue, index, expectedTime, onEdit, onDelete, onDuplicate, onStart, onSkip, onReset, locked = false,
   bulkMode = false, selected = false, onSelect, isNext = false,
 }: SortableCueRowProps) {
@@ -343,4 +346,16 @@ export function SortableCueRow({
       )}
     </div>
   )
-}
+}, (prev, next) => {
+  // Sla re-render over als alleen callbacks veranderen (inline arrow-functies).
+  // Een echte update wordt getriggerd door cue-data, index, locked, bulkMode, isNext.
+  return (
+    prev.cue       === next.cue       &&
+    prev.index     === next.index     &&
+    prev.expectedTime === next.expectedTime &&
+    prev.locked    === next.locked    &&
+    prev.bulkMode  === next.bulkMode  &&
+    prev.selected  === next.selected  &&
+    prev.isNext    === next.isNext
+  )
+})

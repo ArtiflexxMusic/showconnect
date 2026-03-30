@@ -68,8 +68,8 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const addMicAlert = useCallback((msg: string) => {
     const id = ++micAlertCounterRef.current
     setMicAlerts(prev => [...prev, { id, msg, leaving: false }])
-    // Start fade-out 500ms voor het echte verwijderen
-    setTimeout(() => setMicAlerts(prev => prev.map(a => a.id === id ? { ...a, leaving: true } : a)), 6500)
+    // Start fade-out 1000ms voor het echte verwijderen
+    setTimeout(() => setMicAlerts(prev => prev.map(a => a.id === id ? { ...a, leaving: true } : a)), 6000)
     setTimeout(() => setMicAlerts(prev => prev.filter(a => a.id !== id)), 7000)
   }, [])
 
@@ -358,7 +358,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
           <div
             key={a.id}
             className={cn(
-              'pointer-events-auto flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer transition-all duration-500',
+              'pointer-events-auto flex items-center gap-3 bg-orange-500 text-white font-semibold px-5 py-3 rounded-xl shadow-2xl text-sm cursor-pointer transition-all duration-1000',
               a.leaving ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'
             )}
             onClick={() => setMicAlerts(prev => prev.filter(x => x.id !== a.id))}

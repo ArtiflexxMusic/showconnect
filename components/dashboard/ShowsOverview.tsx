@@ -12,7 +12,7 @@ import {
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
   Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft, Search, X,
-  Share2, Archive, Copy, BookOpen,
+  Share2, Archive, Copy, BookOpen, ArchiveRestore,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EditShowModal } from './EditShowModal'
@@ -48,6 +48,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
   const [deleting, setDeleting]     = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<ShowWithRundowns | null>(null)
+  const [archivingId, setArchivingId] = useState<string | null>(null)
   const [viewMode, setViewMode]     = useState<'list' | 'calendar'>('list')
   const [activeTab, setActiveTab]   = useState<'mine' | 'shared' | 'archived'>('mine')
   const [calMonth, setCalMonth]     = useState(() => {
@@ -94,6 +95,19 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
     setShows((prev) => prev.map((s) => s.id === updated.id ? { ...s, ...updated } : s))
   }
 
+  async function handleArchive(show: ShowWithRundowns) {
+    setArchivingId(show.id)
+    const { error } = await supabase
+      .from('shows')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', show.id)
+    setArchivingId(null)
+    if (!error) {
+      // Optimistisch: verwijder uit de actieve lijst
+      setShows((prev) => prev.filter((s) => s.id !== show.id))
+    }
+  }
+
   async function handleDuplicate(show: ShowWithRundowns) {
     setDuplicating(show.id)
     try {
@@ -133,12 +147,13 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
           .order('position', { ascending: true })
 
         if (cues && cues.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const cuesToInsert = cues.map(({ id, rundown_id, created_at, ...rest }: Record<string, unknown>) => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cuesToInsert = cues.map(({ id: _id, rundown_id: _rd, created_at: _ca, ...rest }) => ({
             ...rest,
             rundown_id: newRundown.id,
-          }))
-          await supabase.from('cues').insert(cuesToInsert)
+          })) as any[]
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).from('cues').insert(cuesToInsert)
         }
       }
 
@@ -344,7 +359,9 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
                       onDelete={() => setDeleteTarget(show)}
                       onEdit={() => setEditTarget(show)}
                       onDuplicate={() => handleDuplicate(show)}
+                      onArchive={() => handleArchive(show)}
                       isDuplicating={duplicating === show.id}
+                      isArchiving={archivingId === show.id}
                     />
                   ))}
                 </div>
@@ -365,7 +382,9 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
                       onDelete={() => setDeleteTarget(show)}
                       onEdit={() => setEditTarget(show)}
                       onDuplicate={() => handleDuplicate(show)}
+                      onArchive={() => handleArchive(show)}
                       isDuplicating={duplicating === show.id}
+                      isArchiving={archivingId === show.id}
                     />
                   ))}
                 </div>
@@ -482,7 +501,7 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 function ShowCard({
-  show, past = false, shared = false, sharedRole, onDelete, onEdit, onDuplicate, isDuplicating = false,
+  show, past = false, shared = false, sharedRole, onDelete, onEdit, onDuplicate, onArchive, isDuplicating = false, isArchiving = false,
 }: {
   show: ShowWithRundowns
   past?: boolean
@@ -491,7 +510,9 @@ function ShowCard({
   onDelete: () => void
   onEdit: () => void
   onDuplicate?: () => void
+  onArchive?: () => void
   isDuplicating?: boolean
+  isArchiving?: boolean
 }) {
   // Neem de eerste rundown als "actieve" rundown voor quick-go-live
   const primaryRundown = show.rundowns.find(r => r.is_active) ?? show.rundowns[0]
@@ -569,13 +590,27 @@ function ShowCard({
                 {isDuplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
               </Button>
             )}
+            {/* Archiveren — primaire "verwijder uit zicht" actie */}
+            {!shared && onArchive && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-amber-400 hover:bg-amber-400/10"
+                onClick={onArchive}
+                disabled={isArchiving}
+                title="Show archiveren"
+              >
+                {isArchiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+              </Button>
+            )}
+            {/* Verwijderen — destructieve actie, achteraan */}
             {!shared && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                className="h-7 w-7 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                 onClick={onDelete}
-                title="Show verwijderen"
+                title="Show permanent verwijderen"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

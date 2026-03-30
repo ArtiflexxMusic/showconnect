@@ -27,15 +27,17 @@ const loadRundownPage = cache(async (showId: string, rundownId: string) => {
     { data: cues },
     { data: allRundowns },
     { data: profile },
+    { data: membership },
   ] = await Promise.all([
     supabase.from('rundowns').select('*').eq('id', rundownId).eq('show_id', showId).single(),
     supabase.from('shows').select('*').eq('id', showId).single(),
     supabase.from('cues').select('*').eq('rundown_id', rundownId).order('position', { ascending: true }),
     supabase.from('rundowns').select('id, name').eq('show_id', showId).order('created_at', { ascending: true }),
     supabase.from('profiles').select('plan, plan_expires_at, trial_ends_at').eq('id', user.id).single(),
+    supabase.from('show_members').select('role').eq('show_id', showId).eq('user_id', user.id).maybeSingle(),
   ])
 
-  return { user, rundown, show, cues, allRundowns, profile }
+  return { user, rundown, show, cues, allRundowns, profile, membership }
 })
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -51,6 +53,13 @@ export default async function RundownPage({ params }: PageProps) {
 
   if (!data?.user) redirect('/login')
   if (!data.rundown || !data.show) notFound()
+
+  // Crew-leden, presenters en viewers horen in de crew-view, niet de editor
+  const role = (data.membership as { role?: string } | null)?.role
+  const editorRoles = ['owner', 'editor', 'caller']
+  if (role && !editorRoles.includes(role)) {
+    redirect(`/shows/${showId}/rundown/${rundownId}/crew`)
+  }
 
   const plan = ((data.profile as { plan?: string } | null)?.plan ?? 'free') as Plan
   const limits = getPlanLimits(

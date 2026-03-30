@@ -66,7 +66,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const supabase = createClient()
   const router = useRouter()
 
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const channelRef   = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const isDragging   = useRef(false)
+  const isFirstConn  = useRef(true)
 
   const [rundown, setRundown]           = useState<Rundown>(initialRundown)
   const [cues, setCues]                 = useState<Cue[]>(initialCues)
@@ -108,6 +110,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [selectedCues, setSelectedCues]                 = useState<Set<string>>(new Set())
   const [bulkTypeTarget, setBulkTypeTarget]             = useState<CueType | null>(null)
   const [companionStatus, setCompanionStatus]           = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
+  const [elapsed, setElapsed]                           = useState(0)  // seconden verstreken voor lopende cue
 
   // DnD sensors
   const sensors = useSensors(
@@ -138,6 +141,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'cues', filter: `rundown_id=eq.${rundown.id}` },
         (payload) => {
+          // Sla Realtime-updates over tijdens drag — lokale state is al correct
+          if (isDragging.current) return
           const updated = payload.new as Cue
           setCues((prev) =>
             prev.map((c) => (c.id === updated.id ? updated : c))
@@ -161,6 +166,16 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         setIsOnline(status === 'SUBSCRIBED')
         if (status === 'SUBSCRIBED') {
           await channel.track({ user_id: userId, online_at: new Date().toISOString() })
+          if (!isFirstConn.current) {
+            // Herverbinding: haal actuele cues op om gemiste updates bij te werken
+            const { data } = await supabase
+              .from('cues')
+              .select('*')
+              .eq('rundown_id', rundown.id)
+              .order('position', { ascending: true })
+            if (data) setCues(data as Cue[])
+          }
+          isFirstConn.current = false
         }
         if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
           setIsOnline(false)
@@ -212,7 +227,30 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     setIsSaving(true)
     setSaveError(null)
     const maxPos = cues.length > 0 ? Math.max(...cues.map((c) => c.position)) + 1 : 0
-    const { error } = await supabase.from('cues').insert({
+
+    // Optimistic: voeg direct toe met tijdelijk ID
+    const tempId = `temp-${Date.now()}`
+    const tempCue: Cue = {
+      id: tempId, rundown_id: rundown.id, position: maxPos,
+      title: input.title, type: input.type, duration_seconds: input.duration_seconds,
+      notes: input.notes ?? null, tech_notes: input.tech_notes ?? null,
+      presenter: input.presenter ?? null, location: input.location ?? null,
+      status: 'pending', started_at: null,
+      media_url: input.media_url ?? null, media_path: input.media_path ?? null,
+      media_type: input.media_type ?? null, media_filename: input.media_filename ?? null,
+      media_size: input.media_size ?? null, media_volume: input.media_volume ?? 1.0,
+      media_loop: input.media_loop ?? false, media_autoplay: input.media_autoplay ?? true,
+      color: input.color ?? null, auto_advance: input.auto_advance ?? false,
+      slide_index: input.slide_index ?? null,
+      presentation_url: input.presentation_url ?? null, presentation_path: input.presentation_path ?? null,
+      presentation_type: input.presentation_type ?? null, presentation_filename: input.presentation_filename ?? null,
+      slide_control_mode: input.slide_control_mode ?? 'caller', current_slide_index: input.current_slide_index ?? 0,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }
+    setCues(prev => [...prev, tempCue].sort((a, b) => a.position - b.position))
+    setShowAddModal(false)
+
+    const { data, error } = await supabase.from('cues').insert({
       rundown_id:       rundown.id,
       position:         maxPos,
       title:            input.title,
@@ -242,8 +280,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       presentation_filename: input.presentation_filename ?? null,
       slide_control_mode:    input.slide_control_mode ?? 'caller',
       current_slide_index:   input.current_slide_index ?? 0,
-    })
+    }).select().single()
     if (error) {
+      // Rollback: verwijder de optimistische cue
+      setCues(prev => prev.filter(c => c.id !== tempId))
+      setShowAddModal(true)
       console.error('Fout bij toevoegen cue:', error)
       const msg = error.message?.includes('violates check constraint')
         ? `Type niet toegestaan in de database. Voer migratie 011 uit in Supabase om alle cue-types toe te staan.`
@@ -253,8 +294,11 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       // Modal NIET sluiten bij fout — gebruiker kan opnieuw proberen
       return
     }
+    // Vervang temp-cue door echte DB-cue (met correct ID)
+    if (data) {
+      setCues(prev => prev.map(c => c.id === tempId ? data as Cue : c))
+    }
     setIsSaving(false)
-    setShowAddModal(false)
   }, [cues, rundown.id, supabase])
 
   const importCues = useCallback(async (inputs: CreateCueInput[]) => {
@@ -392,13 +436,20 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   }, [cues, supabase])
 
   const startCue = useCallback(async (id: string) => {
+    const now = new Date().toISOString()
     const runningCue = cues.find((c) => c.status === 'running')
+    // Optimistic: pas status direct aan — geen wachten op Realtime
+    setCues(prev => prev.map(c => {
+      if (c.id === runningCue?.id) return { ...c, status: 'done' as const }
+      if (c.id === id)             return { ...c, status: 'running' as const, started_at: now }
+      return c
+    }))
     if (runningCue) {
       await supabase.from('cues').update({ status: 'done' } as Record<string, unknown>).eq('id', runningCue.id)
     }
     await supabase.from('cues').update({
       status: 'running',
-      started_at: new Date().toISOString(),
+      started_at: now,
     } as Record<string, unknown>).eq('id', id)
 
     // Companion webhook aanroepen
@@ -651,8 +702,24 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // ── Live cue timer ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const running = cues.find(c => c.status === 'running')
+    if (!running) { setElapsed(0); return }
+    const startedAt = running.started_at ? new Date(running.started_at).getTime() : Date.now()
+    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000))
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [cues])
+
   // ── Drag & Drop ──────────────────────────────────────────────────────────
+  function handleDragStart() {
+    isDragging.current = true
+  }
+
   async function handleDragEnd(event: DragEndEvent) {
+    isDragging.current = false
     if (rundown.is_locked) return
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -1165,6 +1232,37 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         )}
       </div>
 
+      {/* ── Live cue timer banner ────────────────────────────────────── */}
+      {(() => {
+        const running = cues.find(c => c.status === 'running')
+        if (!running) return null
+        const remaining = running.duration_seconds - elapsed
+        const overrun   = remaining < 0
+        return (
+          <div className={cn(
+            'mx-4 mt-3 flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm',
+            overrun
+              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+              : 'border-green-500/30 bg-green-500/10 text-green-400'
+          )}>
+            <Radio className="h-4 w-4 shrink-0 animate-pulse" />
+            <span className="font-medium truncate">{running.title}</span>
+            <span className="ml-auto shrink-0 font-mono tabular-nums">
+              {overrun
+                ? `+${formatDuration(Math.abs(remaining))} over`
+                : formatDuration(remaining)
+              }
+            </span>
+            <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden shrink-0">
+              <div
+                className={cn('h-full rounded-full transition-all duration-1000', overrun ? 'bg-destructive' : 'bg-green-500')}
+                style={{ width: `${Math.min(100, (elapsed / running.duration_seconds) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Delete-fout banner ───────────────────────────────────────── */}
       {deleteError && (
         <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
@@ -1269,7 +1367,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
           )}
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <SortableContext items={cues.map((c) => c.id)} strategy={verticalListSortingStrategy}>
             <div className="flex flex-col gap-px">
               {filteredCues.map((cue) => {

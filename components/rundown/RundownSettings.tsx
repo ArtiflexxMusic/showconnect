@@ -73,6 +73,11 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [showCompanionGuide, setShowCompanionGuide] = useState(false)
   const [showPayloadPreview, setShowPayloadPreview] = useState(false)
 
+  // Companion activeren
+  const [companionHost, setCompanionHost]         = useState('')
+  const [activating, setActivating]               = useState(false)
+  const [activateStatus, setActivateStatus]       = useState<'idle' | 'ok' | 'error'>('idle')
+
   // Stage-namen state
   const [stageNames, setStageNames]         = useState<string[]>([])
   const [newStageName, setNewStageName]     = useState('')
@@ -82,6 +87,10 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       setRundownName(rundown.name)
       const raw = rundown.show_start_time ?? ''
       setStartTime(raw.length >= 5 ? raw.slice(0, 5) : raw)
+      // Onthoud Companion host tussen sessies
+      const savedHost = typeof window !== 'undefined' ? (localStorage.getItem('companion_host') ?? '') : ''
+      setCompanionHost(savedHost)
+      setActivateStatus('idle')
       // Companion: detecteer modus op basis van opgeslagen URL
       const savedUrl = rundown.companion_webhook_url ?? ''
       setWebhookUrl(savedUrl)
@@ -169,6 +178,32 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       onClose()
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Activeer de huidige show in Companion door sc_rundown_id bij te werken
+  async function activateInCompanion() {
+    const host = companionHost.trim()
+    if (!host) return
+    const fullHost = host.includes(':') ? host : host + ':8000'
+    // Sla host op voor volgende keer
+    if (typeof window !== 'undefined') localStorage.setItem('companion_host', companionHost.trim())
+    setActivating(true)
+    setActivateStatus('idle')
+    try {
+      const res = await fetch('/api/companion/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: `http://${fullHost}/api/custom-variable/sc_rundown_id/value`,
+          payload: { value: rundown.id },
+        }),
+      })
+      setActivateStatus(res.ok ? 'ok' : 'error')
+    } catch {
+      setActivateStatus('error')
+    } finally {
+      setActivating(false)
     }
   }
 
@@ -539,10 +574,11 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <h3 className="text-sm font-semibold">Bitfocus Companion</h3>
             </div>
 
-            {/* Download config — primaire actie */}
+            {/* Eenmalige setup — download configs */}
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-3 space-y-2.5">
-              <p className="text-xs text-foreground/80">
-                Download een kant-en-klaar configuratiebestand en importeer het in Companion. De koppeling werkt daarna direct.
+              <p className="text-xs font-medium text-foreground/90">Stap 1 — Eenmalige setup (één keer importeren)</p>
+              <p className="text-xs text-muted-foreground">
+                Download beide bestanden en importeer ze in Companion via Settings → Import / Export. Daarna hoef je dit nooit meer te doen.
               </p>
               <div className="flex gap-2">
                 <Button
@@ -559,7 +595,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                   }}
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Knoppen (veilig)
+                  Knoppen
                 </Button>
                 <Button
                   type="button"
@@ -567,7 +603,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                   size="sm"
                   className="gap-2 flex-1"
                   onClick={() => {
-                    if (!confirm('Dit vervangt alleen de CueBoard polling-trigger. Je pagina\'s en andere instellingen blijven intact. Doorgaan?')) return
                     const url = `${baseUrl}/api/companion/download?rundownId=${rundown.id}&mode=triggers`
                     const a = document.createElement('a')
                     a.href = url
@@ -579,18 +614,52 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                   Triggers
                 </Button>
               </div>
-              <ol className="space-y-1 text-xs text-muted-foreground pl-1">
-                {[
-                  'Download "Knoppen" — importeer via Companion → Import/Export → Import page (vervangt alleen pagina 1)',
-                  'Download "Triggers" alleen als je de polling nog niet hebt — maak eerst een Export backup!',
-                  'GO / BACK / SKIP sturen direct naar deze rundown',
-                ].map((step, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
+              <p className="text-[10px] text-muted-foreground/60">
+                Beide configs zijn universeel — ze werken voor elke show. Je hoeft ze maar één keer te importeren.
+              </p>
+            </div>
+
+            {/* Show activeren in Companion */}
+            <div className="rounded-lg bg-green-500/5 border border-green-500/20 px-3 py-3 space-y-2.5">
+              <p className="text-xs font-medium text-foreground/90">Stap 2 — Activeer deze show in Companion</p>
+              <p className="text-xs text-muted-foreground">
+                Geef het IP-adres van je Companion/Raspberry Pi op. CueBoard stuurt de show-ID direct naar Companion — geen nieuwe import nodig.
+              </p>
+              <div className="flex gap-2 items-center">
+                <Input
+                  value={companionHost}
+                  onChange={e => { setCompanionHost(e.target.value); setActivateStatus('idle') }}
+                  placeholder="192.168.1.100  of  192.168.1.100:8000"
+                  className="text-xs h-8 flex-1 font-mono"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5 shrink-0 bg-green-600 hover:bg-green-700 text-white"
+                  disabled={!companionHost.trim() || activating}
+                  onClick={activateInCompanion}
+                >
+                  {activating
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : activateStatus === 'ok'
+                      ? <CheckCircle className="h-3.5 w-3.5" />
+                      : activateStatus === 'error'
+                        ? <AlertCircle className="h-3.5 w-3.5" />
+                        : <Radio className="h-3.5 w-3.5" />
+                  }
+                  {activateStatus === 'ok' ? 'Geactiveerd!' : activateStatus === 'error' ? 'Mislukt' : 'Activeer'}
+                </Button>
+              </div>
+              {activateStatus === 'error' && (
+                <p className="text-[10px] text-red-400">
+                  Kan Companion niet bereiken. Controleer het IP-adres en zorg dat Companion bereikbaar is op poort 8000.
+                </p>
+              )}
+              {activateStatus === 'ok' && (
+                <p className="text-[10px] text-green-400">
+                  Show <span className="font-semibold">{rundown.name}</span> is nu actief in Companion. GO / BACK / SKIP werken direct.
+                </p>
+              )}
             </div>
 
             {/* Poll-URL voor handmatige setup */}

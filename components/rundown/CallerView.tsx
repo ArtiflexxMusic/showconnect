@@ -955,15 +955,20 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               </div>
 
               {/* Notities */}
-              {activeCue.notes && (
-                <p className="text-sm text-muted-foreground italic border-t border-border/30 pt-3 mt-2">
-                  {activeCue.notes}
-                </p>
-              )}
-              {activeCue.tech_notes && (
-                <p className="text-xs text-yellow-400/80 mt-1">
-                  🔧 {activeCue.tech_notes}
-                </p>
+              {(activeCue.tech_notes || activeCue.notes) && (
+                <div className="border-t border-border/30 pt-3 mt-2 space-y-2">
+                  {activeCue.tech_notes && (
+                    <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                      <span className="text-base shrink-0 mt-0.5">🔧</span>
+                      <p className="text-sm font-medium text-yellow-300 leading-snug">{activeCue.tech_notes}</p>
+                    </div>
+                  )}
+                  {activeCue.notes && (
+                    <p className="text-sm text-muted-foreground italic leading-snug px-1">
+                      {activeCue.notes}
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Mic status */}
@@ -1175,11 +1180,18 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               ref={isActive ? activeCueRowRef : null}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 border-b border-border/15 text-sm transition-colors',
-                isActive   ? 'bg-green-500/10 border-l-2 border-l-green-500'
+                isActive   ? 'bg-green-500/10'
                 : isDone   ? 'opacity-25'
                 : isSkipped ? 'opacity-20'
                 : 'hover:bg-muted/20'
               )}
+              style={
+                isActive
+                  ? { borderLeft: '3px solid rgb(34 197 94)' }
+                  : cue.color
+                    ? { borderLeft: `3px solid ${cue.color}` }
+                    : { borderLeft: '3px solid transparent' }
+              }
             >
               {/* Positie */}
               <span className={cn('font-mono text-xs w-7 shrink-0', isActive ? 'text-green-400 font-bold' : 'text-muted-foreground/50')}>
@@ -1191,10 +1203,6 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                 {cueTypeLabel(cue.type)}
               </span>
 
-              {/* Kleur dot */}
-              {cue.color && (
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cue.color }} />
-              )}
 
               {/* Titel */}
               <span className={cn(

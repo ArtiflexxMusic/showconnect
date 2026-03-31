@@ -130,6 +130,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [elapsed, setElapsed]                           = useState(0)  // seconden verstreken voor lopende cue
   const [reconnectCountdown, setReconnectCountdown]     = useState(0)  // seconden tot auto-reconnect
 
+  // Undo / Redo
+  const MAX_HISTORY = 25
+  const cuesRef        = useRef<Cue[]>(initialCues)
+  const undoStackRef   = useRef<Array<{ label: string; snapshot: Cue[] }>>([])
+  const redoStackRef   = useRef<Array<{ label: string; snapshot: Cue[] }>>([])
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -260,6 +268,67 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     loadProfile()
   }, [userId, supabase])
 
+  // ── Undo / Redo helpers ─────────────────────────────────────────────────
+  // Keep cuesRef always current so history callbacks don't need to close over stale state
+  useEffect(() => { cuesRef.current = cues }, [cues])
+
+  const pushHistory = useCallback((label: string) => {
+    undoStackRef.current = [...undoStackRef.current.slice(-(MAX_HISTORY - 1)), { label, snapshot: [...cuesRef.current] }]
+    redoStackRef.current = []
+    setCanUndo(true)
+    setCanRedo(false)
+  }, [])
+
+  const applySnapshot = useCallback(async (snapshot: Cue[]) => {
+    const current = cuesRef.current
+    setCues(snapshot.slice().sort((a, b) => a.position - b.position))
+
+    const snapshotIds = new Set(snapshot.map(c => c.id))
+    const currentIds  = new Set(current.map(c => c.id))
+
+    const toDelete = current.filter(c => !snapshotIds.has(c.id))
+    const toInsert = snapshot.filter(c => !currentIds.has(c.id))
+    const toUpdate = snapshot.filter(c => {
+      if (!currentIds.has(c.id)) return false
+      const cur = current.find(x => x.id === c.id)!
+      return cur.position !== c.position || cur.title !== c.title || cur.type !== c.type ||
+        cur.duration_seconds !== c.duration_seconds || cur.notes !== c.notes ||
+        cur.tech_notes !== c.tech_notes || cur.presenter !== c.presenter ||
+        cur.location !== c.location || cur.color !== c.color
+    })
+
+    await Promise.all([
+      ...toDelete.map(c => supabase.from('cues').delete().eq('id', c.id)),
+      // upsert preserves the original UUID so state stays consistent
+      ...toInsert.map(c => supabase.from('cues').upsert({ ...c }, { onConflict: 'id' })),
+      ...toUpdate.map(c => supabase.from('cues').update({
+        position: c.position, title: c.title, type: c.type,
+        duration_seconds: c.duration_seconds, notes: c.notes, tech_notes: c.tech_notes,
+        presenter: c.presenter, location: c.location, color: c.color,
+      }).eq('id', c.id)),
+    ])
+  }, [supabase])
+
+  const performUndo = useCallback(async () => {
+    const entry = undoStackRef.current.pop()
+    if (!entry) return
+    redoStackRef.current.push({ label: entry.label, snapshot: [...cuesRef.current] })
+    setCanUndo(undoStackRef.current.length > 0)
+    setCanRedo(true)
+    await applySnapshot(entry.snapshot)
+    toast.success(`↩ Ongedaan: ${entry.label}`)
+  }, [applySnapshot])
+
+  const performRedo = useCallback(async () => {
+    const entry = redoStackRef.current.pop()
+    if (!entry) return
+    undoStackRef.current.push({ label: entry.label, snapshot: [...cuesRef.current] })
+    setCanUndo(true)
+    setCanRedo(redoStackRef.current.length > 0)
+    await applySnapshot(entry.snapshot)
+    toast.success(`↪ Opnieuw: ${entry.label}`)
+  }, [applySnapshot])
+
   // ── CRUD ────────────────────────────────────────────────────────────────
   const addCue = useCallback(async (input: CreateCueInput) => {
     // Plan limiet check
@@ -271,6 +340,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       })
       return
     }
+    pushHistory('Cue toevoegen')
     setIsSaving(true)
     setSaveError(null)
     const maxPos = cues.length > 0 ? Math.max(...cues.map((c) => c.position)) + 1 : 0
@@ -430,7 +500,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     setIsSaving(false)
   }, [cues, rundown.id, supabase])
 
-  const updateCue = useCallback(async (id: string, updates: UpdateCueInput) => {
+  const updateCue = useCallback(async (id: string, updates: UpdateCueInput, trackHistory = false) => {
+    if (trackHistory) pushHistory('Cue bewerken')
     setIsSaving(true)
     setSaveError(null)
     // Optimistische update: toon wijzigingen direct zonder te wachten op Realtime
@@ -468,6 +539,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const deleteCue = useCallback(async (id: string) => {
     // Optimistic: verwijder direct uit lokale state
     const removed = cues.find(c => c.id === id)
+    pushHistory(`"${removed?.title ?? 'Cue'}" verwijderen`)
     setCues(prev => prev.filter(c => c.id !== id))
     setDeleteError(null)
 
@@ -854,6 +926,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName
+      // Undo / Redo — werkt ook vanuit inputs (browsers native undo kan dan conflicten hebben, maar Ctrl+Z in rundown-context is duidelijk)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); performUndo(); return }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); performRedo(); return }
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.key === 'a' || e.key === 'A') { e.preventDefault(); setShowAddModal(true) }
       if (e.key === '?') { e.preventDefault(); setShowShortcutHelp(v => !v) }
@@ -875,7 +950,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rundown.is_locked])
+  }, [rundown.is_locked, performUndo, performRedo])
 
   // ── Live cue timer ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -912,6 +987,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     if (!over || active.id === over.id) return
     const oldIndex  = cues.findIndex((c) => c.id === active.id)
     const newIndex  = cues.findIndex((c) => c.id === over.id)
+    pushHistory('Volgorde wijzigen')
     const reordered = arrayMove(cues, oldIndex, newIndex).map((cue, i) => ({ ...cue, position: i }))
     setCues(reordered)
     const dragResults = await Promise.all(
@@ -1483,6 +1559,28 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
               </Button>
             )}
 
+            {/* Undo / Redo */}
+            {(canUndo || canRedo) && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={performUndo}
+                  disabled={!canUndo}
+                  title="Ongedaan maken (Ctrl+Z)"
+                  className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground hover:text-foreground"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+                </button>
+                <button
+                  onClick={performRedo}
+                  disabled={!canRedo}
+                  title="Opnieuw (Ctrl+Y)"
+                  className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground hover:text-foreground"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg>
+                </button>
+              </div>
+            )}
+
             {/* Cue toevoegen */}
             <Button size="sm" onClick={() => setShowAddModal(true)} disabled={rundown.is_locked || bulkMode}>
               <Plus className="h-4 w-4" /> Cue
@@ -1738,7 +1836,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         <CueFormModal
           open={!!editingCue}
           onClose={() => { setEditingCue(null); setSaveError(null) }}
-          onSave={(input) => updateCue(editingCue.id, input)}
+          onSave={(input) => updateCue(editingCue.id, input, true)}
           initialValues={editingCue}
           loading={isSaving}
           mode="edit"
@@ -1835,6 +1933,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       {/* Sneltoetsen hint */}
       <div className="mt-4 text-center text-xs text-muted-foreground/30">
         <kbd className="px-1.5 rounded border border-border/30 font-mono">A</kbd> Toevoegen &nbsp;·&nbsp;
+        <kbd className="px-1.5 rounded border border-border/30 font-mono">Ctrl+Z</kbd> Ongedaan &nbsp;·&nbsp;
+        <kbd className="px-1.5 rounded border border-border/30 font-mono">Ctrl+Y</kbd> Opnieuw &nbsp;·&nbsp;
         <kbd className="px-1.5 rounded border border-border/30 font-mono">Esc</kbd> Sluiten &nbsp;·&nbsp;
         <button
           className="hover:text-muted-foreground/60 transition-colors"

@@ -194,131 +194,99 @@ export function ShowDashboard({
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{show.description}</p>
         )}
 
-        {/* Actie-toolbar */}
-        <div className="flex items-center gap-2 flex-wrap mt-5 pt-4 border-t border-border/40">
+        {/* Actie-toolbar — één regel, links uitgelijnd, scrollt horizontaal op kleine schermen */}
+        <div className="flex items-center gap-1 mt-4 pt-3 border-t border-border/40 overflow-x-auto scrollbar-none">
 
-          {/* Samenwerking-groep (Uitnodigen / Team / Cast) */}
-          <div className="flex items-center rounded-lg border border-border/60 bg-muted/20 overflow-hidden divide-x divide-border/40">
-            <div className="flex items-center">
-              <button
-                onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
-                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-              >
-                <UserPlus className="h-3.5 w-3.5" /> Uitnodigen
-              </button>
-              <span className="pr-1">
-                <InfoButton section="uitnodigen" text="Nodig collega's uit om de rundown mee te bewerken of mee te kijken." />
-              </span>
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }}
-                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
-              >
-                <Users className="h-3.5 w-3.5" /> Team
-              </button>
-              <span className="pr-1">
-                <InfoButton section="uitnodigen" text="Bekijk en beheer alle teamleden en hun rollen." />
-              </span>
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={() => setShowGreenRoom(true)}
-                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
-              >
-                <Radio className="h-3.5 w-3.5" /> Green Room
-              </button>
-              <span className="pr-1">
-                <InfoButton section="cast" text="Geef gasten toegang tot de Green Room met een 6-cijferige PIN — zonder account." />
-              </span>
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={() => setShowCallsheet(true)}
-                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
-              >
-                <FileText className="h-3.5 w-3.5" /> Callsheet
-              </button>
-            </div>
+          {/* Samenwerking */}
+          <div className="flex items-center rounded-lg border border-border/60 bg-muted/20 overflow-hidden divide-x divide-border/40 shrink-0">
+            <button
+              onClick={() => { setAutoOpenInvite(true); setShowMembers(true) }}
+              className="flex items-center gap-1.5 px-2.5 h-7 text-xs font-medium text-primary hover:bg-primary/10 transition-colors whitespace-nowrap"
+              title="Nodig collega's uit om de rundown mee te bewerken of mee te kijken."
+            >
+              <UserPlus className="h-3.5 w-3.5" /> Uitnodigen
+            </button>
+            <button
+              onClick={() => { setAutoOpenInvite(false); setShowMembers(true) }}
+              className="flex items-center gap-1.5 px-2.5 h-7 text-xs font-medium hover:bg-muted/60 transition-colors whitespace-nowrap"
+              title="Bekijk en beheer alle teamleden en hun rollen."
+            >
+              <Users className="h-3.5 w-3.5" /> Team
+            </button>
+            <button
+              onClick={() => setShowGreenRoom(true)}
+              className="flex items-center gap-1.5 px-2.5 h-7 text-xs font-medium hover:bg-muted/60 transition-colors whitespace-nowrap"
+              title="Geef gasten toegang tot de Green Room met een 6-cijferige PIN — zonder account."
+            >
+              <Radio className="h-3.5 w-3.5" /> Green Room
+            </button>
+            <button
+              onClick={() => setShowCallsheet(true)}
+              className="flex items-center gap-1.5 px-2.5 h-7 text-xs font-medium hover:bg-muted/60 transition-colors whitespace-nowrap"
+              title="Maak en verstuur een callsheet naar je crew."
+            >
+              <FileText className="h-3.5 w-3.5" /> Callsheet
+            </button>
           </div>
 
           {/* Scheiding */}
-          <div className="w-px h-5 bg-border/60 hidden sm:block" />
+          <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
 
           {/* Show-acties */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="outline" size="sm"
-                onClick={() => setEditShowOpen(true)}
-                className="gap-1.5 h-8 text-xs"
-              >
-                <Pencil className="h-3.5 w-3.5" /> Bewerken
-              </Button>
-              <InfoButton section="show-bewerken" text="Pas de naam, datum, locatie en omschrijving van deze show aan." />
-            </div>
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="outline" size="sm"
-                onClick={handleDuplicateShow}
-                disabled={duplicating}
-                className="gap-1.5 h-8 text-xs"
-              >
-                {duplicating
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <Copy className="h-3.5 w-3.5" />
-                }
-                Dupliceren
-              </Button>
-              <InfoButton section="show-dupliceren" text="Maak een volledige kopie van deze show inclusief alle rundowns en cues." />
-            </div>
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="outline" size="sm"
-                className="gap-1.5 h-8 text-xs"
-                onClick={async () => {
-                  const url = `${window.location.origin}/p/${show.id}`
-                  await navigator.clipboard.writeText(url)
-                  setShareCopied(true)
-                  setTimeout(() => setShareCopied(false), 2500)
-                }}
-              >
-                {sharecopied
-                  ? <><Check className="h-3.5 w-3.5 text-emerald-400" /> Gekopieerd!</>
-                  : <><Share2 className="h-3.5 w-3.5" /> Delen</>
-                }
-              </Button>
-              <InfoButton section="show-delen" text="Kopieer de publieke link van deze show. Deel hem met bezoekers of backstage crew die alleen mee willen kijken." />
-            </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setEditShowOpen(true)}
+              className="gap-1.5 h-7 text-xs px-2.5 whitespace-nowrap"
+              title="Pas de naam, datum, locatie en omschrijving van deze show aan."
+            >
+              <Pencil className="h-3 w-3" /> Bewerken
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              onClick={handleDuplicateShow}
+              disabled={duplicating}
+              className="gap-1.5 h-7 text-xs px-2.5 whitespace-nowrap"
+              title="Maak een volledige kopie van deze show inclusief alle rundowns en cues."
+            >
+              {duplicating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+              Dupliceren
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5 h-7 text-xs px-2.5 whitespace-nowrap"
+              title="Kopieer de publieke link van deze show."
+              onClick={async () => {
+                const url = `${window.location.origin}/p/${show.id}`
+                await navigator.clipboard.writeText(url)
+                setShareCopied(true)
+                setTimeout(() => setShareCopied(false), 2500)
+              }}
+            >
+              {sharecopied
+                ? <><Check className="h-3 w-3 text-emerald-400" /> Gekopieerd!</>
+                : <><Share2 className="h-3 w-3" /> Delen</>
+              }
+            </Button>
           </div>
 
-          {/* Archiveren (secundaire actie) */}
+          {/* Archiveren (secundaire actie, alleen voor owner) */}
           {currentUserRole === 'owner' && (
             <>
-              <div className="w-px h-5 bg-border/60 hidden sm:block" />
-              <div className="flex items-center gap-0.5">
-                <Button
-                  variant="ghost" size="sm"
-                  className="gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={handleArchiveShow}
-                  disabled={archiving}
-                >
-                  {archiving
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : show.archived_at
-                      ? <ArchiveRestore className="h-3.5 w-3.5" />
-                      : <Archive className="h-3.5 w-3.5" />
-                  }
-                  {show.archived_at ? 'Dearchiveren' : 'Archiveren'}
-                </Button>
-                <InfoButton
-                  section="show-archiveren"
-                  text={show.archived_at
-                    ? 'Haal deze show terug uit het archief zodat hij weer actief zichtbaar is.'
-                    : 'Verplaats deze show naar het archief. De show blijft bewaard maar verdwijnt uit het overzicht.'
-                  }
-                />
-              </div>
+              <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
+              <Button
+                variant="ghost" size="sm"
+                className="gap-1.5 h-7 text-xs px-2.5 text-muted-foreground hover:text-foreground whitespace-nowrap shrink-0"
+                onClick={handleArchiveShow}
+                disabled={archiving}
+                title={show.archived_at ? 'Haal deze show terug uit het archief.' : 'Verplaats deze show naar het archief.'}
+              >
+                {archiving
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : show.archived_at ? <ArchiveRestore className="h-3 w-3" /> : <Archive className="h-3 w-3" />
+                }
+                {show.archived_at ? 'Dearchiveren' : 'Archiveren'}
+              </Button>
             </>
           )}
         </div>

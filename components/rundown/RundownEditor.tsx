@@ -22,6 +22,7 @@ import { ShortcutHelp } from './ShortcutHelp'
 import { MicPatchPanel } from './MicPatchPanel'
 import { ChatPanel, ChatToggleButton } from './ChatPanel'
 import { AlertModal, type AlertTarget } from './AlertModal'
+import { CopyCuesModal } from './CopyCuesModal'
 import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
 import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ import {
   Settings, Bell, Filter, Printer, Monitor, Smartphone,
   RotateCcw, AlertTriangle, ListMusic, FileSpreadsheet, BookTemplate, History, Keyboard,
   Share2, Copy, Check, ExternalLink, Lock, Unlock, Camera, MoreHorizontal, Zap, Loader2, Download, Trash2, AlertCircle, MessageSquare,
+  Search, X,
 } from 'lucide-react'
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
@@ -106,6 +108,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [snapshotDone, setSnapshotDone]                 = useState(false)
   const [showSaveTemplate, setShowSaveTemplate]         = useState(false)
   const [showLoadTemplate, setShowLoadTemplate]         = useState(false)
+  const [showCopyCuesModal, setShowCopyCuesModal]       = useState(false)
+  const [searchQuery, setSearchQuery]                   = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [showCueLog, setShowCueLog]                     = useState(false)
   const [showMicPatch, setShowMicPatch]                 = useState(false)
   const [showShortcutHelp, setShowShortcutHelp]         = useState(false)
@@ -393,6 +398,34 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         console.error('Template toepassen mislukt:', error)
         setSaveError(`Template toepassen mislukt: ${error.message}`)
       }
+    }
+    setIsSaving(false)
+  }, [cues, rundown.id, supabase])
+
+  const handleCopyCues = useCallback(async (inputs: import('@/lib/types/database').CreateCueInput[]) => {
+    if (inputs.length === 0) return
+    setIsSaving(true)
+    const startPos = cues.length > 0 ? Math.max(...cues.map((c) => c.position)) + 1 : 0
+    const rows = inputs.map((input, i) => ({
+      rundown_id:       rundown.id,
+      position:         startPos + i,
+      title:            input.title,
+      type:             input.type,
+      duration_seconds: input.duration_seconds,
+      notes:            input.notes ?? null,
+      tech_notes:       input.tech_notes ?? null,
+      presenter:        input.presenter ?? null,
+      location:         input.location ?? null,
+      color:            input.color ?? null,
+      auto_advance:     input.auto_advance ?? false,
+      status:           'pending' as const,
+    }))
+    const { error } = await supabase.from('cues').insert(rows)
+    if (error) {
+      console.error('Cues kopiëren mislukt:', error)
+      setSaveError(`Cues kopiëren mislukt: ${error.message}`)
+    } else {
+      toast.success(`${inputs.length} cue${inputs.length !== 1 ? 's' : ''} gekopieerd`)
     }
     setIsSaving(false)
   }, [cues, rundown.id, supabase])
@@ -824,7 +857,8 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.key === 'a' || e.key === 'A') { e.preventDefault(); setShowAddModal(true) }
       if (e.key === '?') { e.preventDefault(); setShowShortcutHelp(v => !v) }
-      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null); setShowShortcutHelp(false); setShowSharePanel(false) }
+      if (e.key === '/') { e.preventDefault(); searchInputRef.current?.focus(); searchInputRef.current?.select() }
+      if (e.key === 'Escape') { setShowAddModal(false); setEditingCue(null); setShowShortcutHelp(false); setShowSharePanel(false); setSearchQuery('') }
       // Spatiebalk: start volgende pending cue (GO)
       if (e.key === ' ' && !rundown.is_locked) {
         e.preventDefault()
@@ -894,9 +928,19 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const doneSecs     = totalDuration(cues.filter((c) => c.status === 'done').map((c) => c.duration_seconds))
   const expectedTimes = calculateCueStartTimes(cues, rundown.show_start_time)
 
-  const filteredCues = activeFilter === 'all'
-    ? cues
-    : cues.filter((c) => c.type === activeFilter)
+  const filteredCues = cues
+    .filter((c) => activeFilter === 'all' || c.type === activeFilter)
+    .filter((c) => {
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        c.title.toLowerCase().includes(q) ||
+        (c.presenter ?? '').toLowerCase().includes(q) ||
+        (c.notes ?? '').toLowerCase().includes(q) ||
+        (c.tech_notes ?? '').toLowerCase().includes(q) ||
+        (c.location ?? '').toLowerCase().includes(q)
+      )
+    })
 
   const currentFilterLabel = FILTER_OPTIONS.find((f) => f.value === activeFilter)?.label ?? 'Alles'
 
@@ -1157,6 +1201,13 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                     <Monitor className="h-3.5 w-3.5" /> Presenter View
                   </a>
                   <a
+                    href={`/shows/${show.id}/rundown/${rundown.id}/clock`}
+                    target="_blank"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                  >
+                    <Clock className="h-3.5 w-3.5" /> Show Klok
+                  </a>
+                  <a
                     href={`/shows/${show.id}/rundown/${rundown.id}/crew`}
                     target="_blank"
                     className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors"
@@ -1373,6 +1424,12 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
                       <BookTemplate className="h-3.5 w-3.5 text-muted-foreground" /> Templates
                     </button>
+                    {allRundowns.filter(r => r.id !== rundown.id).length > 0 && (
+                      <button onClick={() => { setShowMoreMenu(false); setShowCopyCuesModal(true) }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" /> Cues kopiëren
+                      </button>
+                    )}
                     {hasRunningOrDone && (
                       <>
                         <hr className="border-border/50 my-1" />
@@ -1386,6 +1443,32 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                 </>
               )}
             </div>
+
+            {/* Zoekbalk */}
+            {cues.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Zoek…"
+                  className={cn(
+                    'h-8 pl-8 pr-7 text-sm bg-muted/40 border border-border/60 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/40 placeholder:text-muted-foreground/50 transition-all',
+                    searchQuery ? 'w-48 border-primary/40' : 'w-28 focus:w-48'
+                  )}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Bulk selectie toggle */}
             {!rundown.is_locked && cues.length > 0 && (
@@ -1699,6 +1782,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onApply={applyTemplate}
         hasCues={cues.length > 0}
       />
+
+      {showCopyCuesModal && (
+        <CopyCuesModal
+          currentRundownId={rundown.id}
+          allRundowns={allRundowns}
+          onCopy={handleCopyCues}
+          onClose={() => setShowCopyCuesModal(false)}
+        />
+      )}
 
       {showCueLog && (
         <CueLogPanel

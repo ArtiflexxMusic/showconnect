@@ -1,16 +1,16 @@
 /**
  * GET /api/companion/download?rundownId=xxx
  *
- * Gzip-gecomprimeerd .companionconfig voor Bitfocus Companion 4.2.x.
- * Importeer via Settings → Import/Export → Import config.
+ * Genereert twee configs via querystring ?mode=:
  *
- * Layout pagina 1:
- *   Rij 0: [pageup] [◀ BACK] [▶ GO] [SKIP ▶▶]
- *   Rij 1: [pagenum] [NOW: actieve cue] [NEXT: volgende cue] [voortgang]
+ *   mode=page     (default) — importeert ALLEEN pagina 1, raakt andere pagina's NIET aan.
+ *                             Gebruik dit normaal.
  *
- * Variabelen (gevuld door trigger elke seconde):
- *   $(custom:sc_active)   — naam van de actieve cue
- *   $(custom:sc_next)     — naam van de volgende cue
+ *   mode=triggers           — importeert de polling triggers + CueBoard HTTP connectie.
+ *                             LET OP: dit is een FULL import en vervangt je hele config.
+ *                             Maak eerst een backup via Settings → Import/Export → Export.
+ *
+ * Importeer via Companion: Settings → Import/Export
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -25,52 +25,69 @@ function rnd(): string {
   return Array.from(bytes).map(b => chars[b % chars.length]).join('')
 }
 
+function gzip(obj: unknown): Buffer {
+  return gzipSync(Buffer.from(JSON.stringify(obj), 'utf-8'))
+}
+
+function respond(data: Buffer<ArrayBufferLike>, filename: string) {
+  return new NextResponse(data as unknown as BodyInit, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'no-store',
+    },
+  })
+}
+
+// ── Knop helpers ────────────────────────────────────────────────────────────
+
+function makeButton(
+  text: string,
+  bgcolor: number,
+  color: number,
+  size: string,
+  downActions: unknown[],
+) {
+  return {
+    type: 'button',
+    style: {
+      text,
+      textExpression: false,
+      size,
+      png64: null,
+      alignment: 'center:center',
+      pngalignment: 'center:center',
+      color,
+      bgcolor,
+      show_topbar: 'default',
+    },
+    options: {
+      stepProgression: 'auto',
+      stepExpression: '',
+      rotaryActions: false,
+    },
+    feedbacks: [],
+    steps: {
+      '0': {
+        action_sets: { down: downActions, up: [] },
+        options: { runWhileHeld: [] },
+      },
+    },
+    localVariables: [],
+  }
+}
+
+// ── Route handler ────────────────────────────────────────────────────────────
+
 export async function GET(request: NextRequest) {
   const rundownId = request.nextUrl.searchParams.get('rundownId')
   if (!rundownId || !UUID_RE.test(rundownId)) {
     return NextResponse.json({ error: 'Ongeldig rundownId' }, { status: 400 })
   }
 
+  const mode   = request.nextUrl.searchParams.get('mode') ?? 'page'
   const BASE   = 'https://www.cueboard.nl'
   const connId = rnd()
-
-  // ── Knop helpers ──────────────────────────────────────────────────────────
-
-  function makeButton(
-    text: string,
-    bgcolor: number,
-    color: number,
-    size: string,
-    downActions: unknown[],
-  ) {
-    return {
-      type: 'button',
-      style: {
-        text,
-        textExpression: false,
-        size,
-        png64: null,
-        alignment: 'center:center',
-        pngalignment: 'center:center',
-        color,
-        bgcolor,
-        show_topbar: 'default',
-      },
-      options: {
-        stepProgression: 'auto',
-        stepExpression: '',
-        rotaryActions: false,
-      },
-      feedbacks: [],
-      steps: {
-        '0': {
-          action_sets: { down: downActions, up: [] },
-          options: { runWhileHeld: [] },
-        },
-      },
-      localVariables: [],
-    }
-  }
 
   function postAction(action: 'go' | 'back' | 'skip') {
     return {
@@ -89,18 +106,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Config ────────────────────────────────────────────────────────────────
+  // ── MODE: page ──────────────────────────────────────────────────────────
+  // Importeert alleen de knoppen. Raakt andere pagina's / triggers NIET aan.
+  // De variabelen $(custom:sc_active) en $(custom:sc_next) worden gevuld
+  // door de polling trigger (triggers-config, of de bestaande CueBoard trigger).
+  if (mode === 'page') {
+    const pageConfig = {
+      version: 9,
+      type: 'page',
+      companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
 
-  const config = {
-    version: 9,
-    type: 'full',
-    companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
-
-    // ── Pagina 1 ─────────────────────────────────────────────────────────
-    pages: {
-      '1': {
+      // Alleen de pagina — geen triggers, geen custom_variables
+      page: {
         id: rnd(),
-        name: 'ShowCaller',
+        name: 'CueBoard',
         controls: {
           '0': {
             '0': { type: 'pageup' },
@@ -110,11 +129,8 @@ export async function GET(request: NextRequest) {
           },
           '1': {
             '0': { type: 'pagenum' },
-            // NOW: toont de naam van de actieve cue via custom variabele
             '1': makeButton('NOW\n$(custom:sc_active)', 0x001a0a, 0x00ff88, '14', []),
-            // NEXT: toont de naam van de volgende cue
             '2': makeButton('NEXT\n$(custom:sc_next)',  0x111111, 0xaaaaaa, '14', []),
-            // Voortgang: aantal gedaan / totaal
             '3': makeButton('$(custom:sc_done) / $(custom:sc_total)', 0x0d0d0d, 0x666666, '18', []),
           },
           '2': {
@@ -122,140 +138,92 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-    },
 
-    // ── Trigger: elke seconde 3x pollen (actief, next, progress) ─────────
-    triggers: {
-      [rnd()]: {
-        type: 'trigger',
-        options: {
-          name: 'ShowCaller — Live status (1s)',
+      // De CueBoard HTTP connectie meesturen zodat de POST-acties werken
+      instances: {
+        [connId]: {
+          moduleInstanceType: 'connection',
+          instance_type: 'generic-http',
+          label: 'CueBoard',
+          isFirstInit: false,
+          config: {},
+          lastUpgradeIndex: 1,
           enabled: true,
-          sortOrder: 0,
+          moduleVersionId: '2.7.0',
+          updatePolicy: 'stable',
+          sortOrder: 99,
+          secrets: {},
         },
-        condition: [],
-        events: [
-          {
-            id: rnd(),
-            type: 'interval',
-            enabled: true,
-            options: { seconds: 1 },
-          },
-        ],
-        actions: [
-          // Actieve cue (plain text → opslaan in custom:sc_active)
-          {
-            type: 'action',
-            id: rnd(),
-            connectionId: connId,
-            definitionId: 'get',
-            options: {
-              url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`,
-              header: '',
-              result_stringify: false,
-              jsonResultDataVariable: 'sc_active',
-            },
-            upgradeIndex: 1,
-          },
-          // Volgende cue (plain text → opslaan in custom:sc_next)
-          {
-            type: 'action',
-            id: rnd(),
-            connectionId: connId,
-            definitionId: 'get',
-            options: {
-              url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`,
-              header: '',
-              result_stringify: false,
-              jsonResultDataVariable: 'sc_next',
-            },
-            upgradeIndex: 1,
-          },
-          // Progress: actieve cue positie ophalen via status endpoint
-          {
-            type: 'action',
-            id: rnd(),
-            connectionId: connId,
-            definitionId: 'get',
-            options: {
-              url: `${BASE}/api/companion/status?rundownId=${rundownId}`,
-              header: '',
-              result_stringify: false,
-              jsonResultDataVariable: 'sc_status_raw',
-            },
-            upgradeIndex: 1,
-          },
-        ],
-        localVariables: [],
       },
-    },
-    triggerCollections: [],
+    }
 
-    // ── Custom variabelen (gevuld door trigger) ───────────────────────────
-    custom_variables: {
-      sc_active: {
-        description: 'Actieve cue naam',
-        defaultValue: '—',
-        persistCurrentValue: false,
-        sortOrder: 0,
-      },
-      sc_next: {
-        description: 'Volgende cue naam',
-        defaultValue: '—',
-        persistCurrentValue: false,
-        sortOrder: 1,
-      },
-      sc_done: {
-        description: 'Cues afgerond',
-        defaultValue: '0',
-        persistCurrentValue: false,
-        sortOrder: 2,
-      },
-      sc_total: {
-        description: 'Totaal aantal cues',
-        defaultValue: '0',
-        persistCurrentValue: false,
-        sortOrder: 3,
-      },
-      sc_status_raw: {
-        description: 'Ruwe JSON status (intern)',
-        defaultValue: '',
-        persistCurrentValue: false,
-        sortOrder: 4,
-      },
-    },
-    customVariablesCollections: [],
-    expressionVariables: {},
-    expressionVariablesCollections: [],
-
-    // ── Generic HTTP connectie ────────────────────────────────────────────
-    instances: {
-      [connId]: {
-        moduleInstanceType: 'connection',
-        instance_type: 'generic-http',
-        label: 'ShowCaller',
-        isFirstInit: false,
-        config: {},
-        lastUpgradeIndex: 1,
-        enabled: true,
-        moduleVersionId: '2.7.0',
-        updatePolicy: 'stable',
-        sortOrder: 0,
-        secrets: {},
-      },
-    },
-    connectionCollections: [],
-    surfaces: {},
-    surfaceGroups: {},
+    return respond(gzip(pageConfig), 'CueBoard pagina.companionconfig')
   }
 
-  const compressed = gzipSync(Buffer.from(JSON.stringify(config), 'utf-8'))
+  // ── MODE: triggers ──────────────────────────────────────────────────────
+  // LET OP: dit is een FULL import. Alleen gebruiken als je de triggers
+  // wilt (opnieuw) instellen. Maak eerst een Export backup!
+  if (mode === 'triggers') {
+    const triggersConfig = {
+      version: 9,
+      type: 'triggers',   // importeert alleen triggers, geen pagina's
+      companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
 
-  return new NextResponse(compressed, {
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': 'attachment; filename="ShowCaller Companion.companionconfig"',
-      'Cache-Control': 'no-store',
-    },
-  })
+      triggers: {
+        [rnd()]: {
+          type: 'trigger',
+          options: { name: 'CueBoard — Actieve cue (1s)', enabled: true, sortOrder: 0 },
+          condition: [],
+          events: [{ id: rnd(), type: 'interval', enabled: true, options: { seconds: 1 } }],
+          actions: [
+            {
+              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
+              options: {
+                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`,
+                header: '', result_stringify: false, jsonResultDataVariable: 'sc_active',
+              },
+              upgradeIndex: 1,
+            },
+            {
+              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
+              options: {
+                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`,
+                header: '', result_stringify: false, jsonResultDataVariable: 'sc_next',
+              },
+              upgradeIndex: 1,
+            },
+          ],
+          localVariables: [],
+        },
+      },
+      triggerCollections: [],
+      custom_variables: {
+        sc_active: { description: 'Actieve cue', defaultValue: '—', persistCurrentValue: false, sortOrder: 0 },
+        sc_next:   { description: 'Volgende cue', defaultValue: '—', persistCurrentValue: false, sortOrder: 1 },
+        sc_done:   { description: 'Gedaan', defaultValue: '0', persistCurrentValue: false, sortOrder: 2 },
+        sc_total:  { description: 'Totaal', defaultValue: '0', persistCurrentValue: false, sortOrder: 3 },
+      },
+      customVariablesCollections: [],
+      instances: {
+        [connId]: {
+          moduleInstanceType: 'connection',
+          instance_type: 'generic-http',
+          label: 'CueBoard',
+          isFirstInit: false,
+          config: {},
+          lastUpgradeIndex: 1,
+          enabled: true,
+          moduleVersionId: '2.7.0',
+          updatePolicy: 'stable',
+          sortOrder: 99,
+          secrets: {},
+        },
+      },
+      connectionCollections: [],
+    }
+
+    return respond(gzip(triggersConfig), 'CueBoard triggers.companionconfig')
+  }
+
+  return NextResponse.json({ error: 'Ongeldige mode (gebruik page of triggers)' }, { status: 400 })
 }

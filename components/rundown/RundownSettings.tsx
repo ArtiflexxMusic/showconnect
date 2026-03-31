@@ -191,13 +191,11 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
     setActivating(true)
     setActivateStatus('idle')
     try {
-      const res = await fetch('/api/companion/relay', {
+      // Direct browser → Companion (zelfde netwerk, geen server relay nodig)
+      const res = await fetch(`http://${fullHost}/api/custom-variable/sc_rundown_id/value`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: `http://${fullHost}/api/custom-variable/sc_rundown_id/value`,
-          payload: { value: rundown.id },
-        }),
+        body: JSON.stringify({ value: rundown.id }),
       })
       setActivateStatus(res.ok ? 'ok' : 'error')
     } catch {

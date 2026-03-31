@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/supabase/get-user'
 import { redirect } from 'next/navigation'
 import { ShowsOverview } from '@/components/dashboard/ShowsOverview'
 import { DashboardGuide } from '@/components/dashboard/DashboardGuide'
@@ -8,9 +9,11 @@ import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
 export const metadata: Metadata = { title: 'Dashboard – CueBoard' }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Gratis dankzij React.cache() — layout heeft al getCachedUser() aangeroepen
+  const user = await getCachedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   // Parallel laden — scheelt 150-300ms per pageload
   const [{ data: shows }, { data: memberships }] = await Promise.all([

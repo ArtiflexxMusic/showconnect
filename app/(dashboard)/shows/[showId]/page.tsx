@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { cache } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/supabase/get-user'
 import { ShowDashboard } from '@/components/dashboard/ShowDashboard'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 
@@ -14,7 +15,8 @@ interface PageProps {
 const loadShowPage = cache(async (showId: string) => {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getCachedUser() is gratis als layout hem al heeft aangeroepen
+  const user = await getCachedUser()
   if (!user) return null
 
   // Alle queries parallel uitvoeren
@@ -44,6 +46,7 @@ const loadShowPage = cache(async (showId: string) => {
 
   return { user, show, rundowns, members, invitations, profile }
 })
+
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { showId } = await params

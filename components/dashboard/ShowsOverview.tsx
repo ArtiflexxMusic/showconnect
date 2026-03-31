@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,9 @@ import {
   Share2, Archive, Copy, BookOpen, ArchiveRestore,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { EditShowModal } from './EditShowModal'
+
+// Lazy-loaded — EditShowModal laadt alleen als de gebruiker op "Bewerken" klikt
+const EditShowModal = dynamic(() => import('./EditShowModal').then(m => ({ default: m.EditShowModal })), { ssr: false })
 
 interface RundownSummary {
   id: string

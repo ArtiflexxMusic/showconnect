@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -17,10 +18,13 @@ import {
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
-import { EditShowModal } from './EditShowModal'
-import { ShowMembersPanel } from '@/components/team/ShowMembersPanel'
-import { GreenRoomPanel } from '@/components/green-room/GreenRoomPanel'
 import { InfoButton } from '@/components/ui/info-button'
+
+// Lazy-loaded: worden niet in de initiële JS-bundle meegenomen.
+// Ze laden pas wanneer de gebruiker op de knop klikt — scheelt ~150KB JS.
+const EditShowModal   = dynamic(() => import('./EditShowModal').then(m => ({ default: m.EditShowModal })), { ssr: false })
+const ShowMembersPanel = dynamic(() => import('@/components/team/ShowMembersPanel').then(m => ({ default: m.ShowMembersPanel })), { ssr: false })
+const GreenRoomPanel  = dynamic(() => import('@/components/green-room/GreenRoomPanel').then(m => ({ default: m.GreenRoomPanel })), { ssr: false })
 
 interface RundownSummary {
   id: string

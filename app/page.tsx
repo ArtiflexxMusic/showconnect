@@ -1,3 +1,7 @@
+// Statisch gegenereerd bij build — geen server-rendering per request nodig.
+// Vercel serveert dit als een CDN-bestand: razendsnel overal ter wereld.
+export const dynamic = 'force-static'
+
 import Link from 'next/link'
 import {
   Radio, Users, Monitor, Smartphone, Zap, Lock,

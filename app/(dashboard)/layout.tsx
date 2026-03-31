@@ -1,17 +1,18 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/supabase/get-user'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { TrialBanner } from '@/components/layout/TrialBanner'
 import { isTrialActive } from '@/lib/plans'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  // getCachedUser() deelt het resultaat met alle server components in dezelfde request
+  const user = await getCachedUser()
   if (!user) redirect('/login')
 
-  // Haal profiel op
+  // Profiel parallel ophalen — we hebben user.id, kunnen meteen starten
+  const supabase = await createClient()
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')

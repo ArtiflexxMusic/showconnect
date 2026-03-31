@@ -6,8 +6,11 @@ import './globals.css'
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   variable: '--font-sans',
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
+  // 'optional': font wordt niet geblokkeerd bij laden — browser gebruikt fallback
+  // totdat het font klaar is. Geen layout shift, snelste First Contentful Paint.
+  display: 'optional',
+  // Alleen de weights die we echt gebruiken (300 en 700 komen nergens voor)
+  weight: ['400', '500', '600'],
 })
 
 export const metadata: Metadata = {
@@ -67,6 +70,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="nl" className={`dark ${spaceGrotesk.variable}`}>
+      <head>
+        {/* DNS + TCP + TLS al klaar vóór de eerste Supabase-request */}
+        <link rel="preconnect" href="https://gvvwetqifyzslrxwujqe.supabase.co" />
+        <link rel="dns-prefetch" href="https://gvvwetqifyzslrxwujqe.supabase.co" />
+      </head>
       <body className={spaceGrotesk.className}>
         {children}
         <Toaster />

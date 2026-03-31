@@ -13,7 +13,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
-  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore,
+  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore, Zap,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -305,6 +305,74 @@ export function ShowDashboard({
           )}
         </div>
       </div>
+
+      {/* ── Quick launch ──────────────────────────────────────────────────────── */}
+      {rundowns.length > 0 && (() => {
+        const primary = rundowns.find(r => r.cues?.[0]?.count != null) ?? rundowns[0]
+        const base = `/shows/${show.id}/rundown/${primary.id}`
+        const tiles = [
+          { label: 'Caller', href: `${base}/caller`, icon: <Radio className="h-4 w-4" />, accent: true, desc: 'Go live' },
+          { label: 'Editor', href: `${base}`, icon: <Pencil className="h-4 w-4" />, desc: 'Bewerken', internal: true },
+          { label: 'Presenter', href: `${base}/presenter`, icon: <ExternalLink className="h-4 w-4" />, desc: 'Sprekers' },
+          { label: 'Crew', href: `${base}/crew`, icon: <Users className="h-4 w-4" />, desc: 'Backstage' },
+          { label: 'Programma', href: `/status/${show.id}/${primary.id}`, icon: <Globe className="h-4 w-4" />, desc: 'Publiek' },
+          { label: 'Output', href: `${base}/output`, icon: <Monitor className="h-4 w-4" />, desc: 'Beamer/mixer' },
+        ]
+        return (
+          <div className="mb-7">
+            <div className="flex items-center gap-2 mb-2.5">
+              <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Snel starten</span>
+              {rundowns.length > 1 && (
+                <span className="text-[10px] text-muted-foreground/50">— {primary.name}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {tiles.map(({ label, href, icon, accent, desc, internal }) => (
+                internal ? (
+                  <Link
+                    key={label}
+                    href={href}
+                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      accent
+                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
+                        : 'bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-border'
+                    }`}
+                  >
+                    {icon}
+                    <span className="text-[11px] font-semibold leading-none">{label}</span>
+                    <span className="text-[10px] opacity-60 leading-none">{desc}</span>
+                  </Link>
+                ) : (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      accent
+                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
+                        : 'bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-border'
+                    }`}
+                  >
+                    {icon}
+                    <span className="text-[11px] font-semibold leading-none">{label}</span>
+                    <span className="text-[10px] opacity-60 leading-none">{desc}</span>
+                  </a>
+                )
+              ))}
+            </div>
+            {/* Green Room quick-add knop */}
+            <button
+              onClick={() => setShowGreenRoom(true)}
+              className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 hover:border-border/70 text-muted-foreground hover:text-foreground transition-all py-2 text-xs font-medium"
+            >
+              <Radio className="h-3.5 w-3.5" />
+              Green Room openen — gasten toevoegen &amp; beheren
+            </button>
+          </div>
+        )
+      })()}
 
       {/* Rundown lijst */}
       <div className="space-y-3">

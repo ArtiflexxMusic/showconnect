@@ -1,11 +1,6 @@
-'use client'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { redirect } from 'next/navigation'
 
+// Server-side redirect — geen client JS nodig, veel sneller dan router.replace
 export default function DashboardRootPage() {
-  const router = useRouter()
-  useEffect(() => {
-    router.replace('/dashboard')
-  }, [router])
-  return null
+  redirect('/dashboard')
 }

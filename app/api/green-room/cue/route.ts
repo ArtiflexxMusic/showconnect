@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { rateLimit, getIp } from '@/lib/rate-limit'
 
 interface GreenRoomPermissions {
   view_all_cues:   boolean
@@ -27,6 +28,16 @@ const DEFAULT_PERMISSIONS: GreenRoomPermissions = {
 }
 
 export async function PATCH(req: NextRequest) {
+  // Rate limiting: max 30 updates per minuut per IP (genoeg voor normaal gebruik)
+  const ip = getIp(req)
+  const rl = rateLimit(`green-room-cue:${ip}`, { limit: 30, windowMs: 60_000 })
+  if (!rl.success) {
+    return NextResponse.json({ error: 'Te veel verzoeken, even wachten' }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+    })
+  }
+
   try {
     const body = await req.json()
     const { token, cueId, title, location } = body as {

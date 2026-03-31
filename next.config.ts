@@ -50,7 +50,18 @@ const nextConfig: NextConfig = {
     // heeft geen invloed op runtime; dit zorgt dat de build gewoon doorgaat
     ignoreBuildErrors: true,
   },
+
+  // Verberg dat de site op Next.js draait (kleine security win)
+  poweredByHeader: false,
+
+  // Gzip/Brotli compressie voor alle responses
+  compress: true,
+
   images: {
+    // Moderne formaten: WebP voor brede support, AVIF voor extra compressie
+    formats: ['image/avif', 'image/webp'],
+    // Verkleinde placeholder tijdens laden
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     remotePatterns: [
       {
         protocol: 'https',
@@ -63,21 +74,41 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // Tree-shaking voor zware icon/component libraries → kleinere JS bundles
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+
   async headers() {
     return [
       {
-        // Apply security headers to all routes
+        // Veiligheidsheaders op alle routes
         source: '/:path*',
         headers: securityHeaders,
       },
       {
-        // Extra caching headers for static assets
+        // Statische Next.js assets: 1 jaar cache (hash in bestandsnaam garandeert invalidatie)
+        source: '/_next/static/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        // Geoptimaliseerde afbeeldingen: 1 dag cache
+        source: '/_next/image',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
+      {
         source: '/favicon.ico',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }],
       },
       {
         source: '/:path*.png',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }],
+      },
+      {
+        // API routes: nooit cachen (altijd vers data)
+        source: '/api/:path*',
+        headers: [{ key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' }],
       },
     ]
   },

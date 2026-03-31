@@ -535,8 +535,21 @@ function ShowCard({
   // Neem de eerste rundown als "actieve" rundown voor quick-go-live
   const primaryRundown = show.rundowns.find(r => r.is_active) ?? show.rundowns[0]
 
+  // Bereken dagen tot de show
+  const showDate = show.date ? new Date(show.date + 'T00:00:00') : null
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0)
+  const daysUntil = showDate ? Math.round((showDate.getTime() - todayMidnight.getTime()) / 86_400_000) : null
+
+  // Urgentie-badge
+  const urgencyBadge = (!past && daysUntil !== null)
+    ? daysUntil === 0 ? { label: 'Vandaag', cls: 'bg-green-500/15 text-green-400 border border-green-500/30' }
+    : daysUntil === 1 ? { label: 'Morgen', cls: 'bg-yellow-400/15 text-yellow-400 border border-yellow-400/30' }
+    : daysUntil <= 7  ? { label: `Over ${daysUntil} d`, cls: 'bg-primary/10 text-primary border border-primary/25' }
+    : null
+    : null
+
   return (
-    <Card className={`hover:border-primary/40 transition-colors ${shared ? 'border-border/40 bg-muted/5' : ''}`}>
+    <Card className={`hover:border-primary/40 transition-colors group ${shared ? 'border-border/40 bg-muted/5' : ''} ${daysUntil === 0 ? 'border-green-500/25' : ''}`}>
       <CardHeader className="pb-2 pt-4 px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -546,6 +559,11 @@ function ShowCard({
                   {show.name}
                 </Link>
               </CardTitle>
+              {urgencyBadge && (
+                <span className={`inline-flex items-center text-[10px] font-semibold rounded-full px-2 py-0.5 ${urgencyBadge.cls}`}>
+                  {urgencyBadge.label}
+                </span>
+              )}
               {past && <Badge variant="outline" className="text-[10px] px-1.5">Afgelopen</Badge>}
               {shared && sharedRole && (
                 <Badge variant="secondary" className="text-[10px] px-1.5 gap-1">
@@ -554,20 +572,26 @@ function ShowCard({
                 </Badge>
               )}
             </div>
-            <CardDescription className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               {show.date && (
-                <span className="flex items-center gap-1">
+                <span className={`flex items-center gap-1 text-xs font-medium ${daysUntil === 0 ? 'text-green-400' : daysUntil === 1 ? 'text-yellow-400' : 'text-muted-foreground'}`}>
                   <CalendarDays className="h-3 w-3" />
                   {formatDate(show.date)}
                 </span>
               )}
               {show.venue && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {show.venue}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  <span className="truncate max-w-[180px]">{show.venue}</span>
                 </span>
               )}
-            </CardDescription>
+              {show.rundowns.length > 0 && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
+                  <ListMusic className="h-3 w-3" />
+                  {show.rundowns.length} rundown{show.rundowns.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">

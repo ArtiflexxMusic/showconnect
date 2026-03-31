@@ -155,7 +155,7 @@ export function ShowDashboard({
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-5xl mx-auto">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-5">
@@ -195,7 +195,7 @@ export function ShowDashboard({
         )}
 
         {/* Actie-toolbar — één regel, links uitgelijnd, scrollt horizontaal op kleine schermen */}
-        <div className="flex items-center gap-1 mt-4 pt-3 border-t border-border/40 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1 mt-4 pt-3 border-t border-border/40 flex-wrap">
 
           {/* Samenwerking */}
           <div className="flex items-center rounded-lg border border-border/60 bg-muted/20 overflow-hidden divide-x divide-border/40 shrink-0">

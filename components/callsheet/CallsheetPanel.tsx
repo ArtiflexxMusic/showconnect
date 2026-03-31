@@ -54,6 +54,7 @@ interface CallsheetData {
   catering: string
   emergency: string
   extra: string
+  extra_recipients: string   // komma-gescheiden extra e-mailadressen
   // Per crew lid: phone + call_time, gekeyed op crew-id
   crew_extras: Record<string, { phone: string; call_time: string; department: string }>
 }
@@ -67,6 +68,7 @@ const EMPTY_DATA: CallsheetData = {
   catering: '',
   emergency: '',
   extra: '',
+  extra_recipients: '',
   crew_extras: {},
 }
 
@@ -382,14 +384,21 @@ export function CallsheetPanel({
   }
 
   async function sendToCrewEmails() {
-    const recipients = crew.filter(m => m.email)
-    if (recipients.length === 0) { alert('Geen crew-leden met e-mailadres gevonden.'); return }
+    const crewRecipients = crew.filter(m => m.email)
+    // Losse extra e-mailadressen parsen
+    const extraRecipients = (data.extra_recipients ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.includes('@'))
+      .map(email => ({ id: `extra_${email}`, email, full_name: email, role: 'extern' }))
+    const allRecipients = [...crewRecipients, ...extraRecipients]
+    if (allRecipients.length === 0) { alert('Geen e-mailadressen gevonden. Voeg crew toe of typ losse adressen.'); return }
     setSending(true)
     try {
       const res = await fetch(`/api/shows/${showId}/callsheet/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: data, recipients }),
+        body: JSON.stringify({ notes: data, recipients: allRecipients }),
       })
       if (res.ok) { setSendDone(true); setTimeout(() => setSendDone(false), 4000) }
       else { const d = await res.json(); alert(`Versturen mislukt: ${d.error ?? 'Fout'}`) }
@@ -397,7 +406,9 @@ export function CallsheetPanel({
     setSending(false)
   }
 
-  const emailCount = crew.filter(m => m.email).length
+  const crewEmailCount  = crew.filter(m => m.email).length
+  const extraEmailCount = (data.extra_recipients ?? '').split(',').map(s => s.trim()).filter(s => s.includes('@')).length
+  const emailCount      = crewEmailCount + extraEmailCount
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -548,6 +559,22 @@ export function CallsheetPanel({
                       </tbody>
                     </table>
                   </div>
+                )}
+              </div>
+
+              {/* ── Extra ontvangers ── */}
+              <div>
+                <FieldGroupHeader icon={<Mail className="h-4 w-4" />} title="Extra ontvangers" subtitle="stuur ook naar mensen buiten de crew" />
+                <EditableField
+                  label="E-mailadressen (komma-gescheiden)"
+                  value={data.extra_recipients}
+                  onChange={v => setField('extra_recipients', v)}
+                  placeholder="jan@voorbeeld.nl, marie@bedrijf.com…"
+                />
+                {extraEmailCount > 0 && (
+                  <p className="text-xs text-muted-foreground/60 mt-1.5">
+                    {extraEmailCount} losse ontvanger{extraEmailCount === 1 ? '' : 's'} toegevoegd
+                  </p>
                 )}
               </div>
 

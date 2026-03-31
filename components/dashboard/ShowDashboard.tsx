@@ -37,8 +37,8 @@ interface RundownSummary {
 interface ShowDashboardProps {
   show: Show
   rundowns: RundownSummary[]
-  members?: ShowMember[]
-  invitations?: Invitation[]
+  members?: ShowMember[]      // optioneel — ShowMembersPanel fetcht zelf
+  invitations?: Invitation[]  // optioneel — ShowMembersPanel fetcht zelf
   currentUserRole?: ShowMemberRole
 }
 
@@ -205,11 +205,6 @@ export function ShowDashboard({
                 className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
               >
                 <Users className="h-3.5 w-3.5" /> Team
-                {members.length > 0 && (
-                  <span className="ml-0.5 text-[10px] bg-primary/10 text-primary rounded-full px-1.5 py-0.5 leading-none font-semibold">
-                    {members.length}
-                  </span>
-                )}
               </button>
               <span className="pr-1">
                 <InfoButton section="uitnodigen" text="Bekijk en beheer alle teamleden en hun rollen." />

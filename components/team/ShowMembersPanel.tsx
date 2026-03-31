@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2, Shield, Mic, Users, Eye, Pencil, Mail, Info } from 'lucide-react'
@@ -11,8 +11,8 @@ interface ShowMembersPanelProps {
   showId: string
   showName: string
   currentUserRole: ShowMemberRole
-  members: ShowMember[]
-  invitations: Invitation[]
+  members?: ShowMember[]       // optioneel — panel fetcht zelf als niet meegegeven
+  invitations?: Invitation[]   // optioneel — panel fetcht zelf als niet meegegeven
   onClose: () => void
   autoOpenInvite?: boolean
 }
@@ -69,8 +69,33 @@ function Avatar({ name, email }: { name: string | null; email?: string }) {
 export function ShowMembersPanel({
   showId, showName, currentUserRole, members: initialMembers, invitations: initialInvitations, onClose, autoOpenInvite = false
 }: ShowMembersPanelProps) {
-  const [members, setMembers]         = useState(initialMembers)
-  const [invitations, setInvitations] = useState(initialInvitations)
+  const [members, setMembers]         = useState<ShowMember[]>(initialMembers ?? [])
+  const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations ?? [])
+  const [loadingData, setLoadingData] = useState(!initialMembers)
+
+  // Fetch data on mount als het niet server-side meegegeven is (snellere show-paginaload)
+  useEffect(() => {
+    if (initialMembers) return
+    const supabase = createClient()
+    Promise.all([
+      supabase
+        .from('show_members')
+        .select('*, profile:profiles!show_members_user_id_fkey(id, email, full_name, avatar_url)')
+        .eq('show_id', showId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('invitations')
+        .select('*')
+        .eq('show_id', showId)
+        .is('accepted_at', null)
+        .order('created_at', { ascending: false }),
+    ]).then(([{ data: m }, { data: i }]) => {
+      setMembers((m ?? []) as ShowMember[])
+      setInvitations((i ?? []) as Invitation[])
+      setLoadingData(false)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showId])
   const [showInvite, setShowInvite]   = useState(autoOpenInvite && currentUserRole === 'owner')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole]   = useState<ShowMemberRole>('caller')
@@ -198,7 +223,10 @@ export function ShowMembersPanel({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h2 className="font-semibold text-base">Teamleden</h2>
+            <h2 className="font-semibold text-base flex items-center gap-2">
+              Teamleden
+              {loadingData && <span className="inline-block h-3.5 w-3.5 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />}
+            </h2>
             <p className="text-xs text-muted-foreground">{showName}</p>
           </div>
           <div className="flex items-center gap-2">

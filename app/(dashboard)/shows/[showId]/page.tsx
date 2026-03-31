@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCachedUser } from '@/lib/supabase/get-user'
 import { ShowDashboard } from '@/components/dashboard/ShowDashboard'
-import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
+import type { Show, ShowMemberRole } from '@/lib/types/database'
 
 interface PageProps {
   params: Promise<{ showId: string }>
@@ -19,12 +19,12 @@ const loadShowPage = cache(async (showId: string) => {
   const user = await getCachedUser()
   if (!user) return null
 
-  // Alle queries parallel uitvoeren
+  // Alleen kritieke queries parallel — members/invitations laden client-side
+  // als de gebruiker het Team-panel opent. Scheelt de zware profile-JOIN bij elke pageload.
   const [
     { data: show },
     { data: rundowns },
-    { data: members },
-    { data: invitations },
+    { data: membership },
     { data: profile },
   ] = await Promise.all([
     supabase.from('shows').select('*').eq('id', showId).single(),
@@ -33,18 +33,14 @@ const loadShowPage = cache(async (showId: string) => {
       .eq('show_id', showId)
       .order('created_at', { ascending: true }),
     supabase.from('show_members')
-      .select('*, profile:profiles!show_members_user_id_fkey(id, email, full_name, avatar_url)')
+      .select('role')
       .eq('show_id', showId)
-      .order('created_at', { ascending: true }),
-    supabase.from('invitations')
-      .select('*')
-      .eq('show_id', showId)
-      .is('accepted_at', null)
-      .order('created_at', { ascending: false }),
+      .eq('user_id', user.id)
+      .maybeSingle(),
     supabase.from('profiles').select('role').eq('id', user.id).single(),
   ])
 
-  return { user, show, rundowns, members, invitations, profile }
+  return { user, show, rundowns, membership, profile }
 })
 
 
@@ -62,14 +58,13 @@ export default async function ShowPage({ params }: PageProps) {
   if (!data?.user) redirect('/login')
   if (!data.show) notFound()
 
-  const { user, show, rundowns, members, invitations, profile } = data
+  const { user, show, rundowns, membership, profile } = data
 
   const isPlatformAdmin = profile?.role === 'beheerder' || profile?.role === 'admin'
-  const currentMember = (members ?? []).find(m => m.user_id === user.id)
 
-  if (!isPlatformAdmin && !currentMember) redirect('/dashboard')
+  if (!isPlatformAdmin && !membership) redirect('/dashboard')
 
-  const currentUserRole: ShowMemberRole = isPlatformAdmin ? 'owner' : (currentMember?.role ?? 'viewer')
+  const currentUserRole: ShowMemberRole = isPlatformAdmin ? 'owner' : ((membership?.role ?? 'viewer') as ShowMemberRole)
 
   // Auto-redirect: presenter → presenter view, crew → crew view (alleen als er één rundown is)
   if (!isPlatformAdmin && rundowns && rundowns.length === 1) {
@@ -88,8 +83,6 @@ export default async function ShowPage({ params }: PageProps) {
         created_at: string
         cues: { count: number }[]
       }>}
-      members={(members ?? []) as unknown as ShowMember[]}
-      invitations={(invitations ?? []) as unknown as Invitation[]}
       currentUserRole={currentUserRole}
     />
   )

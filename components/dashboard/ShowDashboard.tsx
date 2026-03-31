@@ -14,7 +14,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
-  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore, Zap, Briefcase,
+  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore, Zap, Briefcase, FileText,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -23,8 +23,9 @@ import { InfoButton } from '@/components/ui/info-button'
 // Lazy-loaded: worden niet in de initiële JS-bundle meegenomen.
 // Ze laden pas wanneer de gebruiker op de knop klikt — scheelt ~150KB JS.
 const EditShowModal   = dynamic(() => import('./EditShowModal').then(m => ({ default: m.EditShowModal })), { ssr: false })
-const ShowMembersPanel = dynamic(() => import('@/components/team/ShowMembersPanel').then(m => ({ default: m.ShowMembersPanel })), { ssr: false })
-const GreenRoomPanel  = dynamic(() => import('@/components/green-room/GreenRoomPanel').then(m => ({ default: m.GreenRoomPanel })), { ssr: false })
+const ShowMembersPanel  = dynamic(() => import('@/components/team/ShowMembersPanel').then(m => ({ default: m.ShowMembersPanel })), { ssr: false })
+const GreenRoomPanel   = dynamic(() => import('@/components/green-room/GreenRoomPanel').then(m => ({ default: m.GreenRoomPanel })), { ssr: false })
+const CallsheetPanel   = dynamic(() => import('@/components/callsheet/CallsheetPanel').then(m => ({ default: m.CallsheetPanel })), { ssr: false })
 
 interface RundownSummary {
   id: string
@@ -59,6 +60,7 @@ export function ShowDashboard({
   const [editShowOpen, setEditShowOpen]     = useState(false)
   const [showMembers, setShowMembers]       = useState(false)
   const [showGreenRoom, setShowGreenRoom]   = useState(false)
+  const [showCallsheet, setShowCallsheet]   = useState(false)
   const [autoOpenInvite, setAutoOpenInvite] = useState(false)
   const [deleteTarget, setDeleteTarget]     = useState<RundownSummary | null>(null)
   const [deleting, setDeleting]             = useState(false)
@@ -229,6 +231,14 @@ export function ShowDashboard({
               <span className="pr-1">
                 <InfoButton section="cast" text="Geef gasten toegang tot de Green Room met een 6-cijferige PIN — zonder account." />
               </span>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => setShowCallsheet(true)}
+                className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" /> Callsheet
+              </button>
             </div>
           </div>
 
@@ -517,6 +527,18 @@ export function ShowDashboard({
         showId={show.id}
         open={showGreenRoom}
         onClose={() => setShowGreenRoom(false)}
+      />
+
+      {/* Callsheet panel */}
+      <CallsheetPanel
+        showId={show.id}
+        showName={show.name}
+        showDate={show.date ?? null}
+        showVenue={show.venue ?? null}
+        showClient={(show as any).client ?? null}
+        showDescription={show.description ?? null}
+        open={showCallsheet}
+        onClose={() => setShowCallsheet(false)}
       />
 
       {/* Team leden panel */}

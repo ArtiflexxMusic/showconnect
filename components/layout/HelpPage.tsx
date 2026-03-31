@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ListMusic, Radio, Mic2, Users, Globe, Monitor,
   QrCode, Webhook, Clock, ChevronRight, ChevronDown, Zap,
@@ -371,6 +371,18 @@ function TableOfContents() {
 
 export function HelpPage() {
   const [openSection, setOpenSection] = useState<string | null>(null)
+
+  // Auto-open en scroll naar sectie als URL een anchor heeft (bijv. /help#uitnodigen)
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (hash) {
+      setOpenSection(hash)
+      // Geef de DOM even de tijd om de sectie te openen voordat we scrollen
+      setTimeout(() => {
+        document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 120)
+    }
+  }, [])
 
   function toggle(id: string) {
     setOpenSection((prev) => prev === id ? null : id)

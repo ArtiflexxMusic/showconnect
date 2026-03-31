@@ -631,7 +631,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
   // Auto-scroll naar actieve cue in de lijst
   useEffect(() => {
-    activeCueRowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    activeCueRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [activeCue?.id])
 
   // Media player helpers
@@ -787,6 +787,17 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             <Radio className="h-3 w-3" />
             {formatShowClock(showStartedAt, now)}
           </div>
+
+          {/* Klok tweede scherm — verborgen op klein scherm */}
+          <a
+            href={`/shows/${show.id}/rundown/${rundown.id}/clock`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:flex items-center gap-1 h-8 px-2 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Klok tweede scherm openen"
+          >
+            <Monitor className="h-3.5 w-3.5" />
+          </a>
         </div>
       </div>
 
@@ -800,7 +811,9 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       )}
 
       {/* ── MAIN AREA ────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-8 py-3 sm:py-4 gap-3 sm:gap-5 min-h-0">
+      {/* overflow-y-auto zodat content scrolt als het scherm te klein is; my-auto centreert als er ruimte over is */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center px-3 sm:px-8 py-3 sm:py-4">
+      <div className="w-full max-w-3xl flex flex-col gap-3 sm:gap-4 my-auto">
 
         {showComplete ? (
           <div className="text-center">
@@ -1045,6 +1058,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             </div>
           </div>
         )}
+      </div>{/* /inner my-auto wrapper */}
       </div>
 
       {/* ── CONTROL BAR ──────────────────────────────────────────────── */}
@@ -1157,7 +1171,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       )}
 
       {/* ── CUE LIJST — verticaal scrollbaar, live aanpassen ────────── */}
-      <div className="shrink-0 h-[38vh] border-t border-border/40 overflow-y-auto bg-muted/5">
+      <div className="shrink-0 h-[32vh] sm:h-[35vh] border-t border-border/40 overflow-y-auto bg-muted/5">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-1.5 bg-muted/30 border-b border-border/30 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
           <span className="w-7 shrink-0">#</span>

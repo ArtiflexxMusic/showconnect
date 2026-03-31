@@ -74,7 +74,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [showPayloadPreview, setShowPayloadPreview] = useState(false)
 
   // Companion activeren
-  const [companionHost, setCompanionHost]         = useState('')
+  const [companionToken, setCompanionToken]       = useState('')
   const [activating, setActivating]               = useState(false)
   const [activateStatus, setActivateStatus]       = useState<'idle' | 'ok' | 'error'>('idle')
 
@@ -88,8 +88,8 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       const raw = rundown.show_start_time ?? ''
       setStartTime(raw.length >= 5 ? raw.slice(0, 5) : raw)
       // Onthoud Companion host tussen sessies
-      const savedHost = typeof window !== 'undefined' ? (localStorage.getItem('companion_host') ?? '') : ''
-      setCompanionHost(savedHost)
+      const savedToken = typeof window !== 'undefined' ? (localStorage.getItem('companion_token') ?? 'default') : 'default'
+      setCompanionToken(savedToken)
       setActivateStatus('idle')
       // Companion: detecteer modus op basis van opgeslagen URL
       const savedUrl = rundown.companion_webhook_url ?? ''
@@ -183,19 +183,16 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
 
   // Activeer de huidige show in Companion door sc_rundown_id bij te werken
   async function activateInCompanion() {
-    const host = companionHost.trim()
-    if (!host) return
-    const fullHost = host.includes(':') ? host : host + ':8000'
-    // Sla host op voor volgende keer
-    if (typeof window !== 'undefined') localStorage.setItem('companion_host', companionHost.trim())
+    const token = companionToken.trim() || 'default'
+    if (typeof window !== 'undefined') localStorage.setItem('companion_token', token)
     setActivating(true)
     setActivateStatus('idle')
     try {
-      // Direct browser → Companion (zelfde netwerk, geen server relay nodig)
-      const res = await fetch(`http://${fullHost}/api/custom-variable/sc_rundown_id/value`, {
+      // Server-side call → geen CORS/PNA issues
+      const res = await fetch('/api/companion/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: rundown.id }),
+        body: JSON.stringify({ token, rundownId: rundown.id }),
       })
       setActivateStatus(res.ok ? 'ok' : 'error')
     } catch {
@@ -621,20 +618,20 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
             <div className="rounded-lg bg-green-500/5 border border-green-500/20 px-3 py-3 space-y-2.5">
               <p className="text-xs font-medium text-foreground/90">Stap 2 — Activeer deze show in Companion</p>
               <p className="text-xs text-muted-foreground">
-                Geef het IP-adres van je Companion/Raspberry Pi op. CueBoard stuurt de show-ID direct naar Companion — geen nieuwe import nodig.
+                Geef je Companion-apparaat een naam (bijv. &quot;mac&quot; of &quot;pi&quot;). Gebruik dezelfde naam in Companion als <code className="font-mono bg-muted px-1 rounded">sc_token</code>.
               </p>
               <div className="flex gap-2 items-center">
                 <Input
-                  value={companionHost}
-                  onChange={e => { setCompanionHost(e.target.value); setActivateStatus('idle') }}
-                  placeholder="192.168.1.100  of  192.168.1.100:8000"
+                  value={companionToken}
+                  onChange={e => { setCompanionToken(e.target.value); setActivateStatus('idle') }}
+                  placeholder="mac  of  pi  of  default"
                   className="text-xs h-8 flex-1 font-mono"
                 />
                 <Button
                   type="button"
                   size="sm"
                   className="gap-1.5 shrink-0 bg-green-600 hover:bg-green-700 text-white"
-                  disabled={!companionHost.trim() || activating}
+                  disabled={activating}
                   onClick={activateInCompanion}
                 >
                   {activating
@@ -650,7 +647,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               </div>
               {activateStatus === 'error' && (
                 <p className="text-[10px] text-red-400">
-                  Kan Companion niet bereiken. Controleer het IP-adres en zorg dat Companion bereikbaar is op poort 8000.
+                  Activeren mislukt. Controleer of je ingelogd bent en probeer opnieuw.
                 </p>
               )}
               {activateStatus === 'ok' && (

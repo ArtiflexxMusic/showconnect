@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Briefcase } from 'lucide-react'
 import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
 
 export function CreateShowForm() {
@@ -19,6 +19,7 @@ export function CreateShowForm() {
   const [date, setDate] = useState('')
   const [venue, setVenue] = useState('')
   const [description, setDescription] = useState('')
+  const [client, setClient] = useState('')
   const [rundownName, setRundownName] = useState('Hoofdrundown')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +39,7 @@ export function CreateShowForm() {
           date:         date || null,
           venue:        venue.trim() || null,
           description:  description.trim() || null,
+          client:       client.trim() || null,
           rundownName:  rundownName.trim() || 'Hoofdrundown',
         }),
       })
@@ -103,6 +105,18 @@ export function CreateShowForm() {
                   placeholder="Stadsschouwburg Amsterdam"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="show-client">
+                <span className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> Opdrachtgever</span>
+              </Label>
+              <Input
+                id="show-client"
+                value={client}
+                onChange={(e) => setClient(e.target.value)}
+                placeholder="Bedrijfsnaam of klant"
+              />
             </div>
 
             <div className="space-y-2">

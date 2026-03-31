@@ -13,7 +13,7 @@ import {
 import {
   CalendarDays, MapPin, Plus, ChevronRight, ListMusic, Trash2, Loader2,
   Pencil, Radio, Users, ArrowRight, Sparkles, LayoutList, ChevronLeft, Search, X,
-  Share2, Archive, Copy, BookOpen, ArchiveRestore,
+  Share2, Archive, Copy, BookOpen, ArchiveRestore, Briefcase,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
@@ -32,6 +32,7 @@ interface ShowWithRundowns {
   date: string | null
   venue: string | null
   description: string | null
+  client?: string | null
   created_at: string
   rundowns: RundownSummary[]
 }
@@ -95,7 +96,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
     }
   }
 
-  function handleShowSaved(updated: { id: string; name: string; date: string | null; venue: string | null; description: string | null }) {
+  function handleShowSaved(updated: { id: string; name: string; date: string | null; venue: string | null; description: string | null; client?: string | null }) {
     setShows((prev) => prev.map((s) => s.id === updated.id ? { ...s, ...updated } : s))
   }
 
@@ -120,7 +121,7 @@ export function ShowsOverview({ shows: initialShows, sharedShows: initialSharedS
       // 1. Maak de nieuwe show aan
       const { data: newShow, error: showErr } = await supabase
         .from('shows')
-        .insert({ name: `${show.name} (kopie)`, date: show.date, venue: show.venue, description: show.description })
+        .insert({ name: `${show.name} (kopie)`, date: show.date, venue: show.venue, description: show.description, client: show.client })
         .select('id')
         .single()
       if (showErr || !newShow) { setDuplicating(null); return }
@@ -586,6 +587,12 @@ function ShowCard({
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate max-w-[180px]">{show.venue}</span>
+                </span>
+              )}
+              {show.client && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Briefcase className="h-3 w-3 shrink-0" />
+                  <span className="truncate max-w-[160px]">{show.client}</span>
                 </span>
               )}
               {show.rundowns.length > 0 && (

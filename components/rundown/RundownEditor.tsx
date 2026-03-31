@@ -78,6 +78,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   const [isOnline, setIsOnline]         = useState(true)
   const [connectedUsers, setConnectedUsers] = useState(1)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [addCueDefaults, setAddCueDefaults] = useState<Partial<Cue>>({})
   const [editingCue, setEditingCue]     = useState<Cue | null>(null)
   const [isSaving, setIsSaving]         = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -1550,28 +1551,56 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
 
       {/* ── Cue lijst ─────────────────────────────────────────────────── */}
       {filteredCues.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-            {activeFilter !== 'all' ? (
+        activeFilter !== 'all' ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
               <Filter className="h-6 w-6 text-muted-foreground" />
-            ) : (
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            )}
+            </div>
+            <p className="font-medium">Geen {currentFilterLabel} cues</p>
+            <p className="text-sm text-muted-foreground mt-1">Pas het filter aan om andere cues te zien.</p>
           </div>
-          <p className="font-medium">
-            {activeFilter !== 'all' ? `Geen ${currentFilterLabel} cues` : 'Nog geen cues'}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {activeFilter !== 'all'
-              ? 'Pas het filter aan om andere cues te zien.'
-              : 'Voeg je eerste cue toe om de rundown te starten.'}
-          </p>
-          {activeFilter === 'all' && (
-            <Button className="mt-4" size="sm" onClick={() => setShowAddModal(true)}>
-              <Plus className="h-4 w-4" /> Eerste cue toevoegen
+        ) : (
+          <div className="flex flex-col items-center justify-center py-14 text-center px-4">
+            <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
+              <Plus className="h-7 w-7 text-primary" />
+            </div>
+            <p className="font-bold text-lg">Rundown is leeg</p>
+            <p className="text-sm text-muted-foreground mt-1.5 mb-7 max-w-xs">
+              Voeg je eerste cue toe. Kies een type om direct te starten, of open het volledige formulier.
+            </p>
+
+            {/* Quick-add type knoppen */}
+            {!rundown.is_locked && (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6 w-full max-w-md">
+                {[
+                  { type: 'speech',       emoji: '🎤', label: 'Spreker' },
+                  { type: 'video',        emoji: '📹', label: 'Video' },
+                  { type: 'audio',        emoji: '🎵', label: 'Audio' },
+                  { type: 'presentation', emoji: '📊', label: 'Presentatie' },
+                  { type: 'break',        emoji: '☕', label: 'Pauze' },
+                ].map(({ type, emoji, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => { setAddCueDefaults({ type: type as CueType }); setShowAddModal(true) }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all py-3 px-2"
+                  >
+                    <span className="text-2xl">{emoji}</span>
+                    <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setAddCueDefaults({}); setShowAddModal(true) }}
+              disabled={rundown.is_locked}
+            >
+              <Plus className="h-4 w-4" /> Leeg formulier openen
             </Button>
-          )}
-        </div>
+          </div>
+        )
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <SortableContext items={cues.map((c) => c.id)} strategy={verticalListSortingStrategy}>
@@ -1612,13 +1641,14 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       {/* ── Modals ────────────────────────────────────────────────────── */}
       <CueFormModal
         open={showAddModal}
-        onClose={() => { setShowAddModal(false); setSaveError(null) }}
+        onClose={() => { setShowAddModal(false); setSaveError(null); setAddCueDefaults({}) }}
         onSave={addCue}
         loading={isSaving}
         supabase={supabase}
         rundownId={rundown.id}
         saveError={saveError}
         stageNames={rundown.stage_names?.split(',').map((s) => s.trim()).filter(Boolean) ?? []}
+        initialValues={Object.keys(addCueDefaults).length > 0 ? addCueDefaults : undefined}
       />
 
       {editingCue && (

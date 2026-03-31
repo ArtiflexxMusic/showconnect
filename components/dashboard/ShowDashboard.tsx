@@ -14,7 +14,7 @@ import {
 import {
   CalendarDays, MapPin, ChevronLeft, Plus, Radio, Clock,
   Pencil, Trash2, Loader2, ListMusic, ExternalLink, AlertTriangle, Users, UserPlus, Globe,
-  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore, Zap,
+  Copy, QrCode, X, Monitor, Share2, Check, Archive, ArchiveRestore, Zap, Briefcase,
 } from 'lucide-react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
@@ -105,7 +105,8 @@ export function ShowDashboard({
       // Nieuwe show aanmaken
       const { data: newShow, error: showError } = await supabase
         .from('shows')
-        .insert({ name: `${show.name} (kopie)`, date: show.date, venue: show.venue, description: show.description })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert({ name: `${show.name} (kopie)`, date: show.date, venue: show.venue, description: show.description, client: (show as any).client ?? null })
         .select()
         .single()
       if (showError || !newShow) throw showError
@@ -176,6 +177,14 @@ export function ShowDashboard({
             <span className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5" />
               {show.venue}
+            </span>
+          )}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(show as any).client && (
+            <span className="flex items-center gap-1.5">
+              <Briefcase className="h-3.5 w-3.5" />
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(show as any).client}
             </span>
           )}
         </div>

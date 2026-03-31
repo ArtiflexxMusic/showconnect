@@ -27,11 +27,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { name, date, venue, description, rundownName } = body as {
+  const { name, date, venue, description, client, rundownName } = body as {
     name: string
     date: string | null
     venue: string | null
     description: string | null
+    client: string | null
     rundownName: string
   }
 
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
       date: date || null,
       venue: venue?.trim() || null,
       description: description?.trim() || null,
+      client: client?.trim() || null,
       created_by: user.id,
     })
     .select()

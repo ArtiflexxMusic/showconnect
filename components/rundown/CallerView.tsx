@@ -684,23 +684,24 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       )}
 
       {/* ── TOP BAR ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border/50 shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 border-b border-border/50 shrink-0 gap-2 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
           <Link
             href={`/shows/${show.id}/rundown/${rundown.id}`}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
-            <ChevronLeft className="h-4 w-4" /> Editor
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Editor</span>
           </Link>
-          <div>
-            <span className="font-bold">{show.name}</span>
-            <span className="text-muted-foreground mx-2">·</span>
-            <span className="text-muted-foreground text-sm">{rundown.name}</span>
+          <div className="min-w-0">
+            <span className="font-bold truncate block sm:inline max-w-[120px] sm:max-w-none">{show.name}</span>
+            <span className="text-muted-foreground mx-1 sm:mx-2 hidden sm:inline">·</span>
+            <span className="text-muted-foreground text-xs sm:text-sm hidden sm:inline">{rundown.name}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Countdown waarschuwing toggles */}
+        <div className="flex items-center gap-1 sm:gap-3 overflow-x-auto scrollbar-none flex-shrink-0">
+          {/* Countdown waarschuwing toggles — verborgen op klein scherm */}
           <Button
             variant="ghost" size="sm"
             onClick={() => {
@@ -709,7 +710,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               try { localStorage.setItem('caller_beep_enabled', String(next)) } catch {}
             }}
             className={cn(
-              'h-8 gap-1.5',
+              'h-8 gap-1.5 hidden sm:flex',
               beepEnabled ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
             )}
             title={beepEnabled ? 'Pieptoon aan — klik om uit te zetten' : 'Pieptoon uit — klik om aan te zetten'}
@@ -725,7 +726,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               try { localStorage.setItem('caller_flash_enabled', String(next)) } catch {}
             }}
             className={cn(
-              'h-8 gap-1.5',
+              'h-8 gap-1.5 hidden sm:flex',
               flashEnabled ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
             )}
             title={flashEnabled ? 'Schermflits aan — klik om uit te zetten' : 'Schermflits uit — klik om aan te zetten'}
@@ -734,27 +735,27 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             <span className="text-xs hidden sm:inline">Flits</span>
           </Button>
 
-          {/* Mic patch */}
+          {/* Mic patch — verborgen op klein scherm */}
           <Button
             variant="ghost" size="sm"
             onClick={() => setShowMicPatch(true)}
-            className="h-8 gap-1.5 text-muted-foreground"
+            className="h-8 gap-1.5 text-muted-foreground hidden sm:flex"
             title="Mic patch"
           >
             <Radio className="h-4 w-4" />
           </Button>
 
-          {/* Push notificaties toggle */}
-          <PushNotificationToggle iconOnly />
+          {/* Push notificaties toggle — verborgen op klein scherm */}
+          <span className="hidden sm:inline-flex"><PushNotificationToggle iconOnly /></span>
 
-          {/* Chat toggle */}
+          {/* Chat toggle — altijd zichtbaar */}
           <ChatToggleButton
             onClick={() => { setShowChat(!showChat); setChatUnread(0) }}
             unread={chatUnread}
             isOpen={showChat}
           />
 
-          {/* Alert knop */}
+          {/* Alert knop — altijd zichtbaar */}
           <Button
             variant="ghost" size="sm"
             onClick={() => setShowAlertModal(true)}
@@ -783,28 +784,28 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
           <Badge variant="outline" className={cn('gap-1 text-xs', isOnline ? 'text-green-400 border-green-500/30' : 'text-red-400 border-red-500/30')}>
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {isOnline ? 'Live' : 'Offline'}
+            <span className="hidden sm:inline">{isOnline ? 'Live' : 'Offline'}</span>
           </Badge>
-          <Badge variant="outline" className="gap-1 text-xs">
+          <Badge variant="outline" className="gap-1 text-xs hidden sm:flex">
             <Users className="h-3 w-3" /> {connectedUsers}
           </Badge>
 
-          {/* Resterende tijd */}
+          {/* Resterende tijd — verborgen op klein scherm */}
           {!showComplete && (
-            <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums text-muted-foreground border border-border/50 rounded px-2 py-0.5" title="Totale resterende tijd">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono tabular-nums text-muted-foreground border border-border/50 rounded px-2 py-0.5" title="Totale resterende tijd">
               <Clock className="h-3 w-3 text-muted-foreground" />
               -{formatDuration(totalRemaining)}
             </div>
           )}
 
-          {/* Wall clock */}
-          <div className="flex items-center gap-1.5 text-sm font-mono font-semibold tabular-nums">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+          {/* Wall clock — altijd zichtbaar */}
+          <div className="flex items-center gap-1 text-xs sm:text-sm font-mono font-semibold tabular-nums">
+            <Clock className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-muted-foreground" />
             {formatWallClock(now)}
           </div>
 
-          {/* Show clock */}
-          <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums text-muted-foreground border border-border/50 rounded px-2 py-0.5">
+          {/* Show clock — verborgen op klein scherm */}
+          <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono tabular-nums text-muted-foreground border border-border/50 rounded px-2 py-0.5">
             <Radio className="h-3 w-3" />
             {formatShowClock(showStartedAt, now)}
           </div>
@@ -821,7 +822,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       )}
 
       {/* ── MAIN AREA ────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-4 gap-5 min-h-0">
+      <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-8 py-3 sm:py-4 gap-3 sm:gap-5 min-h-0">
 
         {showComplete ? (
           <div className="text-center">
@@ -849,7 +850,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
 
             <div
               className={cn(
-                'rounded-xl border-2 p-6 relative overflow-hidden transition-colors duration-500',
+                'rounded-xl border-2 p-3 sm:p-6 relative overflow-hidden transition-colors duration-500',
                 countdown <= 15 ? 'bg-red-500/5' : countdown <= 30 ? 'bg-orange-500/5' : 'bg-green-500/5',
                 countdownBorder(countdown)
               )}
@@ -875,12 +876,12 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               </div>
 
               {/* Titel */}
-              <h2 className="text-3xl font-bold mb-5 leading-tight">{activeCue.title}</h2>
+              <h2 className="text-xl sm:text-3xl font-bold mb-3 sm:mb-5 leading-tight">{activeCue.title}</h2>
 
               {/* Countdown — het hart van de interface */}
               <div className="text-center mb-2">
                 <span className={cn(
-                  'text-9xl font-mono font-black tabular-nums leading-none block',
+                  'text-6xl sm:text-9xl font-mono font-black tabular-nums leading-none block',
                   countdownColor(countdown, activeCue.duration_seconds),
                   countdownPulse(countdown)
                 )}>
@@ -1064,15 +1065,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       </div>
 
       {/* ── CONTROL BAR ──────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-border/50 px-6 py-4">
-        <div className="flex items-center justify-center gap-4 max-w-3xl mx-auto">
+      <div className="shrink-0 border-t border-border/50 px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex items-center justify-center gap-2 sm:gap-4 max-w-3xl mx-auto">
           <Button
             variant="outline" size="lg"
             onClick={handlePrev}
             disabled={isProcessing || doneCues.length === 0}
-            className="gap-2 min-w-[120px]"
+            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none sm:min-w-[120px] max-w-[140px]"
           >
-            <ChevronLeft className="h-5 w-5" /> Vorige
+            <ChevronLeft className="h-5 w-5" />
+            <span className="hidden xs:inline sm:inline">Vorige</span>
           </Button>
 
           <Button
@@ -1080,7 +1082,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             onClick={() => handleGo()}
             disabled={isProcessing || showComplete}
             className={cn(
-              'gap-2 min-w-[220px] text-xl font-black h-14 transition-all',
+              'gap-2 flex-1 sm:flex-none sm:min-w-[220px] text-xl font-black h-12 sm:h-14 transition-all',
               !showComplete && !isProcessing
                 ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/40 hover:shadow-green-900/60'
                 : ''
@@ -1098,13 +1100,14 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             variant="outline" size="lg"
             onClick={handleSkip}
             disabled={isProcessing || !activeCue}
-            className="gap-2 min-w-[120px] text-yellow-500 border-yellow-500/30 hover:bg-yellow-500/10"
+            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none sm:min-w-[120px] max-w-[140px] text-yellow-500 border-yellow-500/30 hover:bg-yellow-500/10"
           >
-            Skip <SkipForward className="h-5 w-5" />
+            <span className="hidden xs:inline sm:inline">Skip</span>
+            <SkipForward className="h-5 w-5" />
           </Button>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground/40 mt-2">
+        <p className="hidden sm:block text-center text-xs text-muted-foreground/40 mt-2">
           <kbd className="px-1.5 rounded border border-border/50 font-mono">SPATIE</kbd> GO / volgende slide &nbsp;·&nbsp;
           <kbd className="px-1.5 rounded border border-border/50 font-mono">←</kbd> Vorige &nbsp;·&nbsp;
           <kbd className="px-1.5 rounded border border-border/50 font-mono">S</kbd> Skip cue &nbsp;·&nbsp;

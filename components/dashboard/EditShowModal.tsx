@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface ShowEditValues {
@@ -17,6 +17,7 @@ interface ShowEditValues {
   date: string | null
   venue: string | null
   description: string | null
+  client?: string | null
 }
 
 interface EditShowModalProps {
@@ -33,6 +34,7 @@ export function EditShowModal({ open, show, onClose, onSaved }: EditShowModalPro
   const [date, setDate]               = useState('')
   const [venue, setVenue]             = useState('')
   const [description, setDescription] = useState('')
+  const [client, setClient]           = useState('')
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState<string | null>(null)
 
@@ -42,6 +44,7 @@ export function EditShowModal({ open, show, onClose, onSaved }: EditShowModalPro
       setDate(show.date ?? '')
       setVenue(show.venue ?? '')
       setDescription(show.description ?? '')
+      setClient(show.client ?? '')
       setError(null)
     }
   }, [open, show])
@@ -57,6 +60,7 @@ export function EditShowModal({ open, show, onClose, onSaved }: EditShowModalPro
       date:        date || null,
       venue:       venue.trim() || null,
       description: description.trim() || null,
+      client:      client.trim() || null,
     }
 
     const { error: supabaseError } = await supabase
@@ -121,6 +125,18 @@ export function EditShowModal({ open, show, onClose, onSaved }: EditShowModalPro
                   placeholder="Stadsschouwburg Amsterdam"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-show-client">
+                <span className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> Opdrachtgever</span>
+              </Label>
+              <Input
+                id="edit-show-client"
+                value={client}
+                onChange={(e) => setClient(e.target.value)}
+                placeholder="Bedrijfsnaam of klant"
+              />
             </div>
 
             <div className="space-y-2">

@@ -95,22 +95,6 @@ function countdownBorder(remaining: number): string {
   return 'border-green-500/50'
 }
 
-// Speelt een korte beep via Web Audio API
-function playBeep(freq = 880, duration = 0.12, volume = 0.3) {
-  try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.frequency.value = freq
-    osc.type = 'sine'
-    gain.gain.setValueAtTime(volume, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + duration)
-  } catch { /* AudioContext kan geblokkeerd zijn */ }
-}
 
 // ── Hoofd component ─────────────────────────────────────────────────────────
 
@@ -139,10 +123,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [chatUnread, setChatUnread]     = useState(0)
   const [callerName, setCallerName]     = useState('Caller')
 
-  // Countdown waarschuwings-opties (opgeslagen in localStorage)
-  const [beepEnabled, setBeepEnabled] = useState<boolean>(() => {
-    try { return localStorage.getItem('caller_beep_enabled') !== 'false' } catch { return true }
-  })
+  // Schermflits bij countdown drempels (opgeslagen in localStorage)
   const [flashEnabled, setFlashEnabled] = useState<boolean>(() => {
     try { return localStorage.getItem('caller_flash_enabled') !== 'false' } catch { return true }
   })
@@ -242,15 +223,24 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         setTimeout(() => setNudgeMessage(null), 6000)
       })
       .subscribe(async (status) => {
-        setIsOnline(status === 'SUBSCRIBED')
         if (status === 'SUBSCRIBED') {
+          // Direct online tonen + eventuele offline-timer annuleren
+          if (offlineTimerRef.current) { clearTimeout(offlineTimerRef.current); offlineTimerRef.current = null }
+          setIsOnline(true)
           await channel.track({ user_id: userId, role: 'caller', online_at: new Date().toISOString() })
           setSessionExpired(false)
-        }
-        if (status === 'CHANNEL_ERROR') {
-          // Controleer of sessie verlopen is
-          const { data: { session } } = await supabase.auth.getSession()
-          if (!session) setSessionExpired(true)
+        } else {
+          // Wacht 4 seconden voor we offline tonen — korte dipjes zijn geen probleem
+          if (!offlineTimerRef.current) {
+            offlineTimerRef.current = setTimeout(() => {
+              setIsOnline(false)
+              offlineTimerRef.current = null
+            }, 4000)
+          }
+          if (status === 'CHANNEL_ERROR') {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) setSessionExpired(true)
+          }
         }
       })
 
@@ -269,6 +259,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     return () => {
       supabase.removeChannel(channel)
       supabase.removeChannel(nudgeChannel)
+      if (offlineTimerRef.current) clearTimeout(offlineTimerRef.current)
     }
   }, [rundown.id, userId, supabase])
 
@@ -463,6 +454,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   // ── Bijhouden wat we zelf geschreven hebben (race condition fix) ──────────
   // Voorkomt dat trage Realtime-events de optimistische update overschrijven.
   const lastWrittenDurationRef = useRef<Record<string, number>>({})
+  const offlineTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeCueRowRef        = useRef<HTMLDivElement | null>(null)
 
   // ── Cue duration aanpassen (live timer ± knoppen) ────────────────────────
   const handleCueUpdate = useCallback(async (id: string, updates: Partial<{ duration_seconds: number }>) => {
@@ -505,8 +498,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   }, [rundown.id, userId, supabase])
 
   const autoAdvanceRef   = useRef(false)
-  const beepedAt30Ref    = useRef(false)
-  const beepedAt15Ref    = useRef(false)
+  const flashedAt30Ref   = useRef(false)
+  const flashedAt15Ref   = useRef(false)
 
   // ── Berekeningen actieve cue (vroeg gedeclareerd — gebruikt in useEffects) ─
   const countdown = activeCue ? calcCountdown(activeCue, now) : 0
@@ -516,30 +509,25 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const totalRemaining = (activeCue ? countdown : 0) +
     pendingCues.reduce((sum, c) => sum + c.duration_seconds, 0)
 
-  // ── Audio + Flash waarschuwingen bij countdown drempels ──────────────────
+  // ── Schermflits waarschuwingen bij countdown drempels ────────────────────
   useEffect(() => {
     if (!activeCue || countdown <= 0) return
-    // Reset bij nieuwe cue
-    if (countdown > 30) { beepedAt30Ref.current = false; beepedAt15Ref.current = false }
-    if (countdown <= 30 && countdown > 15 && !beepedAt30Ref.current) {
-      beepedAt30Ref.current = true
-      if (beepEnabled) playBeep(660, 0.15, 0.25)
+    // Reset refs bij nieuwe cue (countdown > 30)
+    if (countdown > 30) { flashedAt30Ref.current = false; flashedAt15Ref.current = false }
+    if (countdown <= 30 && countdown > 15 && !flashedAt30Ref.current) {
+      flashedAt30Ref.current = true
       if (flashEnabled) { setFlashActive(true); setTimeout(() => setFlashActive(false), 400) }
     }
-    if (countdown <= 15 && !beepedAt15Ref.current) {
-      beepedAt15Ref.current = true
-      if (beepEnabled) {
-        // Twee beeps: urgenter signaal
-        playBeep(880, 0.12, 0.35)
-        setTimeout(() => playBeep(880, 0.12, 0.35), 200)
-      }
+    if (countdown <= 15 && !flashedAt15Ref.current) {
+      flashedAt15Ref.current = true
       if (flashEnabled) {
+        // Dubbele flits: urgenter signaal
         setFlashActive(true)
         setTimeout(() => setFlashActive(false), 200)
         setTimeout(() => { setFlashActive(true); setTimeout(() => setFlashActive(false), 200) }, 350)
       }
     }
-  }, [countdown, activeCue, beepEnabled, flashEnabled])
+  }, [countdown, activeCue, flashEnabled])
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
@@ -641,6 +629,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     }
   }, [countdown, activeCue, isProcessing, showComplete, handleGo])
 
+  // Auto-scroll naar actieve cue in de lijst
+  useEffect(() => {
+    activeCueRowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeCue?.id])
+
   // Media player helpers
   const hasMediaDisplay = !!(activeCue?.media_url && (mediaPlaying || mediaPaused))
   const mediaProgressPct = mediaDuration > 0 ? Math.min(100, (mediaCurrentTime / mediaDuration) * 100) : 0
@@ -667,10 +660,11 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
       )}
 
-      {/* ── Countdown schermflits ────────────────────────────────────── */}
-      {flashActive && (
-        <div className="pointer-events-none absolute inset-0 z-[60] bg-orange-500/30 animate-pulse" />
-      )}
+      {/* ── Countdown schermflits — felle witte flits voor de presenter ─ */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[60] transition-opacity duration-100"
+        style={{ backgroundColor: 'rgba(255,255,255,0.55)', opacity: flashActive ? 1 : 0 }}
+      />
 
       {/* ── Alert melding ────────────────────────────────────────────── */}
       {nudgeMessage && (
@@ -701,23 +695,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3 overflow-x-auto scrollbar-none flex-shrink-0">
-          {/* Countdown waarschuwing toggles — verborgen op klein scherm */}
-          <Button
-            variant="ghost" size="sm"
-            onClick={() => {
-              const next = !beepEnabled
-              setBeepEnabled(next)
-              try { localStorage.setItem('caller_beep_enabled', String(next)) } catch {}
-            }}
-            className={cn(
-              'h-8 gap-1.5 hidden sm:flex',
-              beepEnabled ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
-            )}
-            title={beepEnabled ? 'Pieptoon aan — klik om uit te zetten' : 'Pieptoon uit — klik om aan te zetten'}
-          >
-            {beepEnabled ? <Bell className="h-4 w-4" /> : <Bell className="h-4 w-4 opacity-40" />}
-            <span className="text-xs hidden sm:inline">{beepEnabled ? 'Piep' : 'Piep'}</span>
-          </Button>
+          {/* Schermflits toggle */}
           <Button
             variant="ghost" size="sm"
             onClick={() => {
@@ -1173,40 +1151,107 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
       )}
 
-      {/* ── CUE MINILIJST ────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-border/50 px-6 py-3 bg-muted/10">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {cues.map((cue, i) => (
+      {/* ── CUE LIJST — verticaal scrollbaar, live aanpassen ────────── */}
+      <div className="shrink-0 h-[38vh] border-t border-border/40 overflow-y-auto bg-muted/5">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-1.5 bg-muted/30 border-b border-border/30 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+          <span className="w-7 shrink-0">#</span>
+          <span className="w-16 shrink-0">Type</span>
+          <span className="flex-1">Titel</span>
+          <span className="hidden sm:block w-24 text-center">Aanpassen</span>
+          <span className="w-14 text-right">Duur</span>
+          <span className="hidden sm:block w-12 text-right">Tijd</span>
+        </div>
+
+        {cues.map((cue) => {
+          const isActive  = cue.status === 'running'
+          const isDone    = cue.status === 'done'
+          const isSkipped = cue.status === 'skipped'
+          const isPending = cue.status === 'pending'
+
+          return (
             <div
               key={cue.id}
+              ref={isActive ? activeCueRowRef : null}
               className={cn(
-                'shrink-0 rounded px-2.5 py-1.5 text-xs border transition-all flex items-center gap-1.5',
-                cue.status === 'running'
-                  ? 'bg-green-500/20 border-green-500/50 text-green-300 font-semibold'
-                  : cue.status === 'done'
-                  ? 'border-transparent text-muted-foreground/30 line-through'
-                  : cue.status === 'skipped'
-                  ? 'border-transparent text-red-400/30 line-through'
-                  : 'border-border/30 text-muted-foreground hover:border-border/60'
+                'flex items-center gap-2 px-4 py-2 border-b border-border/15 text-sm transition-colors',
+                isActive   ? 'bg-green-500/10 border-l-2 border-l-green-500'
+                : isDone   ? 'opacity-25'
+                : isSkipped ? 'opacity-20'
+                : 'hover:bg-muted/20'
               )}
             >
+              {/* Positie */}
+              <span className={cn('font-mono text-xs w-7 shrink-0', isActive ? 'text-green-400 font-bold' : 'text-muted-foreground/50')}>
+                {isDone ? '✓' : isSkipped ? '↷' : isActive ? '▶' : `#${cue.position + 1}`}
+              </span>
+
+              {/* Type */}
+              <span className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium w-16 shrink-0 truncate', cueTypeColor(cue.type))}>
+                {cueTypeLabel(cue.type)}
+              </span>
+
+              {/* Kleur dot */}
               {cue.color && (
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: cue.color }}
-                />
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cue.color }} />
               )}
-              <span className="opacity-50 font-mono">#{cue.position + 1}</span>
-              {' '}
-              <span className="max-w-[100px] truncate inline-block align-bottom">{cue.title}</span>
-              {' '}
-              <span className="opacity-40 font-mono">{formatDuration(cue.duration_seconds)}</span>
-              {expectedTimes[i] && expectedTimes[i] !== '--:--' && (
-                <span className="opacity-30 ml-1">@{expectedTimes[i]}</span>
-              )}
+
+              {/* Titel */}
+              <span className={cn(
+                'flex-1 truncate',
+                isActive   ? 'font-semibold text-green-300'
+                : isDone || isSkipped ? 'line-through' : ''
+              )}>
+                {cue.title}
+                {cue.presenter && (
+                  <span className="text-muted-foreground/40 text-xs ml-1.5">· {cue.presenter}</span>
+                )}
+              </span>
+
+              {/* Duur aanpassen (alleen pending) */}
+              <div className="hidden sm:flex items-center gap-0.5 w-24 justify-center shrink-0">
+                {(isPending || isActive) && !rundown.is_locked && (
+                  <>
+                    <button
+                      onClick={() => handleCueUpdate(cue.id, { duration_seconds: Math.max(5, cue.duration_seconds - 60) })}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      title="−1 minuut"
+                    >−1m</button>
+                    <button
+                      onClick={() => handleCueUpdate(cue.id, { duration_seconds: Math.max(5, cue.duration_seconds - 30) })}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      title="−30 seconden"
+                    >−30</button>
+                    <button
+                      onClick={() => handleCueUpdate(cue.id, { duration_seconds: cue.duration_seconds + 30 })}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono text-green-400/50 hover:text-green-400 hover:bg-green-500/10 transition-colors"
+                      title="+30 seconden"
+                    >+30</button>
+                    <button
+                      onClick={() => handleCueUpdate(cue.id, { duration_seconds: cue.duration_seconds + 60 })}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono text-green-400/70 hover:text-green-400 hover:bg-green-500/10 transition-colors"
+                      title="+1 minuut"
+                    >+1m</button>
+                  </>
+                )}
+              </div>
+
+              {/* Duur */}
+              <span className={cn(
+                'font-mono text-xs w-14 text-right shrink-0',
+                isActive ? 'text-green-400 font-bold' : isDone || isSkipped ? 'text-muted-foreground/30' : 'text-muted-foreground'
+              )}>
+                {isActive ? formatDuration(countdown) : formatDuration(cue.duration_seconds)}
+              </span>
+
+              {/* Verwachte tijd */}
+              <span className="hidden sm:block font-mono text-[10px] w-12 text-right text-muted-foreground/30 shrink-0">
+                {expectedTimes[cue.position] && expectedTimes[cue.position] !== '--:--'
+                  ? `@${expectedTimes[cue.position]}` : ''}
+              </span>
             </div>
-          ))}
-        </div>
+          )
+        })}
       </div>
 
       <MicPatchPanel

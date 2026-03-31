@@ -1,16 +1,16 @@
 /**
  * GET /api/companion/download?rundownId=xxx
  *
- * Genereert een kant-en-klaar .companionconfig bestand voor Bitfocus Companion 4.x.
- * Importeren via: Settings → Import/Export → Import full config (of Import page).
+ * Genereert een geldig, gzip-gecomprimeerd .companionconfig bestand voor
+ * Bitfocus Companion 4.2.x. Importeer via Settings → Import/Export.
  *
- * Bevat:
- *  - Generic HTTP connection "ShowCaller"
- *  - Trigger: elke seconde status pollen via /api/companion/status
- *  - Pagina 1: GO / BACK / SKIP knoppen + NOW / NEXT / PROGRESS displays
+ * Pagina bevat:
+ *   Rij 0: [pageup] [◀ BACK] [▶ GO] [SKIP ▶▶] [leeg]
+ *   Rij 1: [pagenum] [NOW: actieve cue] [NEXT: volgende cue] [voortgang] [leeg]
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { gzipSync } from 'zlib'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -27,127 +27,117 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Ongeldig rundownId' }, { status: 400 })
   }
 
-  const BASE = 'https://www.cueboard.nl'
-  const connId = rnd()
+  const BASE       = 'https://www.cueboard.nl'
+  const connId     = rnd()
+  const LABEL      = 'ShowCaller'    // label van de generic-http connectie
+  const ACTION_URL = `${BASE}/api/companion/action`
 
-  // Helper: maak een HTTP POST action voor go/back/skip
-  function actionPost(action: 'go' | 'back' | 'skip') {
+  // ── Hulpfuncties ─────────────────────────────────────────────────────────
+
+  function postAction(action: 'go' | 'back' | 'skip') {
     return {
+      type: 'action',
       id: rnd(),
-      definitionId: 'post',
       connectionId: connId,
+      definitionId: 'post',
       options: {
-        url: `${BASE}/api/companion/action`,
+        url: ACTION_URL,
         body: JSON.stringify({ action, rundownId }),
         header: 'Content-Type: application/json',
       },
-      delay: 0,
-      type: 'action',
+      upgradeIndex: 1,
     }
   }
 
-  // Helper: maak een display-only knop (geen actie)
-  function displayButton(text: string, bgcolor: number, textColor: number, row: number, col: number) {
-    return [`${row}/${col}`, {
-      type: 'button',
-      options: { relativeDelay: false, stepAutoProgress: true },
-      style: {
-        text,
-        size: '14',
-        color: textColor,
-        bgcolor,
-        show_topbar: false,
-        alignment: 'center:center',
-        pngalignment: 'center:center',
-        png: null,
-        latch: false,
-      },
-      feedbacks: [],
-      steps: {
-        '0': {
-          action_sets: { down: [], up: [] },
-          options: { runWhileHeld: [] },
-        },
-      },
-    }]
+  function baseStyle(text: string, bgcolor: number, color = 16777215, size = 'auto') {
+    return {
+      text,
+      textExpression: false,
+      size,
+      png64: null,
+      alignment: 'center:center' as const,
+      pngalignment: 'center:center' as const,
+      color,
+      bgcolor,
+      show_topbar: 'default' as const,
+    }
   }
 
-  // Helper: maak een actie-knop
-  function actionButton(
-    text: string, bgcolor: number, action: 'go' | 'back' | 'skip',
-    row: number, col: number,
-  ) {
-    return [`${row}/${col}`, {
-      type: 'button',
-      options: { relativeDelay: false, stepAutoProgress: true },
-      style: {
-        text,
-        size: '18',
-        color: 16777215, // wit
-        bgcolor,
-        show_topbar: false,
-        alignment: 'center:center',
-        pngalignment: 'center:center',
-        png: null,
-        latch: false,
+  function emptyStep(down: unknown[] = []) {
+    return {
+      '0': {
+        action_sets: { down, up: [] },
+        options: { runWhileHeld: [] },
       },
-      feedbacks: [],
-      steps: {
-        '0': {
-          action_sets: {
-            down: [actionPost(action)],
-            up: [],
-          },
-          options: { runWhileHeld: [] },
-        },
-      },
-    }]
+    }
   }
+
+  function actionButton(text: string, bgcolor: number, action: 'go' | 'back' | 'skip') {
+    return {
+      type: 'button',
+      style: baseStyle(text, bgcolor),
+      options: { stepProgression: 'auto', stepExpression: '', rotaryActions: false },
+      feedbacks: [],
+      steps: emptyStep([postAction(action)]),
+      localVariables: [],
+    }
+  }
+
+  function displayButton(text: string, bgcolor: number, color: number) {
+    return {
+      type: 'button',
+      style: baseStyle(text, bgcolor, color, '14'),
+      options: { stepProgression: 'auto', stepExpression: '', rotaryActions: false },
+      feedbacks: [],
+      steps: emptyStep(),
+      localVariables: [],
+    }
+  }
+
+  // ── Config object ─────────────────────────────────────────────────────────
 
   const config = {
-    type: 'full',
     version: 9,
+    type: 'full',
     companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
 
-    // ── HTTP Connection ────────────────────────────────────────────────────
-    instances: {
-      [connId]: {
-        instance_type: 'generic-http',
-        label: 'ShowCaller',
-        lastUpgradeIndex: 1,
-        moduleVersionId: '2.7.0',
-        updatePolicy: 'stable',
-        sortOrder: 0,
-        config: {},
-        enabled: true,
+    // ── Pagina 1: ShowCaller layout ──────────────────────────────────────
+    pages: {
+      '1': {
+        id: rnd(),
+        name: 'ShowCaller',
+        controls: {
+          // Rij 0: navigatie + actieknoppen
+          '0': {
+            '0': { type: 'pageup' },
+            '1': actionButton('◀  BACK', 0x334466, 'back'),
+            '2': actionButton('▶   GO', 0x007733, 'go'),
+            '3': actionButton('SKIP  ▶▶', 0x775500, 'skip'),
+          },
+          // Rij 1: navigatie + status displays
+          '1': {
+            '0': { type: 'pagenum' },
+            '1': displayButton(
+              `NOW\n$(${LABEL}:body_active_cue_title)`,
+              0x001a0a, 0x00ff88,
+            ),
+            '2': displayButton(
+              `NEXT\n$(${LABEL}:body_next_cue_title)`,
+              0x111111, 0xaaaaaa,
+            ),
+            '3': displayButton(
+              `$(${LABEL}:body_cues_done) / $(${LABEL}:body_cues_total)\n$(${LABEL}:body_rundown_name)`,
+              0x0d0d0d, 0x666666,
+            ),
+          },
+          '2': {
+            '0': { type: 'pagedown' },
+          },
+        },
       },
     },
-    connectionCollections: [],
 
-    // ── Custom variabelen (gevuld door polling trigger) ────────────────────
-    custom_variables: {
-      sc_active: {
-        description: 'Actieve cue',
-        defaultValue: '—',
-        persistCurrentValue: false,
-        sortOrder: 0,
-      },
-      sc_next: {
-        description: 'Volgende cue',
-        defaultValue: '—',
-        persistCurrentValue: false,
-        sortOrder: 1,
-      },
-      sc_progress: {
-        description: 'Cue voortgang (bijv. 3 / 12)',
-        defaultValue: '0 / 0',
-        persistCurrentValue: false,
-        sortOrder: 2,
-      },
-    },
-    customVariablesCollections: [],
-
-    // ── Trigger: pollt elke seconde de status ──────────────────────────────
+    // ── Trigger: elke seconde status pollen ──────────────────────────────
     triggers: {
       [rnd()]: {
         type: 'trigger',
@@ -166,21 +156,19 @@ export async function GET(request: NextRequest) {
           },
         ],
         actions: [
-          // Haal status op — response-velden zijn beschikbaar als
-          // $(ShowCaller:body_active_cue_title) etc.
           {
+            type: 'action',
             id: rnd(),
-            definitionId: 'get',
             connectionId: connId,
+            definitionId: 'get',
             options: {
               url: `${BASE}/api/companion/status?rundownId=${rundownId}`,
               header: '',
               result_stringify: false,
+              // null = automatisch JSON-velden parsen als $(ShowCaller:body_xxx)
               jsonResultDataVariable: null,
             },
             upgradeIndex: 1,
-            delay: 0,
-            type: 'action',
           },
         ],
         localVariables: [],
@@ -188,37 +176,41 @@ export async function GET(request: NextRequest) {
     },
     triggerCollections: [],
 
-    // ── Pagina 1: ShowCaller knoppen ───────────────────────────────────────
-    pages: {
-      '1': {
-        name: 'ShowCaller',
-        controls: Object.fromEntries([
-          // Rij 0: BACK | GO | SKIP
-          actionButton('◀ BACK', 0x334466, 'back', 0, 0),
-          actionButton('▶  GO', 0x007733, 'go',   0, 1),
-          actionButton('SKIP ▶▶', 0x775500, 'skip', 0, 2),
+    // ── Custom variabelen (optioneel — body_xxx vars komen van generic-http) ──
+    custom_variables: {},
+    customVariablesCollections: [],
+    expressionVariables: {},
+    expressionVariablesCollections: [],
 
-          // Rij 1: NOW display | NEXT display | PROGRESS
-          displayButton(
-            `NOW\n$(${connId}:body_active_cue_title)`,
-            0x001a0a, 0x00ff88, 1, 0,
-          ),
-          displayButton(
-            `NEXT\n$(${connId}:body_next_cue_title)`,
-            0x111111, 0xaaaaaa, 1, 1,
-          ),
-          displayButton(
-            `$(${connId}:body_cues_done) / $(${connId}:body_cues_total)\n$(${connId}:body_rundown_name)`,
-            0x0d0d0d, 0x666666, 1, 2,
-          ),
-        ]),
+    // ── Generic HTTP connectie ────────────────────────────────────────────
+    instances: {
+      [connId]: {
+        moduleInstanceType: 'connection',
+        instance_type: 'generic-http',
+        label: LABEL,
+        isFirstInit: false,
+        config: {},
+        lastUpgradeIndex: 1,
+        enabled: true,
+        moduleVersionId: '2.7.0',
+        updatePolicy: 'stable',
+        sortOrder: 0,
+        secrets: {},
       },
     },
+    connectionCollections: [],
+
+    surfaces: {},
+    surfaceGroups: {},
   }
 
-  return new NextResponse(JSON.stringify(config, null, '\t'), {
+  // ── Gzip comprimeren (zelfde als hoe Companion zelf exporteert) ──────────
+  const json       = JSON.stringify(config)
+  const compressed = gzipSync(Buffer.from(json, 'utf-8'))
+
+  return new NextResponse(compressed, {
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/octet-stream',
       'Content-Disposition': 'attachment; filename="ShowCaller Companion.companionconfig"',
       'Cache-Control': 'no-store',
     },

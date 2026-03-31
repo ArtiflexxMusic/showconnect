@@ -36,8 +36,8 @@ function Navbar() {
           <a href="#pricing"  className="hover:text-white transition-colors">Pricing</a>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/cast-login" className="hidden sm:flex items-center gap-1.5 text-xs text-white/40 hover:text-emerald-400 transition-colors px-4 py-2 font-semibold uppercase tracking-wider border border-white/10 hover:border-emerald-500/40 rounded-lg">
-            Cast Login
+          <Link href="/green-room" className="hidden sm:flex items-center gap-1.5 text-xs text-white/40 hover:text-emerald-400 transition-colors px-4 py-2 font-semibold uppercase tracking-wider border border-white/10 hover:border-emerald-500/40 rounded-lg">
+            Green Room
           </Link>
           <Link href="/login" className="hidden sm:block text-xs text-white/40 hover:text-white transition-colors px-4 py-2 font-semibold uppercase tracking-wider">
             Inloggen
@@ -320,7 +320,7 @@ function ViewsStrip() {
 }
 
 // ─────────────────────────────────────────────
-// CAST PORTAL — magic links highlight
+// GREEN ROOM — magic links highlight
 // ─────────────────────────────────────────────
 function CastPortal() {
   return (
@@ -330,13 +330,13 @@ function CastPortal() {
 
           {/* Links: tekst */}
           <div>
-            <p className="text-xs font-bold text-emerald-400 uppercase tracking-[0.3em] mb-4">Cast Portal</p>
+            <p className="text-xs font-bold text-emerald-400 uppercase tracking-[0.3em] mb-4">Green Room</p>
             <h2 className="font-extrabold uppercase text-white leading-tight mb-6"
                 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
-              Je cast.<br />Direct verbonden.
+              Je gasten.<br />Direct verbonden.
             </h2>
             <p className="text-white/45 text-base leading-relaxed mb-8 max-w-md">
-              Genereer een Magic Link voor elke cast-member. Geen account, geen app, geen wachtwoord.
+              Genereer een Magic Link voor elke gast of spreker. Geen account, geen app, geen wachtwoord.
               Eén klik — en ze zien hun cues realtime in de browser.
             </p>
             <div className="space-y-4">
@@ -364,7 +364,7 @@ function CastPortal() {
             <div className="rounded-2xl border border-emerald-500/15 bg-[#060e08] overflow-hidden shadow-[0_0_60px_rgba(16,185,129,0.07)]">
               <div className="bg-[#040a05] border-b border-white/5 px-5 py-3 flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span className="text-xs font-mono text-white/30 uppercase tracking-widest">Cast Portal · Gala 2025</span>
+                <span className="text-xs font-mono text-white/30 uppercase tracking-widest">Green Room · Gala 2025</span>
               </div>
               <div className="p-6 space-y-4">
                 {[
@@ -398,7 +398,7 @@ function CastPortal() {
                 <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2 font-bold">Magic Link genereren</p>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 bg-white/5 rounded-lg px-3 py-2 font-mono text-[11px] text-emerald-400/70 truncate border border-emerald-500/15">
-                    cueboard.app/cast/gala25/marc-dijk
+                    cueboard.app/green-room/gala25
                   </div>
                   <button className="shrink-0 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-3 py-2 rounded-lg text-xs font-bold uppercase">
                     Kopieer
@@ -432,7 +432,7 @@ const FEATURES = [
   { icon: Monitor,    label: 'white',   title: 'Presenter View',        desc: 'Groot, helder scherm voor de spreker. PIN-beveiliging optioneel.' },
   { icon: Smartphone, label: 'white',   title: 'Crew View',             desc: 'Technici en stagemanagers volgen alles op hun eigen apparaat.' },
   { icon: Zap,        label: 'emerald', title: 'Realtime — <50ms',      desc: 'Supabase Realtime. Geen polling. Alles synchroon, zonder F5.' },
-  { icon: Link2,      label: 'emerald', title: 'Cast Portal',           desc: 'Magic links voor cast-members. Geen account nodig.' },
+  { icon: Link2,      label: 'emerald', title: 'Green Room',            desc: 'Magic links voor gasten en sprekers. Geen account nodig.' },
   { icon: Mic,        label: 'white',   title: 'Mic Patch',             desc: 'Per cue: welke microfoon, IEM of tafelmic? Conflicten direct gesignaleerd.' },
   { icon: Clock,      label: 'white',   title: 'Tijdberekening',        desc: 'Voer aanvangstijd in — CueBoard toont per cue de verwachte starttijd.' },
   { icon: Volume2,    label: 'white',   title: 'Media per cue',         desc: 'Audio en video direct vanuit de cue. Autoplay, loop, volume instelbaar.' },
@@ -570,7 +570,7 @@ const PLANS = [
     highlight: false,
     cta: 'Business starten',
     href: '/register?plan=team',
-    features: ['Onbeperkt shows & rundowns', 'Onbeperkt cues', 'Onbeperkt teamleden', 'Onbeperkt cast members', 'Mic Patch & audio beheer', 'Alles van Team', 'Prioriteitsondersteuning'],
+    features: ['Onbeperkt shows & rundowns', 'Onbeperkt cues', 'Onbeperkt teamleden', 'Onbeperkt Green Room gasten', 'Mic Patch & audio beheer', 'Alles van Team', 'Prioriteitsondersteuning'],
   },
 ]
 

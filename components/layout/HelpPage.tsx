@@ -143,16 +143,16 @@ const sections: Section[] = [
     id: 'cast',
     icon: Users,
     color: 'emerald',
-    title: 'Cast beheer',
-    subtitle: 'Deelnemers zonder account',
+    title: 'Green Room',
+    subtitle: 'Gasten zonder account',
     badge: 'Nieuw',
     description:
-      'Voeg sprekers, artiesten of andere cast members toe aan een show. Elk cast member krijgt een 6-cijferige PIN en een persoonlijke Cast Portal — een lichtgewicht weergave van het programma, zonder dat ze een account nodig hebben.',
+      'Voeg sprekers, artiesten of andere gasten toe aan een show. Elke gast krijgt een 6-cijferige PIN en een persoonlijke Green Room — een lichtgewicht weergave van het programma, zonder dat ze een account nodig hebben.',
     steps: [
-      'Klik op het cast-icoontje (radio) bovenin je show-dashboard.',
-      'Voeg een cast member toe met naam, rol en kleur.',
+      'Klik op "Green Room" bovenin je show-dashboard.',
+      'Voeg een gast toe met naam, rol en kleur.',
       'Er wordt automatisch een 6-cijferige PIN gegenereerd.',
-      'Geef de PIN aan de cast member. Ze gaan naar /cast-login en voeren de code in.',
+      'Geef de PIN aan de gast. Ze gaan naar /green-room en voeren de code in.',
       'Ze zien direct het programma van de show — live gesynchroniseerd.',
     ],
     tip: 'Je kunt ook een Magic Link genereren en die rechtstreeks sturen — dan hoeven ze de PIN niet te typen.',
@@ -218,7 +218,7 @@ const sections: Section[] = [
       'Kies een rol: Redacteur (kan alles bewerken) of Viewer (alleen meekijken).',
       'Je collega ontvangt een uitnodigingsmail en krijgt na acceptatie toegang.',
     ],
-    tip: 'Cast members en sprekers hoeven geen uitnodiging — die gebruik je de Cast Portal met PIN.',
+    tip: 'Sprekers en gasten hoeven geen uitnodiging — gebruik daarvoor de Green Room met PIN.',
   },
   {
     id: 'afdrukken',
@@ -386,7 +386,7 @@ export function HelpPage() {
         </div>
         <h1 className="text-2xl font-extrabold text-foreground">Help & Uitleg</h1>
         <p className="text-muted-foreground mt-1">
-          Alles over de functies van CueBoard — van rundown tot Presenter, van Cast PIN tot videomixer output.
+          Alles over de functies van CueBoard — van rundown tot Presenter, van Green Room PIN tot videomixer output.
         </p>
       </div>
 

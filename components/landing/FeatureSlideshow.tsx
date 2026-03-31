@@ -161,7 +161,7 @@ function CastMockup() {
     <div className="rounded-2xl border border-emerald-500/15 bg-[#060e08] overflow-hidden flex flex-col h-full">
       <div className="bg-[#040a05] border-b border-white/5 px-5 py-3 flex items-center gap-2">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-        <span className="text-[11px] font-mono text-white/30 uppercase tracking-widest">Cast Portal · Gala 2025</span>
+        <span className="text-[11px] font-mono text-white/30 uppercase tracking-widest">Green Room · Gala 2025</span>
       </div>
       <div className="p-5 flex-1 flex flex-col gap-3">
         {[
@@ -194,7 +194,7 @@ function CastMockup() {
           <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2 font-bold">Magic Link</p>
           <div className="flex items-center gap-2">
             <div className="flex-1 bg-white/5 rounded-lg px-3 py-2 font-mono text-[11px] text-emerald-400/70 truncate border border-emerald-500/15">
-              cueboard.nl/cast/gala25/marc-d
+              cueboard.nl/green-room/gala25
             </div>
             <button className="shrink-0 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-3 py-2 rounded-lg text-xs font-bold">
               Kopieer
@@ -293,9 +293,9 @@ const TABS: Tab[] = [
   {
     id: 'cast',
     icon: Link2,
-    label: 'Cast Portal',
+    label: 'Green Room',
     tagline: 'Geen app, geen account.',
-    desc: 'Magic Links voor cast-members. Via QR of link zien ze hun cues realtime in de browser — zonder account, zonder download. Print de QR op de kleedkamerdeur.',
+    desc: 'Magic Links voor gasten en sprekers. Via QR of link zien ze hun cues realtime in de browser — zonder account, zonder download. Print de QR op de kleedkamerdeur.',
     mockup: <CastMockup />,
   },
   {

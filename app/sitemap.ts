@@ -23,7 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: `${BASE_URL}/cast-login`,
+      url: `${BASE_URL}/green-room`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.4,

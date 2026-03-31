@@ -19,7 +19,7 @@ import { formatDate, formatDuration } from '@/lib/utils'
 import type { Show, ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 import { EditShowModal } from './EditShowModal'
 import { ShowMembersPanel } from '@/components/team/ShowMembersPanel'
-import { CastMembersPanel } from '@/components/cast/CastMembersPanel'
+import { GreenRoomPanel } from '@/components/green-room/GreenRoomPanel'
 import { InfoButton } from '@/components/ui/info-button'
 
 interface RundownSummary {
@@ -54,7 +54,7 @@ export function ShowDashboard({
   const [rundowns, setRundowns]   = useState<RundownSummary[]>(initialRundowns)
   const [editShowOpen, setEditShowOpen]     = useState(false)
   const [showMembers, setShowMembers]       = useState(false)
-  const [showCast, setShowCast]             = useState(false)
+  const [showGreenRoom, setShowGreenRoom]   = useState(false)
   const [autoOpenInvite, setAutoOpenInvite] = useState(false)
   const [deleteTarget, setDeleteTarget]     = useState<RundownSummary | null>(null)
   const [deleting, setDeleting]             = useState(false)
@@ -213,13 +213,13 @@ export function ShowDashboard({
             </div>
             <div className="flex items-center">
               <button
-                onClick={() => setShowCast(true)}
+                onClick={() => setShowGreenRoom(true)}
                 className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium hover:bg-muted/60 transition-colors"
               >
-                <Radio className="h-3.5 w-3.5" /> Cast
+                <Radio className="h-3.5 w-3.5" /> Green Room
               </button>
               <span className="pr-1">
-                <InfoButton section="cast" text="Voeg sprekers of artiesten toe met een 6-cijferige PIN — zonder account." />
+                <InfoButton section="cast" text="Geef gasten toegang tot de Green Room met een 6-cijferige PIN — zonder account." />
               </span>
             </div>
           </div>
@@ -436,11 +436,11 @@ export function ShowDashboard({
         )}
       </div>
 
-      {/* Cast panel */}
-      <CastMembersPanel
+      {/* Green Room panel */}
+      <GreenRoomPanel
         showId={show.id}
-        open={showCast}
-        onClose={() => setShowCast(false)}
+        open={showGreenRoom}
+        onClose={() => setShowGreenRoom(false)}
       />
 
       {/* Team leden panel */}

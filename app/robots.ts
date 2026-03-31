@@ -15,6 +15,7 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/auth/',
           '/cast/',
+          '/green-room/',
           '/invite/',
         ],
       },

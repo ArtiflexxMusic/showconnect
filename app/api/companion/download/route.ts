@@ -161,8 +161,8 @@ export async function GET(request: NextRequest) {
   }
 
   // ── MODE: triggers ──────────────────────────────────────────────────────
-  // LET OP: dit is een FULL import. Alleen gebruiken als je de triggers
-  // wilt (opnieuw) instellen. Maak eerst een Export backup!
+  // Importeert ALLEEN triggers + custom variables. Raakt pagina's NIET aan.
+  // Veilig om te importeren; eventuele bestaande triggers worden vervangen.
   if (mode === 'triggers') {
     const triggersConfig = {
       version: 9,
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
                 url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`,
-                header: '', result_stringify: false, jsonResultDataVariable: 'sc_active',
+                header: '', result_stringify: true, jsonResultDataVariable: 'sc_active',
               },
               upgradeIndex: 1,
             },
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
                 url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`,
-                header: '', result_stringify: false, jsonResultDataVariable: 'sc_next',
+                header: '', result_stringify: true, jsonResultDataVariable: 'sc_next',
               },
               upgradeIndex: 1,
             },

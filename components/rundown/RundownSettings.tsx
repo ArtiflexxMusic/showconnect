@@ -567,7 +567,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                   size="sm"
                   className="gap-2 flex-1"
                   onClick={() => {
-                    if (!confirm('LET OP: de triggers-import vervangt je bestaande triggers. Maak eerst een backup via Companion → Import/Export → Export. Doorgaan?')) return
+                    if (!confirm('Dit vervangt alleen de CueBoard polling-trigger. Je pagina\'s en andere instellingen blijven intact. Doorgaan?')) return
                     const url = `${baseUrl}/api/companion/download?rundownId=${rundown.id}&mode=triggers`
                     const a = document.createElement('a')
                     a.href = url

@@ -28,8 +28,8 @@ const securityHeaders = [
       `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
       // Fonts: self + Google Fonts CDN
       `font-src 'self' https://fonts.gstatic.com data:`,
-      // Images: self + data URIs + blob (for PDF viewer) + Supabase Storage + Mollie logo's
-      `img-src 'self' data: blob: https://${SUPABASE_HOST} https://www.mollie.com`,
+      // Images: self + data URIs + blob (for PDF viewer) + Supabase Storage + Mollie logo's + QR-code API
+      `img-src 'self' data: blob: https://${SUPABASE_HOST} https://www.mollie.com https://api.qrserver.com`,
       // API + WebSocket connections: self + Supabase
       `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://api.supabase.com`,
       // Frames: same origin + Office Online (PPTX embed)

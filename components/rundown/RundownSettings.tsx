@@ -544,27 +544,46 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
               <p className="text-xs text-foreground/80">
                 Download een kant-en-klaar configuratiebestand en importeer het in Companion. De koppeling werkt daarna direct.
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-2 w-full"
-                onClick={() => {
-                  const url = `${baseUrl}/api/companion/download?rundownId=${rundown.id}`
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = 'CueBoard Live Cue.companionconfig'
-                  a.click()
-                }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download Companion config
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 flex-1"
+                  onClick={() => {
+                    const url = `${baseUrl}/api/companion/download?rundownId=${rundown.id}&mode=page`
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'CueBoard pagina.companionconfig'
+                    a.click()
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Knoppen (veilig)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 flex-1"
+                  onClick={() => {
+                    if (!confirm('LET OP: de triggers-import vervangt je bestaande triggers. Maak eerst een backup via Companion → Import/Export → Export. Doorgaan?')) return
+                    const url = `${baseUrl}/api/companion/download?rundownId=${rundown.id}&mode=triggers`
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'CueBoard triggers.companionconfig'
+                    a.click()
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Triggers
+                </Button>
+              </div>
               <ol className="space-y-1 text-xs text-muted-foreground pl-1">
                 {[
-                  'Download het bestand hierboven',
-                  'Companion → Import/Export → selecteer het bestand → klik "Import Preserving Unselected"',
-                  'Maak een button met tekst: $(custom:cueboard_response)',
+                  'Download "Knoppen" — importeer via Companion → Import/Export → Import page (vervangt alleen pagina 1)',
+                  'Download "Triggers" alleen als je de polling nog niet hebt — maak eerst een Export backup!',
+                  'GO / BACK / SKIP sturen direct naar deze rundown',
                 ].map((step, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="h-4 w-4 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>

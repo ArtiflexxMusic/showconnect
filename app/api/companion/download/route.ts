@@ -176,18 +176,6 @@ export async function GET(request: NextRequest) {
   if (mode === 'triggers') {
     const triggerId = rnd()
 
-    // Helper: internal actie om een custom variable direct aan te maken met placeholder
-    function initVar(name: string, value = '—') {
-      return {
-        type: 'action',
-        id: rnd(),
-        connectionId: 'internal',
-        definitionId: 'custom_variable:set_value',
-        options: { name, value },
-        children: {},
-      }
-    }
-
     const triggersConfig = {
       version: 9,
       type: 'trigger_list',                              // ← juist type voor trigger-import
@@ -199,12 +187,6 @@ export async function GET(request: NextRequest) {
           condition: [],
           events: [{ id: rnd(), type: 'interval', enabled: true, options: { seconds: 1 } }],
           actions: [
-            // ── Stap 1: variabelen aanmaken met placeholder (werkt meteen na import) ──
-            initVar('sc_active',    '…'),
-            initVar('sc_next',      '…'),
-            initVar('sc_elapsed',   '-0:00'),
-            initVar('sc_show_name', 'CueBoard'),
-            // ── Stap 2: echte waarden ophalen via HTTP (overschrijft placeholders) ──
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_active' },
@@ -230,6 +212,14 @@ export async function GET(request: NextRequest) {
         },
       },
       triggerCollections: [],
+      // ── Custom variables: worden direct aangemaakt bij import ──────────────
+      custom_variables: {
+        sc_active:    { description: 'Naam van de actieve cue',    defaultValue: '', persistCurrentValue: false, sortOrder: 0 },
+        sc_next:      { description: 'Naam van de volgende cue',   defaultValue: '', persistCurrentValue: false, sortOrder: 1 },
+        sc_elapsed:   { description: 'Afteltimer (bijv. -2:34)',   defaultValue: '', persistCurrentValue: false, sortOrder: 2 },
+        sc_show_name: { description: 'Naam van de show/rundown',   defaultValue: '', persistCurrentValue: false, sortOrder: 3 },
+      },
+      customVariablesCollections: [],
       instances: { [connId]: connectionDef },
       connectionCollections: [],
     }

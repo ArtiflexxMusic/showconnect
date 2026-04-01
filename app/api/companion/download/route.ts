@@ -178,8 +178,9 @@ export async function GET(request: NextRequest) {
 
     const triggersConfig = {
       version: 9,
-      type: 'trigger_list',                              // ← juist type voor trigger-import
+      type: 'full',                                      // ← 'full' zodat Custom Variables checkbox zichtbaar is
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
+      // Geen 'pages' — Buttons-checkbox blijft grayed out, pagina's worden NIET gereset
       triggers: {
         [triggerId]: {
           type: 'trigger',
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest) {
         },
       },
       triggerCollections: [],
-      // ── Custom variables: worden direct aangemaakt bij import ──────────────
+      // ── Custom variables: zichtbaar als checkbox bij Full Import ───────────
       custom_variables: {
         sc_active:    { description: 'Naam van de actieve cue',    defaultValue: '', persistCurrentValue: false, sortOrder: 0 },
         sc_next:      { description: 'Naam van de volgende cue',   defaultValue: '', persistCurrentValue: false, sortOrder: 1 },

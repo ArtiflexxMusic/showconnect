@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
   const BASE   = 'https://www.cueboard.nl'
   const connId = rnd()
 
-  // POST-actie gebruikt $(custom:sc_rundown_id) — werkt voor elke show
+  // POST-actie: header als JSON-object (vereist door generic-http module)
   function postAction(action: 'go' | 'back' | 'skip') {
     return {
       type: 'action',
@@ -103,11 +103,10 @@ export async function GET(request: NextRequest) {
       definitionId: 'post',
       options: {
         url: `${BASE}/api/companion/action`,
-        // sc_rundown_id wordt door Companion ingevuld op het moment van uitvoeren
-        body: `{"action":"${action}","rundownId":"$(custom:sc_rundown_id)"}`,
-        header: 'Content-Type: application/json',
-        result_stringify: true,
-        jsonResultDataVariable: null,
+        body: `{"action":"${action}","rundownId":"${rundownId}"}`,
+        header: '{"Content-Type":"application/json"}',
+        result_stringify: false,
+        jsonResultDataVariable: '',
       },
       upgradeIndex: 1,
     }
@@ -149,9 +148,9 @@ export async function GET(request: NextRequest) {
             },
             '1': {
               '0': { type: 'pagenum' },
-              '1': makeButton('NOW\n$(custom:sc_active)', 0x001a0a, 0x00ff88, '14', []),
-              '2': makeButton('NEXT\n$(custom:sc_next)',  0x111111, 0xaaaaaa, '14', []),
-              '3': makeButton('$(custom:sc_show_name)',  0x0d0d0d, 0x666666, '14', []),
+              '1': makeButton('▶ $(custom:sc_active)\n$(custom:sc_elapsed)', 0x001a0a, 0x00ff88, '14', []),
+              '2': makeButton('NEXT\n$(custom:sc_next)',                      0x111111, 0xaaaaaa, '14', []),
+              '3': makeButton('$(custom:sc_show_name)',                       0x0d0d0d, 0x666666, '14', []),
             },
             '2': {
               '0': { type: 'pagedown' },
@@ -176,20 +175,20 @@ export async function GET(request: NextRequest) {
   }
 
   // ── MODE: triggers ────────────────────────────────────────────────────────
-  // Importeert ALLEEN triggers + variabelen. Raakt pagina's NIET aan.
+  // Importeert trigger + variabelen. Raakt pagina's NIET aan.
   // Werkwijze:
-  //   1. Importeer dit bestand via Companion → Import/Export → Triggers tab
-  //   2. Link de "CueBoard" connectie aan je bestaande generic-http verbinding
-  //   3. Klik "Activeer in Companion" in CueBoard om sc_rundown_id automatisch bij te werken
+  //   1. Importeer via Companion → Import/Export → Triggers tab
+  //   2. Link "CueBoard" aan je bestaande generic-http verbinding
+  //   3. Voor een andere show: download opnieuw en importeer opnieuw
   if (mode === 'triggers') {
     const triggerId = rnd()
 
     const triggersConfig = {
       version: 9,
-      type: 'full',                                    // 'full' is het enige type dat Companion v4.2 herkent
+      type: 'full',
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
 
-      pages: {},                                       // leeg — raakt bestaande pagina's niet aan
+      pages: {},
       triggerCollections: [],
       customVariablesCollections: [],
       expressionVariables: [],
@@ -205,38 +204,38 @@ export async function GET(request: NextRequest) {
           condition: [],
           events: [{ id: rnd(), type: 'interval', enabled: true, options: { seconds: 1 } }],
           actions: [
-            // 1. Haal de actieve rundown_id op via het token → universeel, werkt voor elke show
+            // Actieve cue ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
-                url: `${BASE}/api/companion/active?token=$(custom:sc_token)`,
-                header: '', result_stringify: true, jsonResultDataVariable: 'sc_rundown_id',
-              },
-              upgradeIndex: 1,
-            },
-            // 2. Actieve cue ophalen
-            {
-              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: {
-                url: `${BASE}/api/companion/cue?rundownId=$(custom:sc_rundown_id)&field=active`,
+                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`,
                 header: '', result_stringify: true, jsonResultDataVariable: 'sc_active',
               },
               upgradeIndex: 1,
             },
-            // 3. Volgende cue ophalen
+            // Volgende cue ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
-                url: `${BASE}/api/companion/cue?rundownId=$(custom:sc_rundown_id)&field=next`,
+                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`,
                 header: '', result_stringify: true, jsonResultDataVariable: 'sc_next',
               },
               upgradeIndex: 1,
             },
-            // 4. Shownaam ophalen
+            // Verstreken tijd ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
-                url: `${BASE}/api/companion/cue?rundownId=$(custom:sc_rundown_id)&field=rundown`,
+                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=elapsed`,
+                header: '', result_stringify: true, jsonResultDataVariable: 'sc_elapsed',
+              },
+              upgradeIndex: 1,
+            },
+            // Shownaam ophalen
+            {
+              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
+              options: {
+                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=rundown`,
                 header: '', result_stringify: true, jsonResultDataVariable: 'sc_show_name',
               },
               upgradeIndex: 1,
@@ -247,39 +246,10 @@ export async function GET(request: NextRequest) {
       },
 
       custom_variables: {
-        // Token: naam van dit Companion-apparaat (bijv. "mac" of "pi").
-        // Moet overeenkomen met wat je invult bij "Activeer in Companion" in CueBoard.
-        sc_token: {
-          description: 'Naam van dit Companion-apparaat (bijv. mac of pi)',
-          defaultValue: 'default',
-          persistCurrentValue: true,
-          sortOrder: 0,
-        },
-        // sc_rundown_id wordt automatisch bijgewerkt door de trigger hierboven.
-        sc_rundown_id: {
-          description: 'Actieve show UUID — automatisch bijgewerkt via sc_token',
-          defaultValue: rundownId,
-          persistCurrentValue: true,
-          sortOrder: 1,
-        },
-        sc_show_name: {
-          description: 'Naam van de actieve show',
-          defaultValue: '—',
-          persistCurrentValue: false,
-          sortOrder: 2,
-        },
-        sc_active: {
-          description: 'Actieve cue naam',
-          defaultValue: '—',
-          persistCurrentValue: false,
-          sortOrder: 3,
-        },
-        sc_next: {
-          description: 'Volgende cue naam',
-          defaultValue: '—',
-          persistCurrentValue: false,
-          sortOrder: 4,
-        },
+        sc_show_name: { description: 'Naam van de actieve show', defaultValue: '—', persistCurrentValue: false, sortOrder: 0 },
+        sc_active:    { description: 'Actieve cue naam',        defaultValue: '—', persistCurrentValue: false, sortOrder: 1 },
+        sc_next:      { description: 'Volgende cue naam',       defaultValue: '—', persistCurrentValue: false, sortOrder: 2 },
+        sc_elapsed:   { description: 'Verstreken tijd (MM:SS)', defaultValue: '0:00', persistCurrentValue: false, sortOrder: 3 },
       },
 
       instances: { [connId]: connectionDef },

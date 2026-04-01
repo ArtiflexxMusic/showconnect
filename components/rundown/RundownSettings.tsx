@@ -73,10 +73,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
   const [showCompanionGuide, setShowCompanionGuide] = useState(false)
   const [showPayloadPreview, setShowPayloadPreview] = useState(false)
 
-  // Companion activeren
-  const [companionToken, setCompanionToken]       = useState('')
-  const [activating, setActivating]               = useState(false)
-  const [activateStatus, setActivateStatus]       = useState<'idle' | 'ok' | 'error'>('idle')
 
   // Stage-namen state
   const [stageNames, setStageNames]         = useState<string[]>([])
@@ -87,10 +83,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       setRundownName(rundown.name)
       const raw = rundown.show_start_time ?? ''
       setStartTime(raw.length >= 5 ? raw.slice(0, 5) : raw)
-      // Onthoud Companion host tussen sessies
-      const savedToken = typeof window !== 'undefined' ? (localStorage.getItem('companion_token') ?? 'default') : 'default'
-      setCompanionToken(savedToken)
-      setActivateStatus('idle')
       // Companion: detecteer modus op basis van opgeslagen URL
       const savedUrl = rundown.companion_webhook_url ?? ''
       setWebhookUrl(savedUrl)
@@ -178,27 +170,6 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
       onClose()
     } finally {
       setLoading(false)
-    }
-  }
-
-  // Activeer de huidige show in Companion door sc_rundown_id bij te werken
-  async function activateInCompanion() {
-    const token = companionToken.trim() || 'default'
-    if (typeof window !== 'undefined') localStorage.setItem('companion_token', token)
-    setActivating(true)
-    setActivateStatus('idle')
-    try {
-      // Server-side call → geen CORS/PNA issues
-      const res = await fetch('/api/companion/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, rundownId: rundown.id }),
-      })
-      setActivateStatus(res.ok ? 'ok' : 'error')
-    } catch {
-      setActivateStatus('error')
-    } finally {
-      setActivating(false)
     }
   }
 
@@ -571,9 +542,9 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
 
             {/* Eenmalige setup — download configs */}
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-3 space-y-2.5">
-              <p className="text-xs font-medium text-foreground/90">Stap 1 — Eenmalige setup (één keer importeren)</p>
+              <p className="text-xs font-medium text-foreground/90">Eenmalige setup (één keer importeren)</p>
               <p className="text-xs text-muted-foreground">
-                Download beide bestanden en importeer ze in Companion via Settings → Import / Export. Daarna hoef je dit nooit meer te doen.
+                Download beide bestanden en importeer ze in Companion via Settings → Import / Export. De knoppen-config importeer je één keer. De triggers-config is showspecifiek — download en importeer hem opnieuw bij een nieuwe show.
               </p>
               <div className="flex gap-2">
                 <Button
@@ -610,51 +581,8 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground/60">
-                Beide configs zijn universeel — ze werken voor elke show. Je hoeft ze maar één keer te importeren.
+                Knoppen: één keer importeren. Triggers: per show opnieuw downloaden en importeren.
               </p>
-            </div>
-
-            {/* Show activeren in Companion */}
-            <div className="rounded-lg bg-green-500/5 border border-green-500/20 px-3 py-3 space-y-2.5">
-              <p className="text-xs font-medium text-foreground/90">Stap 2 — Activeer deze show in Companion</p>
-              <p className="text-xs text-muted-foreground">
-                Geef je Companion-apparaat een naam (bijv. &quot;mac&quot; of &quot;pi&quot;). Gebruik dezelfde naam in Companion als <code className="font-mono bg-muted px-1 rounded">sc_token</code>.
-              </p>
-              <div className="flex gap-2 items-center">
-                <Input
-                  value={companionToken}
-                  onChange={e => { setCompanionToken(e.target.value); setActivateStatus('idle') }}
-                  placeholder="mac  of  pi  of  default"
-                  className="text-xs h-8 flex-1 font-mono"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  className="gap-1.5 shrink-0 bg-green-600 hover:bg-green-700 text-white"
-                  disabled={activating}
-                  onClick={activateInCompanion}
-                >
-                  {activating
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : activateStatus === 'ok'
-                      ? <CheckCircle className="h-3.5 w-3.5" />
-                      : activateStatus === 'error'
-                        ? <AlertCircle className="h-3.5 w-3.5" />
-                        : <Radio className="h-3.5 w-3.5" />
-                  }
-                  {activateStatus === 'ok' ? 'Geactiveerd!' : activateStatus === 'error' ? 'Mislukt' : 'Activeer'}
-                </Button>
-              </div>
-              {activateStatus === 'error' && (
-                <p className="text-[10px] text-red-400">
-                  Activeren mislukt. Controleer of je ingelogd bent en probeer opnieuw.
-                </p>
-              )}
-              {activateStatus === 'ok' && (
-                <p className="text-[10px] text-green-400">
-                  Show <span className="font-semibold">{rundown.name}</span> is nu actief in Companion. GO / BACK / SKIP werken direct.
-                </p>
-              )}
             </div>
 
             {/* Poll-URL voor handmatige setup */}

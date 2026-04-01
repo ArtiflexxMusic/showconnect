@@ -6,9 +6,10 @@
  * variabele bruikbaar is zonder JSON-parsing.
  *
  * Query params:
- *   field=active (default) — actieve cue
- *   field=next             — volgende cue
+ *   field=active (default) — actieve cue naam
+ *   field=next             — volgende cue naam
  *   field=rundown          — rundown naam
+ *   field=elapsed          — verstreken tijd van actieve cue (MM:SS)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   if (!rl.success) return new NextResponse('rate limit', { status: 429 })
 
   const rundownId = request.nextUrl.searchParams.get('rundownId')
-  const VALID_FIELDS = ['active', 'next', 'rundown'] as const
+  const VALID_FIELDS = ['active', 'next', 'rundown', 'elapsed'] as const
   type FieldParam = typeof VALID_FIELDS[number]
   const rawField = request.nextUrl.searchParams.get('field') ?? 'active'
   const field: FieldParam = (VALID_FIELDS as readonly string[]).includes(rawField)
@@ -43,6 +44,24 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createServiceClient()
+
+    if (field === 'elapsed') {
+      const { data } = await supabase
+        .from('cues').select('started_at')
+        .eq('rundown_id', rundownId).eq('status', 'running')
+        .single()
+      if (!data?.started_at) {
+        return new NextResponse('0:00', {
+          headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
+        })
+      }
+      const elapsedSec = Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000)
+      const m = Math.floor(elapsedSec / 60)
+      const s = String(elapsedSec % 60).padStart(2, '0')
+      return new NextResponse(`${m}:${s}`, {
+        headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
+      })
+    }
 
     if (field === 'rundown') {
       const { data } = await supabase

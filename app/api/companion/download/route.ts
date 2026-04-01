@@ -137,23 +137,28 @@ export async function GET(request: NextRequest) {
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
       page: {                                             // ← enkelvoud 'page', niet 'pages'
         name: 'CueBoard',
-        gridSize: { minColumn: 0, maxColumn: 7, minRow: 0, maxRow: 6 },
+        gridSize: { minColumn: 0, maxColumn: 8, minRow: 0, maxRow: 7 },
         controls: {                                       // ← geneste numeric keys: {rij: {kolom: knop}}
-          // Rij 0 — Info: cuenamen + tijd
+          // Rij 0 — Showinfo: paginanav + shownaam + labels
           0: {
-            0: { type: 'pagenum' },
-            1: makeButton('▶ $(custom:sc_active)', 0x001a0a, 0x00ff88, '14', []),
-            2: makeButton('NEXT\n$(custom:sc_next)', 0x111111, 0xaaaaaa, '14', []),
-            3: makeButton('$(custom:sc_show_name)', 0x0d0d0d, 0x666666, '14', []),
-            4: makeButton('$(custom:sc_elapsed)',   0x0d0d0d, 0xffffff, 'auto', []),
-          },
-          // Rij 1 — Acties: BACK / GO / SKIP
-          1: {
             0: { type: 'pageup' },
+            1: makeButton('$(custom:sc_show_name)', 0x0d0d0d, 0x666666, '14', []),
+            2: makeButton('LIVE CUE',               0x000000, 0xffffff, 'auto', []),
+            3: makeButton('NEXT',                   0x000000, 0xffffff, 'auto', []),
+          },
+          // Rij 1 — Live data: timer + actieve cue + volgende cue
+          1: {
+            0: { type: 'pagenum' },
+            1: makeButton('$(custom:sc_elapsed)',    0x0d0d0d, 0xffffff, 'auto', []),
+            2: makeButton('▶ $(custom:sc_active)',   0x001a0a, 0x00ff88, '14',   []),
+            3: makeButton('$(custom:sc_next)',       0x111111, 0xaaaaaa, '14',   []),
+          },
+          // Rij 2 — Acties: BACK / GO / SKIP
+          2: {
+            0: { type: 'pagedown' },
             1: makeButton('◀  BACK', 0x334466, 0xffffff, 'auto', [postAction('back')]),
             2: makeButton('▶   GO',  0x007733, 0xffffff, 'auto', [postAction('go')]),
             3: makeButton('SKIP ▶▶', 0x775500, 0xffffff, 'auto', [postAction('skip')]),
-            4: { type: 'pagedown' },
           },
         },
       },

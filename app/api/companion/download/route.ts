@@ -129,69 +129,51 @@ export async function GET(request: NextRequest) {
   }
 
   // ── MODE: page ────────────────────────────────────────────────────────────
+  // Correct Companion v4 format: type='page', singular 'page:', nested numeric controls
   if (mode === 'page') {
-    const pageId = rnd()
     const pageConfig = {
       version: 9,
-      type: 'full',
+      type: 'page',                                       // ← juist type voor pagina-import
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
-
-      pages: {
-        [pageId]: {
-          name: 'CueBoard',
-          sortOrder: 99,
-          controls: {
-            '0/0': { type: 'pageup' },
-            '0/1': makeButton('◀  BACK', 0x334466, 0xffffff, 'auto', [postAction('back')]),
-            '0/2': makeButton('▶   GO',  0x007733, 0xffffff, 'auto', [postAction('go')]),
-            '0/3': makeButton('SKIP ▶▶', 0x775500, 0xffffff, 'auto', [postAction('skip')]),
-            '1/0': { type: 'pagenum' },
-            '1/1': makeButton('▶ $(custom:sc_active)\n$(custom:sc_elapsed)', 0x001a0a, 0x00ff88, '14', []),
-            '1/2': makeButton('NEXT\n$(custom:sc_next)',                      0x111111, 0xaaaaaa, '14', []),
-            '1/3': makeButton('$(custom:sc_show_name)',                       0x0d0d0d, 0x666666, '14', []),
-            '2/0': { type: 'pagedown' },
+      page: {                                             // ← enkelvoud 'page', niet 'pages'
+        name: 'CueBoard',
+        gridSize: { minColumn: 0, maxColumn: 7, minRow: 0, maxRow: 6 },
+        controls: {                                       // ← geneste numeric keys: {rij: {kolom: knop}}
+          0: {
+            0: { type: 'pageup' },
+            1: makeButton('◀  BACK', 0x334466, 0xffffff, 'auto', [postAction('back')]),
+            2: makeButton('▶   GO',  0x007733, 0xffffff, 'auto', [postAction('go')]),
+            3: makeButton('SKIP ▶▶', 0x775500, 0xffffff, 'auto', [postAction('skip')]),
+          },
+          1: {
+            0: { type: 'pagenum' },
+            1: makeButton('▶ $(custom:sc_active)\n$(custom:sc_elapsed)', 0x001a0a, 0x00ff88, '14', []),
+            2: makeButton('NEXT\n$(custom:sc_next)',                      0x111111, 0xaaaaaa, '14', []),
+            3: makeButton('$(custom:sc_show_name)',                       0x0d0d0d, 0x666666, '14', []),
+          },
+          2: {
+            0: { type: 'pagedown' },
           },
         },
       },
-
-      triggers: {},
-      triggerCollections: [],
-      custom_variables: {},
-      customVariablesCollections: [],
-      expressionVariables: [],
-      expressionVariablesCollections: [],
       instances: { [connId]: connectionDef },
       connectionCollections: [],
-      surfaces: {},
-      surfaceGroups: [],
     }
 
     return respond(gzip(pageConfig), 'CueBoard pagina.companionconfig')
   }
 
   // ── MODE: triggers ────────────────────────────────────────────────────────
-  // Importeert trigger + variabelen. Raakt pagina's NIET aan.
-  // Werkwijze:
-  //   1. Importeer via Companion → Import/Export → Triggers tab
-  //   2. Link "CueBoard" aan je bestaande generic-http verbinding
-  //   3. Voor een andere show: download opnieuw en importeer opnieuw
+  // Correct Companion v4 format: type='trigger_list'
+  // Importeer via Companion → Import/Export (het bestand importeert automatisch als trigger_list)
+  // Voor een andere show: download opnieuw en importeer opnieuw
   if (mode === 'triggers') {
     const triggerId = rnd()
 
     const triggersConfig = {
       version: 9,
-      type: 'full',
+      type: 'trigger_list',                              // ← juist type voor trigger-import
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
-
-      pages: {},
-      triggerCollections: [],
-      customVariablesCollections: [],
-      expressionVariables: [],
-      expressionVariablesCollections: [],
-      connectionCollections: [],
-      surfaces: {},
-      surfaceGroups: [],
-
       triggers: {
         [triggerId]: {
           type: 'trigger',
@@ -199,55 +181,33 @@ export async function GET(request: NextRequest) {
           condition: [],
           events: [{ id: rnd(), type: 'interval', enabled: true, options: { seconds: 1 } }],
           actions: [
-            // Actieve cue ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: {
-                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`,
-                header: '', result_stringify: true, jsonResultDataVariable: 'sc_active',
-              },
+              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_active' },
               upgradeIndex: 1,
             },
-            // Volgende cue ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: {
-                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`,
-                header: '', result_stringify: true, jsonResultDataVariable: 'sc_next',
-              },
+              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_next' },
               upgradeIndex: 1,
             },
-            // Verstreken tijd ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: {
-                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=elapsed`,
-                header: '', result_stringify: true, jsonResultDataVariable: 'sc_elapsed',
-              },
+              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=elapsed`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_elapsed' },
               upgradeIndex: 1,
             },
-            // Shownaam ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: {
-                url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=rundown`,
-                header: '', result_stringify: true, jsonResultDataVariable: 'sc_show_name',
-              },
+              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=rundown`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_show_name' },
               upgradeIndex: 1,
             },
           ],
           localVariables: [],
         },
       },
-
-      custom_variables: {
-        sc_show_name: { description: 'Naam van de actieve show', defaultValue: '—', persistCurrentValue: false, sortOrder: 0 },
-        sc_active:    { description: 'Actieve cue naam',        defaultValue: '—', persistCurrentValue: false, sortOrder: 1 },
-        sc_next:      { description: 'Volgende cue naam',       defaultValue: '—', persistCurrentValue: false, sortOrder: 2 },
-        sc_elapsed:   { description: 'Verstreken tijd (MM:SS)', defaultValue: '0:00', persistCurrentValue: false, sortOrder: 3 },
-      },
-
+      triggerCollections: [],
       instances: { [connId]: connectionDef },
+      connectionCollections: [],
     }
 
     return respond(gzip(triggersConfig), 'CueBoard triggers.companionconfig')

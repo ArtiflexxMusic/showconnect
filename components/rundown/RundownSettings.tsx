@@ -544,8 +544,15 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-3 space-y-2.5">
               <p className="text-xs font-medium text-foreground/90">Eenmalige setup (één keer importeren)</p>
               <p className="text-xs text-muted-foreground">
-                Importeer eerst <strong>Triggers</strong> (Full Import), dan <strong>Knoppen</strong> (Buttons tab → selecteer pagina). Triggers opnieuw importeren bij nieuwe show.
+                Importeer eerst <strong>Triggers</strong> (Full Import → vink <em>Triggers</em> + <em>Custom Variables</em> aan), dan <strong>Knoppen</strong> (Buttons tab → selecteer pagina). Triggers opnieuw importeren bij nieuwe show.
               </p>
+              {/* Waarschuwing: geen full import zonder backup */}
+              <div className="flex items-start gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 px-2.5 py-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 mt-0.5 shrink-0" />
+                <p className="text-[11px] text-yellow-200/80 leading-snug">
+                  <strong className="text-yellow-300">Let op:</strong> gebruik nooit <em>Full Import</em> zonder eerst een backup te maken via <em>Export Current Configuration</em> in Companion — anders overschrijf je al je bestaande knoppen.
+                </p>
+              </div>
               <div className="flex gap-2">
                 <Button
                   type="button"

@@ -92,7 +92,8 @@ export async function GET(request: NextRequest) {
 
   const mode   = request.nextUrl.searchParams.get('mode') ?? 'page'
   const BASE   = 'https://www.cueboard.nl'
-  const connId = rnd()
+  // Vaste connId zodat page-config en triggers-config altijd dezelfde connectie gebruiken
+  const connId = 'CueBoardHttpConn0001'
 
   // POST-actie: header als JSON-object (vereist door generic-http module)
   function postAction(action: 'go' | 'back' | 'skip') {

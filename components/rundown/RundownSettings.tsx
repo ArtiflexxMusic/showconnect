@@ -544,7 +544,7 @@ export function RundownSettings({ open, onClose, rundown, show, supabase, onSave
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-3 space-y-2.5">
               <p className="text-xs font-medium text-foreground/90">Eenmalige setup (één keer importeren)</p>
               <p className="text-xs text-muted-foreground">
-                Download beide bestanden en importeer ze in Companion via Settings → Import / Export. De knoppen-config importeer je één keer. De triggers-config is showspecifiek — download en importeer hem opnieuw bij een nieuwe show.
+                Importeer eerst <strong>Triggers</strong> (Full Import), dan <strong>Knoppen</strong> (Buttons tab → selecteer pagina). Triggers opnieuw importeren bij nieuwe show.
               </p>
               <div className="flex gap-2">
                 <Button

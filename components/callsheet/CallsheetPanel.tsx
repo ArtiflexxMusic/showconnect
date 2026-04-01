@@ -428,8 +428,17 @@ export function CallsheetPanel({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {saved && <span className="text-xs text-green-400 flex items-center gap-1"><Check className="h-3 w-3" /> Opgeslagen</span>}
-              <Button size="sm" variant="outline" onClick={() => window.open(`/shows/${showId}/callsheet/print`, '_blank')} className="h-8 gap-1.5 text-xs">
-                <Printer className="h-3.5 w-3.5" /> Print
+              <Button
+                size="sm" variant="outline"
+                onClick={() => {
+                  // Stuur alle callsheet-data + crew mee als URL-param zodat de printpagina alles kan tonen
+                  const payload = { ...data, crew }
+                  const encoded = encodeURIComponent(JSON.stringify(payload))
+                  window.open(`/shows/${showId}/callsheet/print?d=${encoded}`, '_blank')
+                }}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <Printer className="h-3.5 w-3.5" /> Print / PDF
               </Button>
               <Button
                 size="sm"

@@ -130,34 +130,46 @@ export async function GET(request: NextRequest) {
 
   // ── MODE: page ────────────────────────────────────────────────────────────
   if (mode === 'page') {
+    const pageId = rnd()
     const pageConfig = {
       version: 9,
-      type: 'page',
+      type: 'full',
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
 
-      page: {
-        id: rnd(),
-        name: 'CueBoard',
-        controls: {
-          '0': {
-            '0': { type: 'pageup' },
-            '1': makeButton('◀  BACK', 0x334466, 0xffffff, 'auto', [postAction('back')]),
-            '2': makeButton('▶   GO',  0x007733, 0xffffff, 'auto', [postAction('go')]),
-            '3': makeButton('SKIP ▶▶', 0x775500, 0xffffff, 'auto', [postAction('skip')]),
-          },
-          '1': {
-            '0': { type: 'pagenum' },
-            '1': makeButton('NOW\n$(custom:sc_active)', 0x001a0a, 0x00ff88, '14', []),
-            '2': makeButton('NEXT\n$(custom:sc_next)',  0x111111, 0xaaaaaa, '14', []),
-            '3': makeButton('$(custom:sc_show_name)',  0x0d0d0d, 0x666666, '14', []),
-          },
-          '2': {
-            '0': { type: 'pagedown' },
+      pages: {
+        [pageId]: {
+          name: 'CueBoard',
+          sortOrder: 99,
+          controls: {
+            '0': {
+              '0': { type: 'pageup' },
+              '1': makeButton('◀  BACK', 0x334466, 0xffffff, 'auto', [postAction('back')]),
+              '2': makeButton('▶   GO',  0x007733, 0xffffff, 'auto', [postAction('go')]),
+              '3': makeButton('SKIP ▶▶', 0x775500, 0xffffff, 'auto', [postAction('skip')]),
+            },
+            '1': {
+              '0': { type: 'pagenum' },
+              '1': makeButton('NOW\n$(custom:sc_active)', 0x001a0a, 0x00ff88, '14', []),
+              '2': makeButton('NEXT\n$(custom:sc_next)',  0x111111, 0xaaaaaa, '14', []),
+              '3': makeButton('$(custom:sc_show_name)',  0x0d0d0d, 0x666666, '14', []),
+            },
+            '2': {
+              '0': { type: 'pagedown' },
+            },
           },
         },
       },
 
+      triggers: {},
+      triggerCollections: [],
+      custom_variables: {},
+      customVariablesCollections: [],
+      expressionVariables: [],
+      expressionVariablesCollections: [],
       instances: { [connId]: connectionDef },
+      connectionCollections: [],
+      surfaces: {},
+      surfaceGroups: [],
     }
 
     return respond(gzip(pageConfig), 'CueBoard pagina.companionconfig')
@@ -165,15 +177,26 @@ export async function GET(request: NextRequest) {
 
   // ── MODE: triggers ────────────────────────────────────────────────────────
   // Importeert ALLEEN triggers + variabelen. Raakt pagina's NIET aan.
-  // sc_rundown_id staat standaard op de meegegeven UUID maar kan later
-  // gewijzigd worden via CueBoard → "Activeer in Companion".
+  // Werkwijze:
+  //   1. Importeer dit bestand via Companion → Import/Export → Triggers tab
+  //   2. Link de "CueBoard" connectie aan je bestaande generic-http verbinding
+  //   3. Klik "Activeer in Companion" in CueBoard om sc_rundown_id automatisch bij te werken
   if (mode === 'triggers') {
     const triggerId = rnd()
 
     const triggersConfig = {
       version: 9,
-      type: 'triggers',
+      type: 'full',                                    // 'full' is het enige type dat Companion v4.2 herkent
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
+
+      pages: {},                                       // leeg — raakt bestaande pagina's niet aan
+      triggerCollections: [],
+      customVariablesCollections: [],
+      expressionVariables: [],
+      expressionVariablesCollections: [],
+      connectionCollections: [],
+      surfaces: {},
+      surfaceGroups: [],
 
       triggers: {
         [triggerId]: {
@@ -182,7 +205,16 @@ export async function GET(request: NextRequest) {
           condition: [],
           events: [{ id: rnd(), type: 'interval', enabled: true, options: { seconds: 1 } }],
           actions: [
-            // Actieve cue ophalen
+            // 1. Haal de actieve rundown_id op via het token → universeel, werkt voor elke show
+            {
+              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
+              options: {
+                url: `${BASE}/api/companion/active?token=$(custom:sc_token)`,
+                header: '', result_stringify: true, jsonResultDataVariable: 'sc_rundown_id',
+              },
+              upgradeIndex: 1,
+            },
+            // 2. Actieve cue ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
@@ -191,7 +223,7 @@ export async function GET(request: NextRequest) {
               },
               upgradeIndex: 1,
             },
-            // Volgende cue ophalen
+            // 3. Volgende cue ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
@@ -200,7 +232,7 @@ export async function GET(request: NextRequest) {
               },
               upgradeIndex: 1,
             },
-            // Shownaam ophalen
+            // 4. Shownaam ophalen
             {
               type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
               options: {
@@ -213,40 +245,44 @@ export async function GET(request: NextRequest) {
           localVariables: [],
         },
       },
-      triggerCollections: [],
 
       custom_variables: {
-        // sc_rundown_id: de UUID van de actieve show. Wordt bijgewerkt via
-        // CueBoard → "Activeer in Companion" of handmatig in Companion Variables.
-        sc_rundown_id: {
-          description: 'Actieve show (UUID) — bijwerken via CueBoard',
-          defaultValue: rundownId,   // direct bruikbaar na eerste import
-          persistCurrentValue: true, // onthoudt waarde na herstart Companion
+        // Token: naam van dit Companion-apparaat (bijv. "mac" of "pi").
+        // Moet overeenkomen met wat je invult bij "Activeer in Companion" in CueBoard.
+        sc_token: {
+          description: 'Naam van dit Companion-apparaat (bijv. mac of pi)',
+          defaultValue: 'default',
+          persistCurrentValue: true,
           sortOrder: 0,
+        },
+        // sc_rundown_id wordt automatisch bijgewerkt door de trigger hierboven.
+        sc_rundown_id: {
+          description: 'Actieve show UUID — automatisch bijgewerkt via sc_token',
+          defaultValue: rundownId,
+          persistCurrentValue: true,
+          sortOrder: 1,
         },
         sc_show_name: {
           description: 'Naam van de actieve show',
           defaultValue: '—',
           persistCurrentValue: false,
-          sortOrder: 1,
+          sortOrder: 2,
         },
         sc_active: {
           description: 'Actieve cue naam',
           defaultValue: '—',
           persistCurrentValue: false,
-          sortOrder: 2,
+          sortOrder: 3,
         },
         sc_next: {
           description: 'Volgende cue naam',
           defaultValue: '—',
           persistCurrentValue: false,
-          sortOrder: 3,
+          sortOrder: 4,
         },
       },
-      customVariablesCollections: [],
 
       instances: { [connId]: connectionDef },
-      connectionCollections: [],
     }
 
     return respond(gzip(triggersConfig), 'CueBoard triggers.companionconfig')

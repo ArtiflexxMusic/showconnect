@@ -178,47 +178,36 @@ export async function GET(request: NextRequest) {
 
     const triggersConfig = {
       version: 9,
-      type: 'full',                                      // ← 'full' zodat Custom Variables checkbox zichtbaar is
+      type: 'full',
       companionBuild: '4.2.6+8823-stable-4ecdfe70ba',
-      // Geen 'pages' — Buttons-checkbox blijft grayed out, pagina's worden NIET gereset
+      // Geen 'pages' → Buttons-checkbox grayed out, bestaande pagina's blijven intact
       triggers: {
         [triggerId]: {
           type: 'trigger',
           options: { name: 'CueBoard — Live cue (1s)', enabled: true, sortOrder: 0 },
+          actions: [
+            // Stap 1: variabelen initialiseren (werkt direct na import, vóór HTTP actief is)
+            { type: 'action', id: rnd(), connectionId: 'internal', definitionId: 'custom_variable:set_value', options: { name: 'sc_active',    value: '…'       }, children: {} },
+            { type: 'action', id: rnd(), connectionId: 'internal', definitionId: 'custom_variable:set_value', options: { name: 'sc_next',      value: '…'       }, children: {} },
+            { type: 'action', id: rnd(), connectionId: 'internal', definitionId: 'custom_variable:set_value', options: { name: 'sc_elapsed',   value: '-0:00'   }, children: {} },
+            { type: 'action', id: rnd(), connectionId: 'internal', definitionId: 'custom_variable:set_value', options: { name: 'sc_show_name', value: 'CueBoard'}, children: {} },
+            // Stap 2: echte waarden ophalen via HTTP
+            { type: 'action', id: rnd(), connectionId: connId, definitionId: 'get', options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`,  header: '', result_stringify: true, jsonResultDataVariable: 'sc_active'    }, upgradeIndex: 1 },
+            { type: 'action', id: rnd(), connectionId: connId, definitionId: 'get', options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`,    header: '', result_stringify: true, jsonResultDataVariable: 'sc_next'      }, upgradeIndex: 1 },
+            { type: 'action', id: rnd(), connectionId: connId, definitionId: 'get', options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=elapsed`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_elapsed'   }, upgradeIndex: 1 },
+            { type: 'action', id: rnd(), connectionId: connId, definitionId: 'get', options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=rundown`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_show_name' }, upgradeIndex: 1 },
+          ],
           condition: [],
           events: [{ id: rnd(), type: 'interval', enabled: true, options: { seconds: 1 } }],
-          actions: [
-            {
-              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=active`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_active' },
-              upgradeIndex: 1,
-            },
-            {
-              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=next`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_next' },
-              upgradeIndex: 1,
-            },
-            {
-              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=elapsed`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_elapsed' },
-              upgradeIndex: 1,
-            },
-            {
-              type: 'action', id: rnd(), connectionId: connId, definitionId: 'get',
-              options: { url: `${BASE}/api/companion/cue?rundownId=${rundownId}&field=rundown`, header: '', result_stringify: true, jsonResultDataVariable: 'sc_show_name' },
-              upgradeIndex: 1,
-            },
-          ],
           localVariables: [],
         },
       },
       triggerCollections: [],
-      // ── Custom variables: zichtbaar als checkbox bij Full Import ───────────
       custom_variables: {
-        sc_active:    { description: 'Naam van de actieve cue',    defaultValue: '', persistCurrentValue: false, sortOrder: 0 },
-        sc_next:      { description: 'Naam van de volgende cue',   defaultValue: '', persistCurrentValue: false, sortOrder: 1 },
-        sc_elapsed:   { description: 'Afteltimer (bijv. -2:34)',   defaultValue: '', persistCurrentValue: false, sortOrder: 2 },
-        sc_show_name: { description: 'Naam van de show/rundown',   defaultValue: '', persistCurrentValue: false, sortOrder: 3 },
+        sc_active:    { description: 'Naam van de actieve cue',  defaultValue: '', persistCurrentValue: false, sortOrder: 0 },
+        sc_next:      { description: 'Naam van de volgende cue', defaultValue: '', persistCurrentValue: false, sortOrder: 1 },
+        sc_elapsed:   { description: 'Afteltimer (bijv. -2:34)', defaultValue: '', persistCurrentValue: false, sortOrder: 2 },
+        sc_show_name: { description: 'Naam van de show/rundown', defaultValue: '', persistCurrentValue: false, sortOrder: 3 },
       },
       customVariablesCollections: [],
       instances: { [connId]: connectionDef },

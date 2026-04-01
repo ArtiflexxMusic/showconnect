@@ -47,18 +47,19 @@ export async function GET(request: NextRequest) {
 
     if (field === 'elapsed') {
       const { data } = await supabase
-        .from('cues').select('started_at')
+        .from('cues').select('started_at, duration_seconds')
         .eq('rundown_id', rundownId).eq('status', 'running')
         .single()
       if (!data?.started_at) {
-        return new NextResponse('0:00', {
+        return new NextResponse('—', {
           headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
         })
       }
       const elapsedSec = Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000)
-      const m = Math.floor(elapsedSec / 60)
-      const s = String(elapsedSec % 60).padStart(2, '0')
-      return new NextResponse(`${m}:${s}`, {
+      const remainSec = Math.max(0, (data.duration_seconds ?? 0) - elapsedSec)
+      const m = Math.floor(remainSec / 60)
+      const s = String(remainSec % 60).padStart(2, '0')
+      return new NextResponse(`-${m}:${s}`, {
         headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
       })
     }

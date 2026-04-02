@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'token en cueId zijn verplicht' }, { status: 400 })
     }
 
-    if (!title && location === undefined) {
+    if (title === undefined && location === undefined) {
       return NextResponse.json({ error: 'Geen velden om te updaten' }, { status: 400 })
     }
 
@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest) {
 
     // Bouw het update object — alleen toegestane velden
     const updates: Record<string, string | null> = {}
-    if (title !== undefined) updates.title = title.trim() || (cue as { title: string }).title
+    if (title !== undefined) updates.title = title.trim() || (cue as { title: string }).title ?? ''
     if (location !== undefined) updates.location = location?.trim() || null
 
     // Update via service role (omzeilt RLS) — gebruik server-side supabase client

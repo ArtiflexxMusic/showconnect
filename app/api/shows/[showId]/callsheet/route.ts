@@ -8,15 +8,19 @@ interface Recipient {
   role: string
 }
 
+// Veldnamen matchen met CallsheetPanel (CallsheetData interface)
 interface CallsheetNotes {
-  briefing: string
-  location: string
-  parking: string
-  catering: string
-  technical: string
-  contacts: string
-  extra: string
+  briefing:      string
+  dresscode:     string
+  wifi_network:  string
+  wifi_password: string
+  parking:       string
+  catering:      string
+  emergency:     string
+  extra:         string
 }
+
+function esc(s: string) { return (s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 
 function notesHtml(notes: CallsheetNotes, showName: string, showDate: string | null, showVenue: string | null, showClient: string | null): string {
   const sections: string[] = []
@@ -27,18 +31,27 @@ function notesHtml(notes: CallsheetNotes, showName: string, showDate: string | n
       <tr>
         <td style="padding: 16px 0; border-bottom: 1px solid #e5e7eb;">
           <h3 style="margin: 0 0 8px; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">${title}</h3>
-          <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-line; line-height: 1.6;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-line; line-height: 1.6;">${esc(content)}</p>
         </td>
       </tr>
     `)
   }
 
   addSection('Briefing / Algemene info', notes.briefing)
-  addSection('Locatie & Bereikbaarheid', notes.location)
+  addSection('Dresscode', notes.dresscode)
+
+  // WiFi: netwerk + wachtwoord samenvoegen tot één sectie
+  if (notes.wifi_network?.trim() || notes.wifi_password?.trim()) {
+    const wifiContent = [
+      notes.wifi_network  && `Netwerk: ${notes.wifi_network}`,
+      notes.wifi_password && `Wachtwoord: ${notes.wifi_password}`,
+    ].filter(Boolean).join('\n')
+    addSection('WiFi', wifiContent)
+  }
+
   addSection('Parkeren', notes.parking)
   addSection('Catering', notes.catering)
-  addSection('Technische info', notes.technical)
-  addSection('Contactpersonen', notes.contacts)
+  addSection('Noodcontact', notes.emergency)
   addSection('Extra notities', notes.extra)
 
   return `

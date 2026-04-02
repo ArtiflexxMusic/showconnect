@@ -200,13 +200,6 @@ export default async function CallsheetPrintPage({ params, searchParams }: PageP
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Callsheet — {show.name}</title>
         <style>{css}</style>
-        {/* Print-knop via DOM event listener — React strips lowercase onclick in JSX */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          document.addEventListener('DOMContentLoaded', function() {
-            var btn = document.getElementById('print-btn');
-            if (btn) btn.addEventListener('click', function() { window.print(); });
-          });
-        `}} />
       </head>
       <body>
         <div className="wrap">
@@ -408,6 +401,13 @@ export default async function CallsheetPrintPage({ params, searchParams }: PageP
 
           <p className="footer no-print">Gegenereerd op {generatedAt} · CueBoard · cueboard.nl</p>
         </div>
+        {/* Script onderaan body — button bestaat al in DOM als dit uitvoert */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            var btn = document.getElementById('print-btn');
+            if (btn) btn.onclick = function() { window.print(); };
+          })();
+        `}} />
       </body>
     </html>
   )

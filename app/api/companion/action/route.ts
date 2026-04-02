@@ -97,19 +97,27 @@ export async function POST(request: NextRequest) {
     if (action === 'go' as Action) {
       // Actieve cue afronden
       if (activeCue) {
-        await supabase
+        const { error: e1 } = await supabase
           .from('cues')
           .update({ status: 'done' })
           .eq('id', activeCue.id)
           .eq('status', 'running') // race-condition bescherming
+        if (e1) {
+          console.error('[companion/action] go: done update failed', e1)
+          return NextResponse.json({ error: 'Cue afronden mislukt' }, { status: 500 })
+        }
       }
       // Volgende cue starten
       if (nextCue) {
-        await supabase
+        const { error: e2 } = await supabase
           .from('cues')
           .update({ status: 'running', started_at: now })
           .eq('id', nextCue.id)
           .eq('status', 'pending')
+        if (e2) {
+          console.error('[companion/action] go: running update failed', e2)
+          return NextResponse.json({ error: 'Volgende cue starten mislukt' }, { status: 500 })
+        }
       }
       return NextResponse.json({
         ok: true,
@@ -122,17 +130,25 @@ export async function POST(request: NextRequest) {
     if (action === 'back' as Action) {
       // Actieve cue terugzetten naar pending
       if (activeCue) {
-        await supabase
+        const { error: e1 } = await supabase
           .from('cues')
           .update({ status: 'pending', started_at: null })
           .eq('id', activeCue.id)
+        if (e1) {
+          console.error('[companion/action] back: pending update failed', e1)
+          return NextResponse.json({ error: 'Cue terugzetten mislukt' }, { status: 500 })
+        }
       }
       // Vorige 'done' cue opnieuw starten
       if (prevDone) {
-        await supabase
+        const { error: e2 } = await supabase
           .from('cues')
           .update({ status: 'running', started_at: now })
           .eq('id', prevDone.id)
+        if (e2) {
+          console.error('[companion/action] back: running update failed', e2)
+          return NextResponse.json({ error: 'Vorige cue herstarten mislukt' }, { status: 500 })
+        }
       }
       return NextResponse.json({
         ok: true,
@@ -146,15 +162,23 @@ export async function POST(request: NextRequest) {
       if (!activeCue) {
         return NextResponse.json({ error: 'Geen actieve cue om te skippen' }, { status: 409 })
       }
-      await supabase
+      const { error: e1 } = await supabase
         .from('cues')
         .update({ status: 'skipped' })
         .eq('id', activeCue.id)
+      if (e1) {
+        console.error('[companion/action] skip: skipped update failed', e1)
+        return NextResponse.json({ error: 'Cue skippen mislukt' }, { status: 500 })
+      }
       if (nextCue) {
-        await supabase
+        const { error: e2 } = await supabase
           .from('cues')
           .update({ status: 'running', started_at: now })
           .eq('id', nextCue.id)
+        if (e2) {
+          console.error('[companion/action] skip: running update failed', e2)
+          return NextResponse.json({ error: 'Volgende cue starten mislukt' }, { status: 500 })
+        }
       }
       return NextResponse.json({
         ok: true,

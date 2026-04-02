@@ -101,7 +101,7 @@ export async function GET(
   const csvLines = [
     // Rundown info
     `"${show.name} — ${rundown.name}"`,
-    `"Geëxporteerd op: ${new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}"`,
+    `"Geëxporteerd op: ${new Date().toLocaleString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}"`,
     '',
     // Headers
     headers.map(csvCell).join(','),

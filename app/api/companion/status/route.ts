@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     // Active cue
     const { data: activeCue } = await supabase
       .from('cues')
-      .select('id, title, type, position, notes, duration')
+      .select('id, title, type, position, notes, duration_seconds')
       .eq('rundown_id', rundownId)
       .eq('status', 'running')
       .single()
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     // Next pending cue
     const { data: nextCue } = await supabase
       .from('cues')
-      .select('id, title, type, position, duration')
+      .select('id, title, type, position, duration_seconds')
       .eq('rundown_id', rundownId)
       .eq('status', 'pending')
       .order('position', { ascending: true })
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       active_cue_type:     activeCue?.type     ?? '',
       active_cue_position: activeCue?.position != null ? activeCue.position + 1 : 0,
       active_cue_notes:    activeCue?.notes    ?? '',
-      active_cue_duration: activeCue?.duration ?? 0,
+      active_cue_duration: activeCue?.duration_seconds ?? 0,
 
       // Next cue (null if none)
       next_cue_title:    nextCue?.title    ?? '',

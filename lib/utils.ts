@@ -11,7 +11,7 @@ export function formatDuration(seconds: number): string {
   if (seconds <= 0) return '0:00'
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 // Parseer MM:SS of M:SS naar seconden
@@ -120,8 +120,8 @@ export function calcScheduleDelta(
     .reduce((acc, c) => acc + c.duration_seconds, 0)
 
   const now = Date.now() / 1000
-  const showStart = showStartSeconds
-  const actualElapsed = now - (showStart + (new Date().setHours(0, 0, 0, 0) / 1000))
+  const todayMidnight = new Date().setHours(0, 0, 0, 0) / 1000
+  const actualElapsed = now - (todayMidnight + showStartSeconds)
 
   // Positief = loopt voor, negatief = loopt achter
   return plannedElapsed - Math.floor(actualElapsed)

@@ -434,7 +434,7 @@ export function CallsheetPanel({
                   // Stuur alle callsheet-data + crew mee als URL-param zodat de printpagina alles kan tonen
                   const payload = { ...data, crew }
                   const encoded = encodeURIComponent(JSON.stringify(payload))
-                  window.open(`/shows/${showId}/callsheet/print?d=${encoded}`, '_blank')
+                  window.open(`/print/callsheet/${showId}?d=${encoded}`, '_blank')
                 }}
                 className="h-8 gap-1.5 text-xs"
               >

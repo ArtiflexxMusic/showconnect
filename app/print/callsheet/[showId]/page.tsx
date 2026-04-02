@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Cue } from '@/lib/types/database'
+import PrintButton from '@/components/callsheet/PrintButton'
 
 interface PageProps {
   params:       Promise<{ showId: string }>
@@ -204,10 +205,8 @@ export default async function CallsheetPrintPage({ params, searchParams }: PageP
       <body>
         <div className="wrap">
 
-          {/* Print-knop */}
-          <div className="print-bar no-print">
-            <button id="print-btn" className="btn btn-dark">🖨️ Afdrukken / Opslaan als PDF</button>
-          </div>
+          {/* Print-knop — client component met onClick */}
+          <PrintButton />
 
           {/* Header */}
           <div className="card">
@@ -401,13 +400,7 @@ export default async function CallsheetPrintPage({ params, searchParams }: PageP
 
           <p className="footer no-print">Gegenereerd op {generatedAt} · CueBoard · cueboard.nl</p>
         </div>
-        {/* Script onderaan body — button bestaat al in DOM als dit uitvoert */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          (function() {
-            var btn = document.getElementById('print-btn');
-            if (btn) btn.onclick = function() { window.print(); };
-          })();
-        `}} />
+
       </body>
     </html>
   )

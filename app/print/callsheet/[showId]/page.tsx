@@ -200,15 +200,20 @@ export default async function CallsheetPrintPage({ params, searchParams }: PageP
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Callsheet — {show.name}</title>
         <style>{css}</style>
-        {/* Print-knop via native onclick — werkt altijd, ook zonder React hydration */}
-        <script dangerouslySetInnerHTML={{ __html: 'function doPrint(){ window.print(); }' }} />
+        {/* Print-knop via DOM event listener — React strips lowercase onclick in JSX */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('print-btn');
+            if (btn) btn.addEventListener('click', function() { window.print(); });
+          });
+        `}} />
       </head>
       <body>
         <div className="wrap">
 
           {/* Print-knop */}
           <div className="print-bar no-print">
-            <button className="btn btn-dark" onclick="doPrint()">🖨️ Afdrukken / Opslaan als PDF</button>
+            <button id="print-btn" className="btn btn-dark">🖨️ Afdrukken / Opslaan als PDF</button>
           </div>
 
           {/* Header */}

@@ -67,7 +67,7 @@ Voor professionele productiebedrijven en grote teams.
 
 ## Trial
 
-Gratis gebruikers kunnen een trial krijgen die tijdelijk alle **Business-limieten** activeert (dus onbeperkt alles + alle features). De trial heeft een einddatum (`trial_ends_at` in de database). Na afloop val je terug naar Individual-limieten. Contact via info@cueboard.nl om een trial aan te vragen.
+Gratis gebruikers kunnen een trial krijgen die tijdelijk alle **Business-limieten** activeert (dus onbeperkt alles + alle features). De trial heeft een einddatum (`trial_ends_at` in de database). Na afloop val je terug naar Individual-limieten. Contact via info@artiflexx.nl om een trial aan te vragen.
 
 ## Betaling
 

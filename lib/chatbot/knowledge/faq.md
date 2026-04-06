@@ -9,7 +9,7 @@ Korte feiten en snelle antwoorden. Voor uitleg over features → features.md. Vo
 - Realtime sync tussen alle views via Supabase Realtime
 - Nederlands/Engels interface
 - Domein: **cueboard.nl**
-- Support e-mail: **info@cueboard.nl**
+- Support e-mail: **info@artiflexx.nl**
 
 ## De belangrijkste views in één regel
 
@@ -25,7 +25,7 @@ Korte feiten en snelle antwoorden. Voor uitleg over features → features.md. Vo
 - Registreren: cueboard.nl → "Registreren" → e-mail + wachtwoord
 - Inloggen kan met e-mail + wachtwoord, of magic link
 - Wachtwoord vergeten? → "Wachtwoord vergeten"-knop op loginpagina
-- E-mailadres wijzigen → mail naar info@cueboard.nl
+- E-mailadres wijzigen → mail naar info@artiflexx.nl
 
 ## Samenwerking
 
@@ -53,6 +53,6 @@ Details in pricing.md.
 - Geen wachtwoorden resetten
 - Geen betalingen doen of abonnementen wijzigen
 - Geen shows, rundowns of cues aanmaken/bewerken
-- Geen trial activeren (vraag via info@cueboard.nl)
+- Geen trial activeren (vraag via info@artiflexx.nl)
 
-Voor al die dingen: mail naar **info@cueboard.nl** of log in op cueboard.nl.
+Voor al die dingen: mail naar **info@artiflexx.nl** of log in op cueboard.nl.

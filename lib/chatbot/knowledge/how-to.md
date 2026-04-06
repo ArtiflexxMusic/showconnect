@@ -104,13 +104,13 @@ Ga naar [/billing](https://www.cueboard.nl/billing) → "Opzeggen". Je houdt toe
 
 ## Hoe vraag ik een trial aan?
 
-Stuur een mailtje naar **info@cueboard.nl**. Een trial activeert tijdelijk alle Business-limieten (onbeperkt alles + alle features) voor een beperkte periode.
+Stuur een mailtje naar **info@artiflexx.nl**. Een trial activeert tijdelijk alle Business-limieten (onbeperkt alles + alle features) voor een beperkte periode.
 
 ---
 
 ## Ik kan niet inloggen / mijn wachtwoord kwijt
 
-Gebruik de "Wachtwoord vergeten"-link op de loginpagina. Lukt het niet? Mail naar **info@cueboard.nl**.
+Gebruik de "Wachtwoord vergeten"-link op de loginpagina. Lukt het niet? Mail naar **info@artiflexx.nl**.
 
 ---
 

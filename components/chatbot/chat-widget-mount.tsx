@@ -16,9 +16,14 @@ const HIDE_PATTERNS: RegExp[] = [
   /^\/green-room/,
 ]
 
+// Paden waar de DashboardGuide ("Aan de slag"-bubbel) rechtsonder zit.
+// Op die paden schuift de chat-bubbel omhoog zodat ze niet overlappen.
+const GUIDE_PATHS: string[] = ['/dashboard']
+
 export function ChatWidgetMount() {
   const pathname = usePathname()
   if (!pathname) return null
   if (HIDE_PATTERNS.some((re) => re.test(pathname))) return null
-  return <ChatWidget />
+  const liftAboveGuide = GUIDE_PATHS.includes(pathname)
+  return <ChatWidget liftAboveGuide={liftAboveGuide} />
 }

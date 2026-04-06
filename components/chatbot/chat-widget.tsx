@@ -123,7 +123,7 @@ export function ChatWidget({ liftAboveGuide = false }: ChatWidgetProps) {
             )}
             {error && (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
-                Er ging iets mis. Probeer het opnieuw of mail naar info@cueboard.nl.
+                Er ging iets mis. Probeer het opnieuw of mail naar info@artiflexx.nl.
               </div>
             )}
           </div>
@@ -152,7 +152,7 @@ export function ChatWidget({ liftAboveGuide = false }: ChatWidgetProps) {
               </button>
             </div>
             <p className="mt-2 text-[10px] text-white/30">
-              AI-assistent · kan fouten maken · vragen? info@cueboard.nl
+              AI-assistent · kan fouten maken · vragen? info@artiflexx.nl
             </p>
           </form>
         </div>

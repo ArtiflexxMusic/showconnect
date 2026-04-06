@@ -1,4 +1,5 @@
 import { convertToModelMessages, streamText, type UIMessage } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getSystemPrompt } from '@/lib/chatbot/system-prompt'
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json()
 
   const result = streamText({
-    model: 'anthropic/claude-sonnet-4.6',
+    model: anthropic('claude-sonnet-4-6'),
     system: getSystemPrompt(),
     messages: await convertToModelMessages(messages),
   })

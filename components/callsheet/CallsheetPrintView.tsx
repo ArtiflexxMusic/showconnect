@@ -6,15 +6,17 @@ import type { Cue } from '@/lib/types/database'
 
 /* ─── Brand ────────────────────────────────────────────────────────────────── */
 const BRAND = {
-  indigo:      '#6366f1',
-  indigoDark:  '#4f46e5',
-  indigoLight: '#eef2ff',
-  dark:        '#1e1b4b',
+  green:       '#22c55e',
+  greenDark:   '#16a34a',
+  greenDeep:   '#0d4a2e',
+  greenLight:  '#dcfce7',
+  dark:        '#0a0f0d',
+  headerBg:    '#050f09',
   grey:        '#6b7280',
   greyLight:   '#f9fafb',
   greyBorder:  '#e5e7eb',
   white:       '#ffffff',
-  bg:          '#f0f2f8',
+  bg:          '#f4f5f4',
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -79,25 +81,21 @@ const infoValue: React.CSSProperties = {
   fontSize: 13, color: BRAND.dark, whiteSpace: 'pre-line', lineHeight: 1.6,
 }
 
-/* ─── CueBoard Logo (inline SVG) ─────────────────────────────────────────────── */
-function CueBoardLogo({ size = 28 }: { size?: number }) {
+/* ─── CueBoard Logo — matches AppHeader exactly ──────────────────────────────── */
+function CueBoardLogo({ dark = false }: { dark?: boolean }) {
   return (
-    <svg width={size * (212 / 52)} height={size} viewBox="0 0 212 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="cb-bg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#6366f1"/>
-          <stop offset="100%" stopColor="#7c3aed"/>
-        </linearGradient>
-      </defs>
-      <rect width="52" height="52" rx="13" fill="url(#cb-bg)"/>
-      <polygon points="12,15 12,37 27,26" fill="white"/>
-      <rect x="31.5" y="14" width="0.75" height="24" rx="0.375" fill="white" opacity="0.25"/>
-      <rect x="35" y="16"   width="13" height="3.5" rx="1.75" fill="white"/>
-      <rect x="35" y="24.5" width="9"  height="3.5" rx="1.75" fill="white" opacity="0.5"/>
-      <rect x="35" y="33"   width="11" height="3.5" rx="1.75" fill="white" opacity="0.25"/>
-      <text x="68" y="35" fontFamily="system-ui,-apple-system,sans-serif" fontSize="20" fontWeight="700" fill="#6366f1" letterSpacing="2.5">CUE</text>
-      <text x="116" y="35" fontFamily="system-ui,-apple-system,sans-serif" fontSize="20" fontWeight="300" fill="#1e1b4b" letterSpacing="2.5">BOARD</text>
-    </svg>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span style={{
+        display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+        background: BRAND.green,
+        boxShadow: `0 0 8px 2px rgba(52,211,153,0.6)`,
+      }} />
+      <span style={{
+        fontWeight: 900, fontSize: 15, letterSpacing: '-0.02em',
+        textTransform: 'uppercase', color: dark ? BRAND.dark : BRAND.white,
+        lineHeight: 1,
+      }}>CueBoard</span>
+    </div>
   )
 }
 
@@ -113,15 +111,15 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
 
         {/* ── Toolbar ── */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <CueBoardLogo size={28} />
+          <CueBoardLogo dark />
           <button
             onClick={() => window.print()}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '10px 24px', borderRadius: 8, border: 'none',
-              background: BRAND.indigo, color: BRAND.white,
+              background: BRAND.green, color: BRAND.white,
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
+              boxShadow: '0 2px 8px rgba(34,197,94,0.35)',
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -135,20 +133,12 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
         {/* ── Header card ── */}
         <div style={{ ...card, marginBottom: 16 }}>
           {/* Top brand bar */}
-          <div style={{ background: `linear-gradient(135deg, ${BRAND.dark} 0%, #312e81 100%)`, padding: '26px 28px 20px' }}>
+          <div style={{ background: `linear-gradient(135deg, ${BRAND.headerBg} 0%, ${BRAND.greenDeep} 100%)`, padding: '26px 28px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {/* Mini logo mark (white version) */}
-                <svg width="30" height="30" viewBox="0 0 52 52" fill="none">
-                  <rect width="52" height="52" rx="13" fill="rgba(255,255,255,0.15)"/>
-                  <polygon points="12,15 12,37 27,26" fill="white"/>
-                  <rect x="31.5" y="14" width="0.75" height="24" rx="0.375" fill="white" opacity="0.4"/>
-                  <rect x="35" y="16"   width="13" height="3.5" rx="1.75" fill="white"/>
-                  <rect x="35" y="24.5" width="9"  height="3.5" rx="1.75" fill="white" opacity="0.5"/>
-                  <rect x="35" y="33"   width="11" height="3.5" rx="1.75" fill="white" opacity="0.25"/>
-                </svg>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>
-                  CueBoard · Callsheet
+                <CueBoardLogo />
+                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>
+                  · Callsheet
                 </span>
               </div>
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.05em' }}>
@@ -166,10 +156,10 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
           </div>
 
           {/* Stats strip */}
-          <div style={{ background: '#f8f9ff', borderTop: `1px solid ${BRAND.greyBorder}`, padding: '12px 28px', display: 'flex', gap: 32 }}>
+          <div style={{ background: '#f0faf4', borderTop: `2px solid ${BRAND.green}`, padding: '12px 28px', display: 'flex', gap: 32 }}>
             {rundowns[0]?.show_start_time && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.indigo, lineHeight: 1, marginBottom: 2 }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.green, lineHeight: 1, marginBottom: 2 }}>
                   {rundowns[0].show_start_time.slice(0, 5)}
                 </div>
                 <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: BRAND.grey }}>Aanvang</div>
@@ -201,7 +191,7 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
         {/* ── Briefing ── */}
         {notes.briefing && (
           <div style={card}>
-            <div style={{ ...sectionHead, borderLeft: `3px solid ${BRAND.indigo}` }}>
+            <div style={{ ...sectionHead, borderLeft: `3px solid ${BRAND.green}` }}>
               <span>📋 Briefing</span>
             </div>
             <div style={{ padding: '14px 22px', whiteSpace: 'pre-line', lineHeight: 1.7, color: '#374151' }}>{notes.briefing}</div>
@@ -261,7 +251,7 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
           <div style={card}>
             <div style={sectionHead}>
               <span>👥 Crew &amp; Call times</span>
-              <span style={{ background: BRAND.indigoLight, color: BRAND.indigo, borderRadius: 99, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>
+              <span style={{ background: BRAND.greenLight, color: BRAND.green, borderRadius: 99, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>
                 {crew.length}
               </span>
             </div>
@@ -278,13 +268,13 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
                   <tr key={m.id} style={{ background: i % 2 === 0 ? BRAND.white : '#fafafa' }}>
                     <td style={{ padding: '9px 14px', fontWeight: 600, color: BRAND.dark, borderBottom: `1px solid #f3f4f6`, fontSize: 13 }}>{m.full_name ?? '—'}</td>
                     <td style={{ padding: '9px 14px', borderBottom: `1px solid #f3f4f6` }}>
-                      <span style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', background: BRAND.indigoLight, color: BRAND.indigo, padding: '2px 8px', borderRadius: 99 }}>
+                      <span style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', background: BRAND.greenLight, color: BRAND.green, padding: '2px 8px', borderRadius: 99 }}>
                         {m.department || ROLE_LABEL[m.role] || m.role}
                       </span>
                     </td>
                     <td style={{ padding: '9px 14px', borderBottom: `1px solid #f3f4f6` }}>
                       {m.call_time
-                        ? <span style={{ fontFamily: 'monospace', fontWeight: 800, color: BRAND.indigo, fontSize: 14 }}>{m.call_time}</span>
+                        ? <span style={{ fontFamily: 'monospace', fontWeight: 800, color: BRAND.green, fontSize: 14 }}>{m.call_time}</span>
                         : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
                     </td>
                     <td style={{ padding: '9px 14px', color: '#6b7280', fontSize: 12, borderBottom: `1px solid #f3f4f6` }}>{m.phone ?? '—'}</td>
@@ -303,13 +293,13 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
           const runSecs = r.cues.reduce((s, c) => s + c.duration_seconds, 0)
           return (
             <div key={r.id} style={card}>
-              <div style={{ ...sectionHead, borderLeft: `3px solid ${BRAND.indigo}` }}>
+              <div style={{ ...sectionHead, borderLeft: `3px solid ${BRAND.green}` }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: BRAND.dark }}>📋 {r.name}</span>
                 {base && <span style={{ fontSize: 11, color: BRAND.grey }}>Aanvang {base}</span>}
               </div>
 
               {r.notes && (
-                <div style={{ fontSize: 12, color: BRAND.grey, background: '#f8f9ff', borderLeft: `3px solid ${BRAND.indigo}`, padding: '10px 16px', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+                <div style={{ fontSize: 12, color: BRAND.grey, background: '#f0faf4', borderLeft: `3px solid ${BRAND.green}`, padding: '10px 16px', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
                   {r.notes}
                 </div>
               )}
@@ -345,7 +335,7 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
                             {cue.notes      && <div style={{ fontSize: 11, color: '#374151', marginTop: 3, whiteSpace: 'pre-line', lineHeight: 1.5 }}>💬 {cue.notes}</div>}
                             {cue.tech_notes && <div style={{ fontSize: 11, color: '#92400e', marginTop: 2, whiteSpace: 'pre-line', lineHeight: 1.5 }}>🔧 {cue.tech_notes}</div>}
                           </td>
-                          <td style={{ padding: '9px 14px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: BRAND.indigo, textAlign: 'right', whiteSpace: 'nowrap', borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top', paddingTop: 11 }}>{start ?? '—'}</td>
+                          <td style={{ padding: '9px 14px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: BRAND.green, textAlign: 'right', whiteSpace: 'nowrap', borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top', paddingTop: 11 }}>{start ?? '—'}</td>
                           <td style={{ padding: '9px 14px', fontFamily: 'monospace', fontSize: 12, color: '#9ca3af', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top', paddingTop: 11 }}>{formatDuration(cue.duration_seconds)}</td>
                         </tr>
                       )
@@ -369,7 +359,7 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
 
         {/* ── Footer ── */}
         <div className="no-print" style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', padding: '20px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <CueBoardLogo size={16} />
+          <CueBoardLogo dark />
           <span>Gegenereerd op {generatedAt}</span>
         </div>
 

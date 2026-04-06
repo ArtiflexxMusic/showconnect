@@ -1,7 +1,21 @@
 'use client'
 
+import { useEffect } from 'react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Cue } from '@/lib/types/database'
+
+/* ─── Brand ────────────────────────────────────────────────────────────────── */
+const BRAND = {
+  indigo:      '#6366f1',
+  indigoDark:  '#4f46e5',
+  indigoLight: '#eef2ff',
+  dark:        '#1e1b4b',
+  grey:        '#6b7280',
+  greyLight:   '#f9fafb',
+  greyBorder:  '#e5e7eb',
+  white:       '#ffffff',
+  bg:          '#f0f2f8',
+}
 
 const TYPE_LABEL: Record<string, string> = {
   speech: 'Spreek', video: 'Video', audio: 'Audio', lighting: 'Licht',
@@ -24,257 +38,257 @@ function addSecs(hhmm: string, secs: number): string {
   return `${String(Math.floor(t / 3600) % 24).padStart(2, '0')}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}`
 }
 
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
 interface CrewMember {
-  id: string
-  full_name: string | null
-  email: string | null
-  phone: string | null
-  role: string
-  department: string | null
-  call_time: string | null
+  id: string; full_name: string | null; email: string | null
+  phone: string | null; role: string; department: string | null; call_time: string | null
 }
-
 interface RundownWithCues {
-  id: string
-  name: string
-  show_start_time: string | null
-  notes: string | null
-  cues: Cue[]
+  id: string; name: string; show_start_time: string | null; notes: string | null; cues: Cue[]
 }
-
 interface Show {
-  name: string
-  date: string | null
-  venue: string | null
-  description: string | null
-  client?: string | null
+  name: string; date: string | null; venue: string | null
+  description: string | null; client?: string | null
 }
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface CallsheetNotes extends Record<string, any> {
-  briefing?: string
-  dresscode?: string
-  wifi_network?: string
-  wifi_password?: string
-  parking?: string
-  catering?: string
-  emergency?: string
-  extra?: string
+  briefing?: string; dresscode?: string; wifi_network?: string; wifi_password?: string
+  parking?: string; catering?: string; emergency?: string; extra?: string
 }
-
 interface Props {
-  show: Show
-  rundowns: RundownWithCues[]
-  crew: CrewMember[]
-  notes: CallsheetNotes
-  totalCues: number
-  totalSecs: number
-  generatedAt: string
+  show: Show; rundowns: RundownWithCues[]; crew: CrewMember[]
+  notes: CallsheetNotes; totalCues: number; totalSecs: number; generatedAt: string
 }
 
+/* ─── Reusable style objects ─────────────────────────────────────────────────── */
+const card: React.CSSProperties = {
+  background: BRAND.white, border: `1px solid ${BRAND.greyBorder}`,
+  borderRadius: 12, marginBottom: 16, overflow: 'hidden',
+}
+const sectionHead: React.CSSProperties = {
+  background: BRAND.greyLight, borderBottom: `1px solid ${BRAND.greyBorder}`,
+  padding: '8px 22px', fontSize: 10, textTransform: 'uppercase',
+  letterSpacing: '0.12em', color: BRAND.grey, fontWeight: 700,
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+}
+const infoLabel: React.CSSProperties = {
+  fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em',
+  color: '#9ca3af', fontWeight: 700, marginBottom: 4,
+}
+const infoValue: React.CSSProperties = {
+  fontSize: 13, color: BRAND.dark, whiteSpace: 'pre-line', lineHeight: 1.6,
+}
+
+/* ─── CueBoard Logo (inline SVG) ─────────────────────────────────────────────── */
+function CueBoardLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size * (212 / 52)} height={size} viewBox="0 0 212 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="cb-bg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#6366f1"/>
+          <stop offset="100%" stopColor="#7c3aed"/>
+        </linearGradient>
+      </defs>
+      <rect width="52" height="52" rx="13" fill="url(#cb-bg)"/>
+      <polygon points="12,15 12,37 27,26" fill="white"/>
+      <rect x="31.5" y="14" width="0.75" height="24" rx="0.375" fill="white" opacity="0.25"/>
+      <rect x="35" y="16"   width="13" height="3.5" rx="1.75" fill="white"/>
+      <rect x="35" y="24.5" width="9"  height="3.5" rx="1.75" fill="white" opacity="0.5"/>
+      <rect x="35" y="33"   width="11" height="3.5" rx="1.75" fill="white" opacity="0.25"/>
+      <text x="68" y="35" fontFamily="system-ui,-apple-system,sans-serif" fontSize="20" fontWeight="700" fill="#6366f1" letterSpacing="2.5">CUE</text>
+      <text x="116" y="35" fontFamily="system-ui,-apple-system,sans-serif" fontSize="20" fontWeight="300" fill="#1e1b4b" letterSpacing="2.5">BOARD</text>
+    </svg>
+  )
+}
+
+/* ─── Main component ─────────────────────────────────────────────────────────── */
 export default function CallsheetPrintView({ show, rundowns, crew, notes, totalCues, totalSecs, generatedAt }: Props) {
-  const showClient = show.client ?? null
+  useEffect(() => {
+    document.title = `Callsheet — ${show.name} — CueBoard`
+  }, [show.name])
 
   return (
-    <>
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { background: #f4f5f7 !important; color: #111827 !important;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
-          font-size: 13px; line-height: 1.5; }
-        @media print {
-          html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .no-print { display: none !important; }
-          .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
-          @page { margin: 14mm 18mm; size: A4 portrait; }
-        }
-        .wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 48px; }
-        .card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
-        .hdr { background: #111827; color: white; padding: 28px 32px 22px; }
-        .hdr-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em; color: #6b7280; margin-bottom: 6px; }
-        .hdr h1 { font-size: 26px; font-weight: 800; line-height: 1.15; margin-bottom: 12px; color: white; }
-        .hdr-meta { display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px; color: #9ca3af; }
-        .strip { background: #1f2937; border-top: 1px solid #374151; padding: 12px 32px; display: flex; gap: 36px; }
-        .si { text-align: center; }
-        .si-val { font-size: 20px; font-weight: 800; color: white; line-height: 1; margin-bottom: 2px; }
-        .si-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #6b7280; }
-        .sh { background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-          padding: 9px 24px; font-size: 9px; text-transform: uppercase;
-          letter-spacing: 0.12em; color: #6b7280; font-weight: 700;
-          display: flex; justify-content: space-between; align-items: center; }
-        .ig { display: grid; grid-template-columns: 1fr 1fr; }
-        .ic { padding: 14px 24px; border-bottom: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6; }
-        .ic:nth-child(even) { border-right: none; }
-        .ic.full { grid-column: span 2; border-right: none; }
-        .il { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
-          color: #9ca3af; font-weight: 700; margin-bottom: 4px; }
-        .iv { font-size: 13px; color: #111827; white-space: pre-line; line-height: 1.6; }
-        .iv.mono { font-family: 'Courier New', monospace; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
-          color: #9ca3af; font-weight: 700; padding: 8px 14px; border-bottom: 1px solid #e5e7eb;
-          background: #f9fafb; }
-        th.r { text-align: right; }
-        td { padding: 9px 14px; border-bottom: 1px solid #f3f4f6; vertical-align: top; color: #111827; }
-        tbody tr:last-child td { border-bottom: none; }
-        tbody tr:nth-child(even) { background: #fafafa; }
-        tfoot td { background: #f9fafb; border-top: 2px solid #e5e7eb; border-bottom: none;
-          font-size: 11px; color: #6b7280; padding: 8px 14px; }
-        .fw { font-weight: 600; }
-        .badge { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
-          letter-spacing: 0.05em; background: #f3f4f6; color: #6b7280;
-          padding: 2px 8px; border-radius: 99px; }
-        .ct { font-family: monospace; font-weight: 800; color: #2563eb; font-size: 14px; }
-        .mu { color: #9ca3af; font-size: 12px; }
-        .nc { color: #d1d5db; font-size: 11px; padding-top: 11px !important; }
-        .tc { font-family: monospace; font-size: 12px; font-weight: 700; color: #2563eb;
-          text-align: right; white-space: nowrap; padding-top: 11px !important; }
-        .dc { font-family: monospace; font-size: 12px; color: #9ca3af;
-          text-align: right; white-space: nowrap; padding-top: 11px !important; }
-        .tb { display: inline-block; font-size: 8px; font-weight: 800; text-transform: uppercase;
-          letter-spacing: 0.06em; color: white; padding: 2px 6px; border-radius: 4px; margin-bottom: 3px; }
-        .ct2 { font-weight: 600; color: #111827; }
-        .cs  { font-size: 11px; color: #9ca3af; margin-top: 1px; }
-        .cn  { font-size: 11px; color: #374151; margin-top: 3px; white-space: pre-line; line-height: 1.5; }
-        .ctn { font-size: 11px; color: #92400e; margin-top: 2px; white-space: pre-line; line-height: 1.5; }
-        .rnotes { font-size: 12px; color: #6b7280; background: #f9fafb;
-          border-left: 3px solid #e5e7eb; padding: 10px 16px;
-          white-space: pre-line; line-height: 1.6; }
-        .footer { text-align: center; font-size: 10px; color: #d1d5db; padding: 14px 0; }
-      `}</style>
+    <div style={{ background: BRAND.bg, minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif', color: BRAND.dark }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 20px 56px' }}>
 
-      <div className="wrap">
-
-        {/* Print knop */}
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+        {/* ── Toolbar ── */}
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <CueBoardLogo size={28} />
           <button
             onClick={() => window.print()}
-            style={{ padding: '9px 22px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
-              cursor: 'pointer', border: 'none', background: '#111827', color: 'white' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 24px', borderRadius: 8, border: 'none',
+              background: BRAND.indigo, color: BRAND.white,
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
+            }}
           >
-            🖨️ Afdrukken / Opslaan als PDF
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            Afdrukken / Opslaan als PDF
           </button>
         </div>
 
-        {/* Header */}
-        <div className="card">
-          <div className="hdr">
-            <p className="hdr-label">CueBoard · Callsheet</p>
-            <h1>{show.name}</h1>
-            <div className="hdr-meta">
+        {/* ── Header card ── */}
+        <div style={{ ...card, marginBottom: 16 }}>
+          {/* Top brand bar */}
+          <div style={{ background: `linear-gradient(135deg, ${BRAND.dark} 0%, #312e81 100%)`, padding: '26px 28px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {/* Mini logo mark (white version) */}
+                <svg width="30" height="30" viewBox="0 0 52 52" fill="none">
+                  <rect width="52" height="52" rx="13" fill="rgba(255,255,255,0.15)"/>
+                  <polygon points="12,15 12,37 27,26" fill="white"/>
+                  <rect x="31.5" y="14" width="0.75" height="24" rx="0.375" fill="white" opacity="0.4"/>
+                  <rect x="35" y="16"   width="13" height="3.5" rx="1.75" fill="white"/>
+                  <rect x="35" y="24.5" width="9"  height="3.5" rx="1.75" fill="white" opacity="0.5"/>
+                  <rect x="35" y="33"   width="11" height="3.5" rx="1.75" fill="white" opacity="0.25"/>
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>
+                  CueBoard · Callsheet
+                </span>
+              </div>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.05em' }}>
+                {generatedAt}
+              </span>
+            </div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: BRAND.white, lineHeight: 1.15, marginBottom: 10 }}>
+              {show.name}
+            </h1>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               {show.date  && <span>📅 {formatDate(show.date)}</span>}
               {show.venue && <span>📍 {show.venue}</span>}
-              {showClient && <span>💼 {showClient}</span>}
+              {show.client && <span>💼 {show.client}</span>}
             </div>
           </div>
-          <div className="strip">
+
+          {/* Stats strip */}
+          <div style={{ background: '#f8f9ff', borderTop: `1px solid ${BRAND.greyBorder}`, padding: '12px 28px', display: 'flex', gap: 32 }}>
             {rundowns[0]?.show_start_time && (
-              <div className="si">
-                <div className="si-val">{rundowns[0].show_start_time.slice(0, 5)}</div>
-                <div className="si-lbl">Aanvang</div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.indigo, lineHeight: 1, marginBottom: 2 }}>
+                  {rundowns[0].show_start_time.slice(0, 5)}
+                </div>
+                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: BRAND.grey }}>Aanvang</div>
               </div>
             )}
-            <div className="si">
-              <div className="si-val">{totalCues}</div>
-              <div className="si-lbl">Cues</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.dark, lineHeight: 1, marginBottom: 2 }}>{totalCues}</div>
+              <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: BRAND.grey }}>Cues</div>
             </div>
-            <div className="si">
-              <div className="si-val">{formatDuration(totalSecs)}</div>
-              <div className="si-lbl">Totale duur</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.dark, lineHeight: 1, marginBottom: 2 }}>{formatDuration(totalSecs)}</div>
+              <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: BRAND.grey }}>Totale duur</div>
             </div>
-            <div className="si">
-              <div className="si-val">{crew.length}</div>
-              <div className="si-lbl">Crew</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: BRAND.dark, lineHeight: 1, marginBottom: 2 }}>{crew.length}</div>
+              <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: BRAND.grey }}>Crew</div>
             </div>
           </div>
         </div>
 
-        {/* Omschrijving */}
+        {/* ── Omschrijving ── */}
         {show.description && (
-          <div className="card">
-            <div className="sh">Omschrijving</div>
-            <div style={{ padding: '14px 24px', color: '#374151', lineHeight: '1.7' }}>{show.description}</div>
+          <div style={card}>
+            <div style={sectionHead}>Omschrijving</div>
+            <div style={{ padding: '14px 22px', color: '#374151', lineHeight: 1.7 }}>{show.description}</div>
           </div>
         )}
 
-        {/* Briefing */}
+        {/* ── Briefing ── */}
         {notes.briefing && (
-          <div className="card">
-            <div className="sh">📋 Briefing</div>
-            <div style={{ padding: '14px 24px', whiteSpace: 'pre-line', lineHeight: '1.7', color: '#374151' }}>{notes.briefing}</div>
+          <div style={card}>
+            <div style={{ ...sectionHead, borderLeft: `3px solid ${BRAND.indigo}` }}>
+              <span>📋 Briefing</span>
+            </div>
+            <div style={{ padding: '14px 22px', whiteSpace: 'pre-line', lineHeight: 1.7, color: '#374151' }}>{notes.briefing}</div>
           </div>
         )}
 
-        {/* Praktische info */}
+        {/* ── Praktische info ── */}
         {(notes.dresscode || notes.wifi_network || notes.wifi_password || notes.parking || notes.catering || notes.emergency || notes.extra) && (
-          <div className="card">
-            <div className="sh">Praktische info</div>
-            <div className="ig">
+          <div style={card}>
+            <div style={sectionHead}>Praktische info</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
               {notes.dresscode && (
-                <div className="ic">
-                  <div className="il">👔 Dresscode</div>
-                  <div className="iv">{notes.dresscode}</div>
+                <div style={{ padding: '14px 22px', borderBottom: `1px solid ${BRAND.greyBorder}`, borderRight: `1px solid ${BRAND.greyBorder}` }}>
+                  <div style={infoLabel}>👔 Dresscode</div>
+                  <div style={infoValue}>{notes.dresscode}</div>
                 </div>
               )}
               {notes.emergency && (
-                <div className="ic">
-                  <div className="il">🚨 Noodcontact</div>
-                  <div className="iv">{notes.emergency}</div>
+                <div style={{ padding: '14px 22px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>
+                  <div style={infoLabel}>🚨 Noodcontact</div>
+                  <div style={infoValue}>{notes.emergency}</div>
                 </div>
               )}
               {(notes.wifi_network || notes.wifi_password) && (
-                <div className="ic">
-                  <div className="il">📶 WiFi</div>
-                  <div className="iv mono">
+                <div style={{ padding: '14px 22px', borderBottom: `1px solid ${BRAND.greyBorder}`, borderRight: `1px solid ${BRAND.greyBorder}` }}>
+                  <div style={infoLabel}>📶 WiFi</div>
+                  <div style={{ ...infoValue, fontFamily: 'Courier New, monospace' }}>
                     {notes.wifi_network  && <div>Netwerk: {notes.wifi_network}</div>}
                     {notes.wifi_password && <div>Wachtwoord: {notes.wifi_password}</div>}
                   </div>
                 </div>
               )}
               {notes.parking && (
-                <div className="ic">
-                  <div className="il">🚗 Parkeren</div>
-                  <div className="iv">{notes.parking}</div>
+                <div style={{ padding: '14px 22px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>
+                  <div style={infoLabel}>🚗 Parkeren</div>
+                  <div style={infoValue}>{notes.parking}</div>
                 </div>
               )}
               {notes.catering && (
-                <div className="ic full">
-                  <div className="il">🍽️ Catering</div>
-                  <div className="iv">{notes.catering}</div>
+                <div style={{ padding: '14px 22px', gridColumn: 'span 2', borderBottom: `1px solid ${BRAND.greyBorder}` }}>
+                  <div style={infoLabel}>🍽️ Catering</div>
+                  <div style={infoValue}>{notes.catering}</div>
                 </div>
               )}
               {notes.extra && (
-                <div className="ic full">
-                  <div className="il">📌 Extra notities</div>
-                  <div className="iv">{notes.extra}</div>
+                <div style={{ padding: '14px 22px', gridColumn: 'span 2' }}>
+                  <div style={infoLabel}>📌 Extra notities</div>
+                  <div style={infoValue}>{notes.extra}</div>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Crew */}
+        {/* ── Crew & Call times ── */}
         {crew.length > 0 && (
-          <div className="card">
-            <div className="sh">👥 Crew &amp; Call times ({crew.length})</div>
-            <table>
+          <div style={card}>
+            <div style={sectionHead}>
+              <span>👥 Crew &amp; Call times</span>
+              <span style={{ background: BRAND.indigoLight, color: BRAND.indigo, borderRadius: 99, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>
+                {crew.length}
+              </span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>
-                  <th>Naam</th>
-                  <th>Functie</th>
-                  <th>Call time</th>
-                  <th>Telefoon</th>
-                  <th>E-mail</th>
+                <tr style={{ background: BRAND.greyLight }}>
+                  {['Naam', 'Functie', 'Call time', 'Telefoon', 'E-mail'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', fontWeight: 700, padding: '8px 14px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {crew.map((m) => (
-                  <tr key={m.id}>
-                    <td className="fw">{m.full_name ?? '—'}</td>
-                    <td><span className="badge">{m.department || ROLE_LABEL[m.role] || m.role}</span></td>
-                    <td>{m.call_time ? <span className="ct">{m.call_time}</span> : <span className="mu">—</span>}</td>
-                    <td className="mu">{m.phone ?? '—'}</td>
-                    <td className="mu">{m.email ?? '—'}</td>
+                {crew.map((m, i) => (
+                  <tr key={m.id} style={{ background: i % 2 === 0 ? BRAND.white : '#fafafa' }}>
+                    <td style={{ padding: '9px 14px', fontWeight: 600, color: BRAND.dark, borderBottom: `1px solid #f3f4f6`, fontSize: 13 }}>{m.full_name ?? '—'}</td>
+                    <td style={{ padding: '9px 14px', borderBottom: `1px solid #f3f4f6` }}>
+                      <span style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', background: BRAND.indigoLight, color: BRAND.indigo, padding: '2px 8px', borderRadius: 99 }}>
+                        {m.department || ROLE_LABEL[m.role] || m.role}
+                      </span>
+                    </td>
+                    <td style={{ padding: '9px 14px', borderBottom: `1px solid #f3f4f6` }}>
+                      {m.call_time
+                        ? <span style={{ fontFamily: 'monospace', fontWeight: 800, color: BRAND.indigo, fontSize: 14 }}>{m.call_time}</span>
+                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '9px 14px', color: '#6b7280', fontSize: 12, borderBottom: `1px solid #f3f4f6` }}>{m.phone ?? '—'}</td>
+                    <td style={{ padding: '9px 14px', color: '#6b7280', fontSize: 12, borderBottom: `1px solid #f3f4f6` }}>{m.email ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -282,31 +296,34 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
           </div>
         )}
 
-        {/* Rundowns */}
+        {/* ── Rundowns ── */}
         {rundowns.map((r) => {
           const base = r.show_start_time?.slice(0, 5) ?? null
           let elapsed = 0
           const runSecs = r.cues.reduce((s, c) => s + c.duration_seconds, 0)
-
           return (
-            <div key={r.id} className="card">
-              <div className="sh">
-                <span style={{ fontWeight: 700, fontSize: '13px', color: '#111827' }}>📋 {r.name}</span>
-                {base && <span style={{ fontSize: '11px', color: '#6b7280' }}>Aanvang {base}</span>}
+            <div key={r.id} style={card}>
+              <div style={{ ...sectionHead, borderLeft: `3px solid ${BRAND.indigo}` }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: BRAND.dark }}>📋 {r.name}</span>
+                {base && <span style={{ fontSize: 11, color: BRAND.grey }}>Aanvang {base}</span>}
               </div>
 
-              {r.notes && <div className="rnotes">{r.notes}</div>}
+              {r.notes && (
+                <div style={{ fontSize: 12, color: BRAND.grey, background: '#f8f9ff', borderLeft: `3px solid ${BRAND.indigo}`, padding: '10px 16px', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+                  {r.notes}
+                </div>
+              )}
 
               {r.cues.length === 0 ? (
-                <div style={{ padding: '16px 24px', color: '#9ca3af', fontStyle: 'italic' }}>Geen cues.</div>
+                <div style={{ padding: '16px 22px', color: '#9ca3af', fontStyle: 'italic' }}>Geen cues.</div>
               ) : (
-                <table>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr>
-                      <th style={{ width: '28px' }}>#</th>
-                      <th>Cue</th>
-                      <th className="r" style={{ width: '70px' }}>Start</th>
-                      <th className="r" style={{ width: '64px' }}>Duur</th>
+                    <tr style={{ background: BRAND.greyLight }}>
+                      <th style={{ width: 28, textAlign: 'left', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', fontWeight: 700, padding: '8px 14px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>#</th>
+                      <th style={{ textAlign: 'left', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', fontWeight: 700, padding: '8px 14px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>Cue</th>
+                      <th style={{ width: 70, textAlign: 'right', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', fontWeight: 700, padding: '8px 14px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>Start</th>
+                      <th style={{ width: 64, textAlign: 'right', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', fontWeight: 700, padding: '8px 14px', borderBottom: `1px solid ${BRAND.greyBorder}` }}>Duur</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,27 +333,31 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
                       const label = TYPE_LABEL[cue.type] ?? cue.type
                       elapsed += cue.duration_seconds
                       return (
-                        <tr key={cue.id}>
-                          <td className="nc">{idx + 1}</td>
-                          <td>
-                            <div><span className="tb" style={{ background: color }}>{label}</span></div>
-                            <div className="ct2">{cue.title}</div>
-                            {cue.presenter  && <div className="cs">👤 {cue.presenter}</div>}
-                            {cue.location   && <div className="cs">📍 {cue.location}</div>}
-                            {cue.notes      && <div className="cn">💬 {cue.notes}</div>}
-                            {cue.tech_notes && <div className="ctn">🔧 {cue.tech_notes}</div>}
+                        <tr key={cue.id} style={{ background: idx % 2 === 0 ? BRAND.white : '#fafafa' }}>
+                          <td style={{ padding: '9px 14px', color: '#d1d5db', fontSize: 11, borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top', paddingTop: 11 }}>{idx + 1}</td>
+                          <td style={{ padding: '9px 14px', borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top' }}>
+                            <div style={{ marginBottom: 2 }}>
+                              <span style={{ display: 'inline-block', fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: BRAND.white, background: color, padding: '2px 6px', borderRadius: 4 }}>{label}</span>
+                            </div>
+                            <div style={{ fontWeight: 600, color: BRAND.dark, fontSize: 13 }}>{cue.title}</div>
+                            {cue.presenter  && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>👤 {cue.presenter}</div>}
+                            {cue.location   && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>📍 {cue.location}</div>}
+                            {cue.notes      && <div style={{ fontSize: 11, color: '#374151', marginTop: 3, whiteSpace: 'pre-line', lineHeight: 1.5 }}>💬 {cue.notes}</div>}
+                            {cue.tech_notes && <div style={{ fontSize: 11, color: '#92400e', marginTop: 2, whiteSpace: 'pre-line', lineHeight: 1.5 }}>🔧 {cue.tech_notes}</div>}
                           </td>
-                          <td className="tc">{start ?? '—'}</td>
-                          <td className="dc">{formatDuration(cue.duration_seconds)}</td>
+                          <td style={{ padding: '9px 14px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: BRAND.indigo, textAlign: 'right', whiteSpace: 'nowrap', borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top', paddingTop: 11 }}>{start ?? '—'}</td>
+                          <td style={{ padding: '9px 14px', fontFamily: 'monospace', fontSize: 12, color: '#9ca3af', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: `1px solid #f3f4f6`, verticalAlign: 'top', paddingTop: 11 }}>{formatDuration(cue.duration_seconds)}</td>
                         </tr>
                       )
                     })}
                   </tbody>
                   <tfoot>
-                    <tr>
-                      <td colSpan={2}>{r.cues.length} onderdelen</td>
-                      <td colSpan={2} style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#374151' }}>
-                        {formatDuration(runSecs)}{base && <> · einde ~{addSecs(base, runSecs)}</>}
+                    <tr style={{ background: BRAND.greyLight }}>
+                      <td colSpan={2} style={{ padding: '8px 14px', borderTop: `2px solid ${BRAND.greyBorder}`, fontSize: 11, color: BRAND.grey }}>
+                        {r.cues.length} onderdelen
+                      </td>
+                      <td colSpan={2} style={{ padding: '8px 14px', borderTop: `2px solid ${BRAND.greyBorder}`, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: BRAND.dark, fontSize: 12 }}>
+                        {formatDuration(runSecs)}{base && ` · einde ~${addSecs(base, runSecs)}`}
                       </td>
                     </tr>
                   </tfoot>
@@ -346,8 +367,13 @@ export default function CallsheetPrintView({ show, rundowns, crew, notes, totalC
           )
         })}
 
-        <p className="footer no-print">Gegenereerd op {generatedAt} · CueBoard · cueboard.nl</p>
+        {/* ── Footer ── */}
+        <div className="no-print" style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', padding: '20px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <CueBoardLogo size={16} />
+          <span>Gegenereerd op {generatedAt}</span>
+        </div>
+
       </div>
-    </>
+    </div>
   )
 }

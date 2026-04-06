@@ -1,26 +1,58 @@
-# Veelgestelde Vragen
+# Quick facts & FAQ
 
-## Account & Inloggen
-- **Hoe maak ik een account aan?** Ga naar cueboard.nl en klik op Registreren. Je kunt inloggen met e-mail.
-- **Ik kan niet inloggen.** Check je e-mail/wachtwoord. Gebruik "Wachtwoord vergeten" als nodig.
-- **Kan ik mijn e-mail wijzigen?** Neem contact op met support.
+Korte feiten en snelle antwoorden. Voor uitleg over features → features.md. Voor stap-voor-stap → how-to.md.
 
-## Shows & Draaiboeken
-- **Hoeveel shows kan ik aanmaken?** Afhankelijk van je plan: 1 (Individual), 5 (Team), onbeperkt (Business).
-- **Kan ik een draaiboek kopiëren?** Ja, via templates kun je draaiboeken hergebruiken.
-- **Hoe deel ik een show met mijn team?** Voeg teamleden toe via het show-instellingen menu.
+## Over CueBoard
 
-## Live Show
-- **Hoe start ik een live show?** Open het draaiboek en ga naar de Caller View.
-- **Kan het publiek meekijken?** Ja, via de Public Status Screen (geen login nodig).
-- **Wat als mijn internet wegvalt?** De caller view werkt lokaal door, maar real-time sync stopt tijdelijk.
+- CueBoard is een web-app (geen native app — wel PWA-installeerbaar)
+- Gemaakt voor **live events, shows, conferenties, theater, en livestreams**
+- Realtime sync tussen alle views via Supabase Realtime
+- Nederlands/Engels interface
+- Domein: **cueboard.nl**
+- Support e-mail: **info@cueboard.nl**
 
-## Betaling
-- **Welke betaalmethoden worden geaccepteerd?** iDEAL, creditcard, en andere methoden via Mollie.
-- **Kan ik mijn abonnement opzeggen?** Ja, via Billing in je dashboard. Je houdt toegang tot het einde van de periode.
-- **Is er een proefperiode?** Ja, je kunt een trial krijgen met volledige Business-features.
+## De belangrijkste views in één regel
 
-## Technisch
-- **Welke browsers worden ondersteund?** Alle moderne browsers (Chrome, Firefox, Safari, Edge).
-- **Werkt het op mobiel?** Het werkt op tablets, maar is geoptimaliseerd voor desktop.
-- **Is er een app?** Nee, CueBoard is een web-app. Je kunt het wel als PWA installeren.
+- **Caller** — degene die GO drukt
+- **Presenter** — prompter voor de spreker op podium
+- **Crew** — technici zien tech-notes per cue
+- **Programmascherm** — backstage statuspagina (geen login nodig)
+- **Output** — fullscreen slide voor beamer/videomixer
+- **Green Room** — gasten met PIN, geen account nodig
+
+## Account & inloggen
+
+- Registreren: cueboard.nl → "Registreren" → e-mail + wachtwoord
+- Inloggen kan met e-mail + wachtwoord, of magic link
+- Wachtwoord vergeten? → "Wachtwoord vergeten"-knop op loginpagina
+- E-mailadres wijzigen → mail naar info@cueboard.nl
+
+## Samenwerking
+
+- Collega's uitnodigen via e-mail (hebben account nodig)
+- Gasten via **Green Room PIN** (geen account nodig)
+- Rollen: Owner, Editor/Redacteur, Caller, Crew, Presenter, Viewer
+
+## Offline / internet
+
+- Caller werkt lokaal door bij internet-uitval
+- Sync stopt tijdelijk, herstart automatisch als internet terug is
+- Advies: mobiele hotspot als backup
+
+## Limieten & plannen (kort)
+
+- **Individual (gratis):** 1 show, 1 rundown, 15 cues, 2 teamleden
+- **Team (€9,99/mnd):** 5 shows, 3 rundowns, onbeperkt cues, 5 leden + alle features
+- **Business (€29,99/mnd):** alles onbeperkt
+
+Details in pricing.md.
+
+## Wat kan de chatbot NIET
+
+- Geen accountgegevens opzoeken of wijzigen
+- Geen wachtwoorden resetten
+- Geen betalingen doen of abonnementen wijzigen
+- Geen shows, rundowns of cues aanmaken/bewerken
+- Geen trial activeren (vraag via info@cueboard.nl)
+
+Voor al die dingen: mail naar **info@cueboard.nl** of log in op cueboard.nl.

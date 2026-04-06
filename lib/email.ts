@@ -179,7 +179,7 @@ const emailBase = (content: string) => `
           <tr>
             <td style="padding-bottom:32px;text-align:center;">
               <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
-                Cue<span style="color:#f97316;">Board</span>
+                Cue<span style="color:#22c55e;">Board</span>
               </span>
             </td>
           </tr>
@@ -208,7 +208,7 @@ const emailBase = (content: string) => `
 </html>
 `
 
-const btnStyle = 'display:inline-block;background:#f97316;color:#ffffff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;margin-top:24px;'
+const btnStyle = 'display:inline-block;background:#22c55e;color:#ffffff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;margin-top:24px;'
 
 /**
  * Mail: plan upgrade naar betaald — verzoek tot afronden betaling
@@ -242,7 +242,7 @@ export function buildPaymentRequestEmail(opts: {
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
       Heb je vragen? Stuur een mail naar
-      <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>.
+      <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>.
     </p>
   `
 
@@ -279,7 +279,7 @@ export function buildTrialWelcomeEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -319,7 +319,7 @@ export function buildPlanExpiredEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -367,7 +367,7 @@ export function buildTrialExpiringEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -418,7 +418,7 @@ export function buildTrialExpiring3DayEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -458,7 +458,7 @@ export function buildInviteEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 
@@ -497,7 +497,7 @@ export function buildAdminDirectEmail(opts: {
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
       Dit bericht is verstuurd door het CueBoard-team.
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#f97316;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
     </p>
   `
 

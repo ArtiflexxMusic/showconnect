@@ -89,13 +89,13 @@ export async function POST(req: NextRequest) {
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 40px 20px; }
     .container { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
-    .logo { font-size: 20px; font-weight: 700; color: #f97316; letter-spacing: 2px; margin-bottom: 24px; }
+    .logo { font-size: 20px; font-weight: 700; color: #22c55e; letter-spacing: 2px; margin-bottom: 24px; }
     h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; color: #f1f5f9; }
     p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 8px 0; }
     .role-badge { display: inline-block; background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb40; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 500; margin: 12px 0; }
-    .btn { display: block; background: #f97316; color: white !important; text-decoration: none; text-align: center; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 24px 0; }
+    .btn { display: block; background: #22c55e; color: white !important; text-decoration: none; text-align: center; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 24px 0; }
     .footer { font-size: 12px; color: #475569; margin-top: 24px; border-top: 1px solid #334155; padding-top: 16px; }
-    .link { color: #f97316; word-break: break-all; font-size: 12px; }
+    .link { color: #22c55e; word-break: break-all; font-size: 12px; }
   </style>
 </head>
 <body>

@@ -153,9 +153,16 @@ export function PublicStatusView({ rundown, show, initialCues }: PublicStatusVie
               className="rounded-2xl border-2 border-green-500/40 bg-green-500/5 p-8 text-center"
               style={activeCue.color ? { borderLeftColor: activeCue.color, borderLeftWidth: '6px' } : {}}
             >
-              <Badge className={cn('text-sm border mb-4', cueTypeColor(activeCue.type))}>
-                {cueTypeLabel(activeCue.type)}
-              </Badge>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 mb-4">
+                <Badge className={cn('text-sm border', cueTypeColor(activeCue.type))}>
+                  {cueTypeLabel(activeCue.type)}
+                </Badge>
+                {activeCue.secondary_types?.map(st => (
+                  <Badge key={st} className={cn('text-xs border opacity-80', cueTypeColor(st))}>
+                    {cueTypeLabel(st)}
+                  </Badge>
+                ))}
+              </div>
               <h2 className="text-4xl font-bold mb-4 leading-tight">{activeCue.title}</h2>
               <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
                 {activeCue.presenter && (

@@ -541,6 +541,18 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
                       )}>
                         {cueTypeLabel(cue.type)}
                       </span>
+                      {cue.secondary_types?.map(st => (
+                        <span
+                          key={st}
+                          className={cn(
+                            'inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium opacity-75',
+                            cueTypeColor(st)
+                          )}
+                          title={`Extra type: ${cueTypeLabel(st)}`}
+                        >
+                          {cueTypeLabel(st)}
+                        </span>
+                      ))}
 
                       {cue.presenter && (
                         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -734,9 +746,16 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
           <div className="bg-background/90 backdrop-blur border-t border-border/50 px-4 py-3">
             <p className="text-xs text-muted-foreground mb-1">Volgende cue</p>
             <div className="flex items-center gap-3">
-              <Badge className={cn('text-xs border shrink-0', cueTypeColor(nextCue.type))}>
-                {cueTypeLabel(nextCue.type)}
-              </Badge>
+              <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                <Badge className={cn('text-xs border', cueTypeColor(nextCue.type))}>
+                  {cueTypeLabel(nextCue.type)}
+                </Badge>
+                {nextCue.secondary_types?.map(st => (
+                  <Badge key={st} className={cn('text-[10px] border opacity-75', cueTypeColor(st))}>
+                    {cueTypeLabel(st)}
+                  </Badge>
+                ))}
+              </div>
               <span className="text-sm font-medium truncate">{nextCue.title}</span>
               <span className="font-mono text-sm text-muted-foreground shrink-0 ml-auto">
                 {formatDuration(nextCue.duration_seconds)}

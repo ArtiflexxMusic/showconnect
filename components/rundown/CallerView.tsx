@@ -849,9 +849,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
-                <Badge className={cn('text-xs border', cueTypeColor(activeCue.type))}>
-                  {cueTypeLabel(activeCue.type)}
-                </Badge>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Badge className={cn('text-xs border', cueTypeColor(activeCue.type))}>
+                    {cueTypeLabel(activeCue.type)}
+                  </Badge>
+                  {activeCue.secondary_types?.map(st => (
+                    <Badge key={st} className={cn('text-[10px] border opacity-80', cueTypeColor(st))}>
+                      {cueTypeLabel(st)}
+                    </Badge>
+                  ))}
+                </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   {activeCue.presenter && (
                     <span className="flex items-center gap-1">
@@ -1224,10 +1231,26 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
                 {isDone ? '✓' : isSkipped ? '↷' : isActive ? '▶' : `#${cue.position + 1}`}
               </span>
 
-              {/* Type */}
-              <span className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium w-16 shrink-0 truncate', cueTypeColor(cue.type))}>
-                {cueTypeLabel(cue.type)}
-              </span>
+              {/* Type + extra tags */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <span className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium w-16 truncate', cueTypeColor(cue.type))}>
+                  {cueTypeLabel(cue.type)}
+                </span>
+                {cue.secondary_types?.slice(0, 2).map(st => (
+                  <span
+                    key={st}
+                    className={cn('hidden md:inline-block text-[9px] px-1 py-0.5 rounded border font-medium opacity-70', cueTypeColor(st))}
+                    title={`Extra: ${cueTypeLabel(st)}`}
+                  >
+                    {cueTypeLabel(st)}
+                  </span>
+                ))}
+                {cue.secondary_types && cue.secondary_types.length > 2 && (
+                  <span className="hidden md:inline-block text-[9px] text-muted-foreground/60" title={cue.secondary_types.slice(2).map(cueTypeLabel).join(', ')}>
+                    +{cue.secondary_types.length - 2}
+                  </span>
+                )}
+              </div>
 
 
               {/* Titel + notities (extra tekst blok) */}

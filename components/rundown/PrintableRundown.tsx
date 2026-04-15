@@ -141,6 +141,11 @@ export function PrintableRundown({ rundown, show, cues }: PrintableRundownProps)
                   <span className={`badge ${cue.status === 'running' ? 'running' : ''}`} style={{ fontSize: 10 }}>
                     {TYPE_EMOJI[cue.type] ?? '⚙️'} {cueTypeLabel(cue.type)}
                   </span>
+                  {cue.secondary_types?.map(st => (
+                    <span key={st} className="badge" style={{ fontSize: 9, marginLeft: 3, opacity: 0.7, background: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb' }}>
+                      {cueTypeLabel(st)}
+                    </span>
+                  ))}
                 </td>
                 <td>
                   <div style={{ fontWeight: 600, color: cue.color ?? undefined }}>

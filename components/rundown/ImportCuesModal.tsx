@@ -164,35 +164,27 @@ function parseCSV(text: string): ParsedRow[] {
     })
 }
 
-// ─── Excel parser (SheetJS via CDN) ──────────────────────────────────────────
+// ─── Excel parser (SheetJS, lokaal gebundeld) ────────────────────────────────
 
-declare global {
-  interface Window {
-    XLSX?: {
-      read: (data: ArrayBuffer, opts: { type: string }) => {
-        SheetNames: string[]
-        Sheets: Record<string, unknown>
-      }
-      utils: {
-        sheet_to_json: (sheet: unknown, opts?: { header?: number; defval?: string }) => ParsedRow[]
-        aoa_to_sheet: (data: unknown[][]) => unknown
-        book_new: () => { SheetNames: string[]; Sheets: Record<string, unknown> }
-        book_append_sheet: (wb: unknown, ws: unknown, name: string) => void
-      }
-      writeFile: (wb: unknown, filename: string) => void
-    }
+interface XLSXLib {
+  read: (data: ArrayBuffer, opts: { type: string }) => {
+    SheetNames: string[]
+    Sheets: Record<string, unknown>
   }
+  utils: {
+    sheet_to_json: (sheet: unknown, opts?: { header?: number; defval?: string }) => ParsedRow[]
+    aoa_to_sheet: (data: unknown[][]) => unknown
+    book_new: () => { SheetNames: string[]; Sheets: Record<string, unknown> }
+    book_append_sheet: (wb: unknown, ws: unknown, name: string) => void
+  }
+  writeFile: (wb: unknown, filename: string) => void
 }
 
-async function loadXLSX(): Promise<NonNullable<Window['XLSX']>> {
-  if (window.XLSX) return window.XLSX
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
-    script.onload = () => resolve(window.XLSX!)
-    script.onerror = () => reject(new Error('Kon SheetJS niet laden'))
-    document.head.appendChild(script)
-  })
+async function loadXLSX(): Promise<XLSXLib> {
+  // Dynamic import zodat xlsx alleen in de client-bundle komt als de gebruiker
+  // de import-modal daadwerkelijk opent. Vervangt de vroegere CDN-load.
+  const mod = await import('xlsx')
+  return mod as unknown as XLSXLib
 }
 
 async function parseXLSX(buffer: ArrayBuffer): Promise<ParsedRow[]> {

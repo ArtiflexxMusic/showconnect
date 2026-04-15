@@ -286,83 +286,107 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const handleGo = useCallback(async (forceCueAdvance = false) => {
     if (isProcessing || showComplete) return
     setIsProcessing(true)
+
+    // ── Slide-first: als de actieve cue een presentatie heeft en er nog
+    //    slides over zijn, gaan we naar de volgende slide i.p.v. de volgende cue.
+    if (
+      !forceCueAdvance &&
+      activeCue?.presentation_url &&
+      activeCue.slide_control_mode !== 'presenter' &&
+      totalSlidesInCue > 1 &&
+      currentSlideIndex < totalSlidesInCue - 1
+    ) {
+      const newIndex = currentSlideIndex + 1
+      // Optimistisch: UI + broadcast direct
+      setCurrentSlideIndex(newIndex)
+      if (slideChannelRef.current) {
+        slideChannelRef.current.send({
+          type: 'broadcast',
+          event: 'slide_change',
+          payload: { index: newIndex, source: 'caller' },
+        })
+      }
+      // DB write in achtergrond, UI wacht niet
+      supabase.from('cues')
+        .update({ current_slide_index: newIndex } as Record<string, unknown>)
+        .eq('id', activeCue.id)
+        .then(() => {})
+      setIsProcessing(false)
+      return
+    }
+
+    // ── Cue advance ──────────────────────────────────────────────────────
+    const nowIso = new Date().toISOString()
+    const prevActiveId = activeCue?.id ?? null
+    const nextId       = nextCue?.id ?? null
+
+    // ── Optimistische UI: markeer meteen done + running in lokale state ──
+    if (prevActiveId || nextId) {
+      setCues(prev => prev.map(c => {
+        if (prevActiveId && c.id === prevActiveId) return { ...c, status: 'done' as const }
+        if (nextId       && c.id === nextId)       return { ...c, status: 'running' as const, started_at: nowIso }
+        return c
+      }))
+    }
+    // Reset de elapsed-ticker van de vorige cue
+    if (nextId && nextCue?.slide_index != null) {
+      setCurrentSlideIndex(nextCue.slide_index)
+      if (slideChannelRef.current) {
+        slideChannelRef.current.send({
+          type: 'broadcast',
+          event: 'slide_change',
+          payload: { index: nextCue.slide_index, source: 'caller' },
+        })
+      }
+    }
+
+    // ── Companion fire-and-forget — blokkeert UI niet ───────────────────
+    if (nextCue && rundown.companion_webhook_url) {
+      const url = rundown.companion_webhook_url
+      const isCompanionVar = url.includes('/api/custom-variable/')
+      const payload = isCompanionVar
+        ? { value: nextCue.title }
+        : {
+            event: 'cue_started', source: 'CueBoard',
+            cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
+            timestamp: nowIso,
+          }
+      fetch('/api/companion/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, payload }),
+      }).catch(() => {})
+    }
+
+    // ── DB-updates parallel, knop gaat zsm vrij ─────────────────────────
     try {
-      // ── Slide-first: als de actieve cue een presentatie heeft en er nog
-      //    slides over zijn, gaan we naar de volgende slide i.p.v. de volgende cue.
-      //    Uitzondering: slide_control_mode === 'presenter' (dan mag de caller niet bedienen)
-      //    en forceCueAdvance (auto-advance timer).
-      if (
-        !forceCueAdvance &&
-        activeCue?.presentation_url &&
-        activeCue.slide_control_mode !== 'presenter' &&
-        totalSlidesInCue > 1 &&
-        currentSlideIndex < totalSlidesInCue - 1
-      ) {
-        const newIndex = currentSlideIndex + 1
-        setCurrentSlideIndex(newIndex)
-        if (slideChannelRef.current) {
-          slideChannelRef.current.send({
-            type: 'broadcast',
-            event: 'slide_change',
-            payload: { index: newIndex, source: 'caller' },
-          })
-        }
-        await supabase.from('cues')
-          .update({ current_slide_index: newIndex } as Record<string, unknown>)
-          .eq('id', activeCue.id)
-        return // Cue blijft actief, alleen slide gevorderd
+      const updates: PromiseLike<unknown>[] = []
+      if (prevActiveId) {
+        updates.push(
+          supabase.from('cues')
+            .update({ status: 'done' } as Record<string, unknown>)
+            .eq('id', prevActiveId)
+            .eq('status', 'running')
+            .then(r => r)
+        )
       }
-
-      // ── Cue advance ──────────────────────────────────────────────────────
-      if (activeCue) {
-        // Race condition bescherming: alleen updaten als de cue nog steeds 'running' is
-        await supabase.from('cues')
-          .update({ status: 'done' } as Record<string, unknown>)
-          .eq('id', activeCue.id)
-          .eq('status', 'running')
+      if (nextId) {
+        updates.push(
+          supabase.from('cues').update({
+            status: 'running', started_at: nowIso,
+          } as Record<string, unknown>).eq('id', nextId).eq('status', 'pending')
+            .then(r => r)
+        )
       }
-      if (nextCue) {
-        // Race condition bescherming: alleen starten als de cue nog 'pending' is
-        const { error } = await supabase.from('cues').update({
-          status: 'running', started_at: new Date().toISOString(),
-        } as Record<string, unknown>).eq('id', nextCue.id).eq('status', 'pending')
-        if (error) {
-          // Cue al gestart door andere caller — sync state opnieuw
-          const { data: fresh } = await supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
-          if (fresh) setCues(fresh as Cue[])
-          return
-        }
-
-        // Auto-advance slide als de cue een slide_index heeft
-        if (nextCue.slide_index != null && slideChannelRef.current) {
-          setCurrentSlideIndex(nextCue.slide_index)
-          slideChannelRef.current.send({
-            type: 'broadcast',
-            event: 'slide_change',
-            payload: { index: nextCue.slide_index, source: 'caller' },
-          })
-        }
-
-        // Companion koppeling — via server-side proxy (omzeilt mixed-content HTTPS→HTTP)
-        if (rundown.companion_webhook_url) {
-          const url = rundown.companion_webhook_url
-          const isCompanionVar = url.includes('/api/custom-variable/')
-          const payload = isCompanionVar
-            ? { value: nextCue.title }
-            : {
-                event: 'cue_started', source: 'CueBoard',
-                cue: { title: nextCue.title, type: nextCue.type, position: nextCue.position + 1 },
-                timestamp: new Date().toISOString(),
-              }
-          fetch('/api/companion/relay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, payload }),
-          }).catch(() => {})
-        }
+      const results = await Promise.all(updates)
+      // Als de next-update faalde (bv door race) → echte DB-state ophalen
+      const nextResult = nextId ? results[updates.length - 1] as { error?: unknown } : null
+      if (nextResult && nextResult.error) {
+        const { data: fresh } = await supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
+        if (fresh) setCues(fresh as Cue[])
       }
     } finally {
-      setTimeout(() => setIsProcessing(false), 300)
+      setIsProcessing(false)
     }
   }, [isProcessing, showComplete, activeCue, nextCue, rundown, supabase, totalSlidesInCue, currentSlideIndex])
 
@@ -386,27 +410,38 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           payload: { index: newIndex, source: 'caller' },
         })
       }
-      await supabase.from('cues')
+      // DB write in achtergrond — UI wacht niet
+      supabase.from('cues')
         .update({ current_slide_index: newIndex } as Record<string, unknown>)
         .eq('id', activeCue.id)
+        .then(() => {})
       return
     }
 
     setIsProcessing(true)
+    const nowIso = new Date().toISOString()
+    const prevDone = [...cues]
+      .filter((c) => c.status === 'done')
+      .sort((a, b) => b.position - a.position)[0]
+
+    // Optimistische UI — direct zichtbaar
+    setCues(prev => prev.map(c => {
+      if (activeCue && c.id === activeCue.id) return { ...c, status: 'pending' as const, started_at: null }
+      if (prevDone   && c.id === prevDone.id)  return { ...c, status: 'running' as const, started_at: nowIso }
+      return c
+    }))
+
     try {
+      const updates: PromiseLike<unknown>[] = []
       if (activeCue) {
-        await supabase.from('cues').update({ status: 'pending', started_at: null } as Record<string, unknown>).eq('id', activeCue.id)
+        updates.push(supabase.from('cues').update({ status: 'pending', started_at: null } as Record<string, unknown>).eq('id', activeCue.id).then(r => r))
       }
-      const prevDone = [...cues]
-        .filter((c) => c.status === 'done')
-        .sort((a, b) => b.position - a.position)[0]
       if (prevDone) {
-        await supabase.from('cues').update({
-          status: 'running', started_at: new Date().toISOString(),
-        } as Record<string, unknown>).eq('id', prevDone.id)
+        updates.push(supabase.from('cues').update({ status: 'running', started_at: nowIso } as Record<string, unknown>).eq('id', prevDone.id).then(r => r))
       }
+      await Promise.all(updates)
     } finally {
-      setTimeout(() => setIsProcessing(false), 300)
+      setIsProcessing(false)
     }
   }, [isProcessing, activeCue, cues, supabase, currentSlideIndex, slideChannelRef])
 
@@ -414,15 +449,29 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const handleSkip = useCallback(async () => {
     if (isProcessing || !activeCue) return
     setIsProcessing(true)
+    const nowIso = new Date().toISOString()
+    const skipId = activeCue.id
+    const nextId = nextCue?.id ?? null
+
+    // Optimistische UI
+    setCues(prev => prev.map(c => {
+      if (c.id === skipId) return { ...c, status: 'skipped' as const }
+      if (nextId && c.id === nextId) return { ...c, status: 'running' as const, started_at: nowIso }
+      return c
+    }))
+
     try {
-      await supabase.from('cues').update({ status: 'skipped' } as Record<string, unknown>).eq('id', activeCue.id)
-      if (nextCue) {
-        await supabase.from('cues').update({
-          status: 'running', started_at: new Date().toISOString(),
-        } as Record<string, unknown>).eq('id', nextCue.id)
+      const updates: PromiseLike<unknown>[] = [
+        supabase.from('cues').update({ status: 'skipped' } as Record<string, unknown>).eq('id', skipId).then(r => r),
+      ]
+      if (nextId) {
+        updates.push(
+          supabase.from('cues').update({ status: 'running', started_at: nowIso } as Record<string, unknown>).eq('id', nextId).then(r => r)
+        )
       }
+      await Promise.all(updates)
     } finally {
-      setTimeout(() => setIsProcessing(false), 300)
+      setIsProcessing(false)
     }
   }, [isProcessing, activeCue, nextCue, supabase])
 

@@ -37,7 +37,7 @@ import {
 import {
   formatDuration, totalDuration, formatDate, calculateCueStartTimes
 } from '@/lib/utils'
-import type { Cue, Rundown, CueType, CreateCueInput, UpdateCueInput, TemplateCue } from '@/lib/types/database'
+import type { Cue, Rundown, CueType, CreateCueInput, UpdateCueInput, TemplateCue, TemplateAudioPayload } from '@/lib/types/database'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -441,15 +441,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     setIsSaving(false)
   }, [cues, rundown.id, supabase])
 
-  const applyTemplate = useCallback(async (templateCues: TemplateCue[]) => {
+  const applyTemplate = useCallback(async (templateCues: TemplateCue[], audio: TemplateAudioPayload | null) => {
     setIsSaving(true)
-    // Verwijder alle bestaande cues
+    // Verwijder alle bestaande cues (CASCADE ruimt ook oude cue_audio_assignments op)
     if (cues.length > 0) {
       const deleteResults = await Promise.all(cues.map((c) => supabase.from('cues').delete().eq('id', c.id)))
       const deleteErrors = deleteResults.filter((r) => r.error).map((r) => r.error!.message)
       if (deleteErrors.length > 0) console.error('Verwijderen bestaande cues (deels) mislukt:', deleteErrors)
     }
-    // Voeg template-cues in
+    // Voeg template-cues in en vraag IDs terug voor mic patch koppeling
     const rows = templateCues.map((tc, i) => ({
       rundown_id:       rundown.id,
       position:         i,
@@ -462,15 +462,92 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       location:         tc.location ?? null,
       status:           'pending' as const,
     }))
+
+    let insertedCueIds: string[] = []
     if (rows.length > 0) {
-      const { error } = await supabase.from('cues').insert(rows)
+      const { data: inserted, error } = await supabase
+        .from('cues')
+        .insert(rows)
+        .select('id, position')
+        .order('position', { ascending: true })
       if (error) {
         console.error('Template toepassen mislukt:', error)
         setSaveError(`Template toepassen mislukt: ${error.message}`)
+        setIsSaving(false)
+        return
+      }
+      insertedCueIds = (inserted ?? []).map(c => c.id)
+    }
+
+    // Mic patch herstellen — alleen als template er een bevat
+    if (audio && audio.devices.length > 0 && insertedCueIds.length > 0) {
+      // Bestaande devices voor deze show ophalen om dubbele te voorkomen
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any
+      const { data: existing }: { data: Array<{ id: string; name: string; type: string; channel: number | null }> | null } = await sb
+        .from('audio_devices')
+        .select('id, name, type, channel')
+        .eq('show_id', show.id)
+      const existingByKey = new Map<string, string>()
+      for (const d of existing ?? []) {
+        existingByKey.set(`${d.name}|${d.type}|${d.channel ?? ''}`, d.id)
+      }
+
+      // Per template-device: hergebruiken of aanmaken
+      const deviceIdByIndex: Record<number, string> = {}
+      const devicesToInsert: Array<{ index: number; row: Record<string, unknown> }> = []
+      audio.devices.forEach((d, i) => {
+        const key = `${d.name}|${d.type}|${d.channel ?? ''}`
+        const existingId = existingByKey.get(key)
+        if (existingId) {
+          deviceIdByIndex[i] = existingId
+        } else {
+          devicesToInsert.push({ index: i, row: {
+            show_id: show.id,
+            name:    d.name,
+            type:    d.type,
+            channel: d.channel,
+            color:   d.color,
+            notes:   d.notes,
+          }})
+        }
+      })
+
+      if (devicesToInsert.length > 0) {
+        const { data: newDevices, error: devErr }: { data: Array<{ id: string }> | null; error: unknown } = await sb
+          .from('audio_devices')
+          .insert(devicesToInsert.map(d => d.row))
+          .select('id')
+        if (devErr) {
+          console.error('Mic patch devices aanmaken mislukt:', devErr)
+        } else {
+          (newDevices ?? []).forEach((nd, i) => {
+            deviceIdByIndex[devicesToInsert[i].index] = nd.id
+          })
+        }
+      }
+
+      // Assignments bouwen en inserten
+      const asnRows = audio.assignments
+        .filter(a => deviceIdByIndex[a.device_index] && insertedCueIds[a.cue_index])
+        .map(a => ({
+          cue_id:      insertedCueIds[a.cue_index],
+          device_id:   deviceIdByIndex[a.device_index],
+          person_name: a.person_name,
+          phase:       a.phase,
+        }))
+
+      if (asnRows.length > 0) {
+        const { error: asnErr } = await sb.from('cue_audio_assignments').insert(asnRows)
+        if (asnErr) {
+          console.error('Mic patch assignments aanmaken mislukt:', asnErr)
+          // Geen harde fout — cues staan er, alleen mic patch niet
+        }
       }
     }
+
     setIsSaving(false)
-  }, [cues, rundown.id, supabase])
+  }, [cues, rundown.id, show.id, supabase])
 
   const handleCopyCues = useCallback(async (inputs: import('@/lib/types/database').CreateCueInput[]) => {
     if (inputs.length === 0) return
@@ -1872,6 +1949,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         onClose={() => setShowSaveTemplate(false)}
         rundownName={rundown.name}
         cues={cues}
+        showId={show.id}
       />
 
       <LoadTemplateModal

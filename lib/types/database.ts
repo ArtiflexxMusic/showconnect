@@ -142,6 +142,7 @@ export interface RundownTemplate {
   description: string | null
   created_by: string | null
   cues_json: TemplateCue[]
+  audio_json: TemplateAudioPayload | null
   is_public: boolean
   created_at: string
 }
@@ -154,6 +155,29 @@ export interface TemplateCue {
   tech_notes?: string | null
   presenter?: string | null
   location?: string | null
+}
+
+// Snapshot van mic patch bij een template. Devices en assignments zijn niet
+// gekoppeld aan concrete show/cue IDs — bij apply worden ze opnieuw aangemaakt
+// en via cue_index / device_index aan de nieuwe cues + devices gebonden.
+export interface TemplateAudioDevice {
+  name: string
+  type: 'handheld' | 'headset' | 'lapel' | 'table' | 'iem'
+  channel: number | null
+  color: string
+  notes: string | null
+}
+
+export interface TemplateAudioAssignment {
+  cue_index: number      // index in cues_json
+  device_index: number   // index in devices
+  person_name: string | null
+  phase: 'before' | 'during' | 'after'
+}
+
+export interface TemplateAudioPayload {
+  devices: TemplateAudioDevice[]
+  assignments: TemplateAudioAssignment[]
 }
 
 export interface Invitation {

@@ -7,8 +7,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, BookTemplate, Trash2, Clock, AlertTriangle, Sparkles } from 'lucide-react'
-import type { RundownTemplate, TemplateCue } from '@/lib/types/database'
+import { Loader2, BookTemplate, Trash2, Clock, AlertTriangle, Sparkles, Mic } from 'lucide-react'
+import type { RundownTemplate, TemplateCue, TemplateAudioPayload } from '@/lib/types/database'
 import { formatDuration } from '@/lib/utils'
 
 // ─── Ingebouwde startertemplates ──────────────────────────────────────────────
@@ -84,13 +84,13 @@ const STARTER_TEMPLATES: Array<{ id: string; name: string; description: string; 
 // ─── Unified template selection type ──────────────────────────────────────────
 
 type AnyTemplate =
-  | { kind: 'saved';   id: string; name: string; description?: string | null; cues_json: TemplateCue[] }
+  | { kind: 'saved';   id: string; name: string; description?: string | null; cues_json: TemplateCue[]; audio_json: TemplateAudioPayload | null }
   | { kind: 'starter'; id: string; name: string; description: string;          cues: TemplateCue[] }
 
 interface LoadTemplateModalProps {
   open: boolean
   onClose: () => void
-  onApply: (cues: TemplateCue[]) => Promise<void>
+  onApply: (cues: TemplateCue[], audio: TemplateAudioPayload | null) => Promise<void>
   hasCues: boolean
 }
 
@@ -132,6 +132,11 @@ export function LoadTemplateModal({ open, onClose, onApply, hasCues }: LoadTempl
     return selected.kind === 'saved' ? selected.cues_json : selected.cues
   }
 
+  const getSelectedAudio = (): TemplateAudioPayload | null => {
+    if (!selected || selected.kind !== 'saved') return null
+    return selected.audio_json
+  }
+
   const handleApply = async () => {
     if (!selected) return
     if (hasCues && !confirmOverwrite) {
@@ -139,7 +144,7 @@ export function LoadTemplateModal({ open, onClose, onApply, hasCues }: LoadTempl
       return
     }
     setApplying(true)
-    await onApply(getSelectedCues())
+    await onApply(getSelectedCues(), getSelectedAudio())
     setApplying(false)
     onClose()
   }
@@ -159,16 +164,18 @@ export function LoadTemplateModal({ open, onClose, onApply, hasCues }: LoadTempl
     description: string | null | undefined,
     cues: TemplateCue[],
     isStarter: boolean,
+    audio: TemplateAudioPayload | null = null,
   ) => {
     const dur = totalDuration(cues)
     const isSelected = selected?.id === id
+    const micCount = audio?.devices.length ?? 0
     return (
       <button
         key={id}
         onClick={() => {
           setSelected(isStarter
             ? { kind: 'starter', id, name, description: description ?? '', cues }
-            : { kind: 'saved',   id, name, description, cues_json: cues }
+            : { kind: 'saved',   id, name, description, cues_json: cues, audio_json: audio }
           )
           setConfirmOverwrite(false)
         }}
@@ -195,6 +202,12 @@ export function LoadTemplateModal({ open, onClose, onApply, hasCues }: LoadTempl
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                   <Clock className="h-2.5 w-2.5" />
                   {formatDuration(dur)}
+                </span>
+              )}
+              {micCount > 0 && (
+                <span className="text-[10px] text-emerald-400 flex items-center gap-1" title={`${micCount} devices in mic patch`}>
+                  <Mic className="h-2.5 w-2.5" />
+                  Mic patch · {micCount}
                 </span>
               )}
             </div>
@@ -277,7 +290,7 @@ export function LoadTemplateModal({ open, onClose, onApply, hasCues }: LoadTempl
             ) : (
               <div className="space-y-2 py-1">
                 {templates.map((tpl) =>
-                  renderTemplateRow(tpl.id, tpl.name, tpl.description, tpl.cues_json, false)
+                  renderTemplateRow(tpl.id, tpl.name, tpl.description, tpl.cues_json, false, tpl.audio_json)
                 )}
               </div>
             )

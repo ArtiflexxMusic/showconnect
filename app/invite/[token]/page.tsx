@@ -16,8 +16,14 @@ export default async function InvitePage({ params }: PageProps) {
   const { token } = await params
   const supabase = await createClient()
 
-  // Haal de uitnodiging op (zonder auth – token is publiek)
-  const { data: invitation } = await supabase
+  // Token zelf is de authenticatie (unguessable UUID). RLS op `invitations`
+  // sluit externe genodigden uit (email/owner-match), dus gebruik de admin-
+  // client voor de lookup — anders ziet de klikker altijd "niet gevonden".
+  const invitationLookup = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { data: invitation } = await invitationLookup
     .from('invitations')
     .select('*, shows(name, date)')
     .eq('token', token)

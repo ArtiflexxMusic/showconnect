@@ -434,10 +434,14 @@ export function CallsheetPanel({
               <Button
                 size="sm" variant="outline"
                 onClick={() => {
-                  // Stuur alle callsheet-data + crew mee als URL-param zodat de printpagina alles kan tonen
-                  const payload = { ...data, crew }
-                  const encoded = encodeURIComponent(JSON.stringify(payload))
-                  window.open(`/print/callsheet/${showId}?d=${encoded}`, '_blank')
+                  // Payload via sessionStorage — URL-params breken bij veel notities/crew
+                  // (URL-limiet ~8KB, een callsheet met 10+ crew + lange briefing gaat daar
+                  // overheen waardoor de printpagina een wit/blank document gaf).
+                  try {
+                    const payload = { ...data, crew }
+                    sessionStorage.setItem(`cueboard:callsheet:${showId}`, JSON.stringify(payload))
+                  } catch { /* sessionStorage kan falen in private mode — prima, server fallback pakt op */ }
+                  window.open(`/print/callsheet/${showId}`, '_blank')
                 }}
                 className="h-8 gap-1.5 text-xs"
               >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { formatDate, formatDuration } from '@/lib/utils'
 import type { Cue } from '@/lib/types/database'
 
@@ -100,9 +100,33 @@ function CueBoardLogo({ dark = false }: { dark?: boolean }) {
 }
 
 /* ─── Main component ─────────────────────────────────────────────────────────── */
-export default function CallsheetPrintView({ show, rundowns, crew, notes, totalCues, totalSecs, generatedAt }: Props) {
+export default function CallsheetPrintView({ show, rundowns, crew: serverCrew, notes: serverNotes, totalCues, totalSecs, generatedAt }: Props) {
+  // Server-notities/crew als fallback; sessionStorage is authoritatief wanneer aanwezig
+  // (wordt gezet door CallsheetPanel vlak voor window.open)
+  const [notes, setNotes] = useState<CallsheetNotes>(serverNotes ?? {})
+  const [crew, setCrew]   = useState<CrewMember[]>(serverCrew ?? [])
+
   useEffect(() => {
     document.title = `Callsheet — ${show.name} — CueBoard`
+    if (typeof window === 'undefined') return
+    try {
+      const key = Object.keys(window.sessionStorage).find(k => k.startsWith('cueboard:callsheet:'))
+      if (!key) return
+      const raw = window.sessionStorage.getItem(key)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as CallsheetNotes & { crew?: CrewMember[] }
+      if (parsed.crew && Array.isArray(parsed.crew)) {
+        // Merge server-crew (DB truth) met sessionStorage extras (department, call_time, phone)
+        setCrew(prev => prev.map(m => {
+          const override = (parsed.crew ?? []).find(c => c.id === m.id)
+          return override ? { ...m, ...override } : m
+        }))
+      }
+      // Notities overnemen, maar behoud server-waarden die sessionStorage niet heeft
+      const { crew: _c, crew_extras: _e, ...onlyNotes } = parsed as Record<string, unknown>
+      void _c; void _e
+      setNotes(prev => ({ ...prev, ...onlyNotes }))
+    } catch { /* sessionStorage ontbreekt/corrupt — server-props blijven gelden */ }
   }, [show.name])
 
   return (

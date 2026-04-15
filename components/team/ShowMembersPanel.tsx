@@ -71,11 +71,12 @@ export function ShowMembersPanel({
 }: ShowMembersPanelProps) {
   const [members, setMembers]         = useState<ShowMember[]>(initialMembers ?? [])
   const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations ?? [])
-  const [loadingData, setLoadingData] = useState(!initialMembers)
+  // Toon skeleton alleen als er nog géén data in initialMembers zat
+  const [loadingData, setLoadingData] = useState(!initialMembers || initialMembers.length === 0)
 
-  // Fetch data on mount als het niet server-side meegegeven is (snellere show-paginaload)
+  // Altijd fetchen op mount — ook als parent al iets meegaf — want bij reopen
+  // na een invite moet de nieuwe invitation/member direct zichtbaar zijn
   useEffect(() => {
-    if (initialMembers) return
     const supabase = createClient()
     Promise.all([
       supabase
@@ -94,7 +95,6 @@ export function ShowMembersPanel({
       setInvitations((i ?? []) as Invitation[])
       setLoadingData(false)
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showId])
   const [showInvite, setShowInvite]   = useState(autoOpenInvite && currentUserRole === 'owner')
   const [inviteEmail, setInviteEmail] = useState('')

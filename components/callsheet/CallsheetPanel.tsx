@@ -395,14 +395,17 @@ export function CallsheetPanel({
     if (allRecipients.length === 0) { alert('Geen e-mailadressen gevonden. Voeg crew toe of typ losse adressen.'); return }
     setSending(true)
     try {
-      const res = await fetch(`/api/shows/${showId}/callsheet/send`, {
+      const res = await fetch(`/api/shows/${showId}/callsheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: data, recipients: allRecipients }),
       })
       if (res.ok) { setSendDone(true); setTimeout(() => setSendDone(false), 4000) }
-      else { const d = await res.json(); alert(`Versturen mislukt: ${d.error ?? 'Fout'}`) }
-    } catch { alert('Netwerkfout.') }
+      else {
+        const d = await res.json().catch(() => ({}))
+        alert(`Versturen mislukt: ${d.error ?? `HTTP ${res.status}`}`)
+      }
+    } catch (err) { alert(`Netwerkfout: ${err instanceof Error ? err.message : 'onbekend'}`) }
     setSending(false)
   }
 

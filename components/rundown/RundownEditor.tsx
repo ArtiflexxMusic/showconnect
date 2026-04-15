@@ -779,17 +779,33 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   // ── Reset alle cues ──────────────────────────────────────────────────────
   const resetAllCues = useCallback(async () => {
     setShowResetConfirm(false)
-    const resetResults = await Promise.all(
-      cues.map((c) =>
-        supabase.from('cues').update({
-          status: 'pending',
-          started_at: null,
-        }).eq('id', c.id)
-      )
-    )
-    const resetErrors = resetResults.filter((r) => r.error).map((r) => r.error!.message)
-    if (resetErrors.length > 0) console.error('Reset cues (deels) mislukt:', resetErrors)
-  }, [cues, supabase])
+    if (cues.length === 0) {
+      toast.success('Geen cues om te resetten')
+      return
+    }
+    pushHistory('Alle cues resetten')
+
+    // Optimistische UI-update: alles direct op pending zetten zodat je
+    // visueel meteen ziet dat de reset is doorgevoerd.
+    setCues((prev) => prev.map((c) => ({ ...c, status: 'pending' as const, started_at: null })))
+    setElapsed(0)
+
+    // Eén bulk-update ipv N aparte calls — sneller en minder RLS-round-trips
+    const ids = cues.map((c) => c.id)
+    const { error } = await supabase
+      .from('cues')
+      .update({ status: 'pending', started_at: null } as Record<string, unknown>)
+      .in('id', ids)
+
+    if (error) {
+      console.error('Reset cues mislukt:', error)
+      setSaveError(`Reset mislukt: ${error.message}`)
+      toast.error('Reset mislukt — probeer opnieuw')
+      // Geen harde rollback: Realtime zal de echte DB-state terugsturen
+    } else {
+      toast.success(`${ids.length} cues gereset naar pending`)
+    }
+  }, [cues, supabase, pushHistory])
 
   const startCue = useCallback(async (id: string) => {
     const now = new Date().toISOString()

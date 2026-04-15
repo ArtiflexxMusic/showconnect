@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, BookTemplate, Trash2, Clock, AlertTriangle, Sparkles, Mic } from 'lucide-react'
+import { Loader2, BookTemplate, Trash2, Clock, AlertTriangle, Sparkles, Mic, FileSpreadsheet } from 'lucide-react'
 import type { RundownTemplate, TemplateCue, TemplateAudioPayload } from '@/lib/types/database'
 import { formatDuration } from '@/lib/utils'
 
@@ -213,17 +213,29 @@ export function LoadTemplateModal({ open, onClose, onApply, hasCues }: LoadTempl
             </div>
           </div>
           {!isStarter && (
-            <button
-              onClick={(e) => handleDelete(id, e)}
-              disabled={deletingId === id}
-              className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
-              title="Template verwijderen"
-            >
-              {deletingId === id
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <Trash2 className="h-3.5 w-3.5" />
-              }
-            </button>
+            <div className="flex items-center gap-2 shrink-0 mt-0.5">
+              <a
+                href={`/api/export/template/${id}/xlsx`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-emerald-400 transition-colors"
+                title={micCount > 0
+                  ? `Download als Excel (incl. mic patch met ${micCount} devices)`
+                  : 'Download als Excel'}
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+              </a>
+              <button
+                onClick={(e) => handleDelete(id, e)}
+                disabled={deletingId === id}
+                className="text-muted-foreground hover:text-destructive transition-colors"
+                title="Template verwijderen"
+              >
+                {deletingId === id
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Trash2 className="h-3.5 w-3.5" />
+                }
+              </button>
+            </div>
           )}
         </div>
       </button>

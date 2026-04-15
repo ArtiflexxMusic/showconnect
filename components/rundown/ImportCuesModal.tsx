@@ -502,6 +502,18 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
   const warnCount = mappedCues.filter(c => c.warnings.length > 0).length
   const derivedPatch = deriveMicPatch(rawDevices, rawPatch, validCount)
 
+  // Groepeer unieke waarschuwingen met counts zodat de gebruiker in één
+  // oogopslag ziet welke types/duur-waardes niet worden herkend.
+  const warningSummary = (() => {
+    const counts = new Map<string, number>()
+    for (const cue of mappedCues) {
+      for (const w of cue.warnings) counts.set(w, (counts.get(w) ?? 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([msg, count]) => ({ msg, count }))
+  })()
+
   // ── File processing ──────────────────────────────────────────────────────
 
   const processFile = useCallback(async (file: File) => {
@@ -735,6 +747,27 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
                   </div>
                 )}
               </div>
+
+              {/* Waarschuwing-overzicht: welke types/waardes niet herkend zijn */}
+              {warningSummary.length > 0 && (
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
+                  <p className="text-xs font-semibold text-yellow-400 mb-2 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Waarschuwingen
+                  </p>
+                  <ul className="space-y-1 text-xs text-yellow-200/90 max-h-40 overflow-y-auto">
+                    {warningSummary.map(({ msg, count }, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-yellow-400/70 tabular-nums shrink-0 min-w-[28px]">{count}×</span>
+                        <span>{msg}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] text-yellow-200/50 mt-2">
+                    Niet-herkende types worden als <strong>custom</strong> geïmporteerd, je kan ze per cue aanpassen. Niet-herkende duur wordt 0:00.
+                  </p>
+                </div>
+              )}
 
               {/* Preview table */}
               <div className="rounded-lg border border-border overflow-hidden">

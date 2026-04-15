@@ -14,7 +14,7 @@ import {
 import { SortableCueRow } from './SortableCueRow'
 import { CueFormModal } from './CueFormModal'
 import { RundownSettings } from './RundownSettings'
-import { ImportCuesModal } from './ImportCuesModal'
+import { ImportCuesModal, type ImportMicPatch } from './ImportCuesModal'
 import { SaveTemplateModal } from './SaveTemplateModal'
 import { LoadTemplateModal } from './LoadTemplateModal'
 import { CueLogPanel } from './CueLogPanel'
@@ -420,7 +420,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     setIsSaving(false)
   }, [cues, rundown.id, supabase])
 
-  const importCues = useCallback(async (inputs: CreateCueInput[]) => {
+  const importCues = useCallback(async (inputs: CreateCueInput[], micPatch: ImportMicPatch | null) => {
     setIsSaving(true)
     const startPos = cues.length > 0 ? Math.max(...cues.map(c => c.position)) + 1 : 0
     const rows = inputs.map((input, i) => ({
@@ -436,13 +436,89 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       location:         input.location ?? null,
       status:           'pending' as const,
     }))
-    const { error } = await supabase.from('cues').insert(rows)
+
+    // Vraag IDs terug zodat we mic patch assignments kunnen koppelen
+    const { data: inserted, error } = await supabase
+      .from('cues')
+      .insert(rows)
+      .select('id, position')
+      .order('position', { ascending: true })
     if (error) {
       console.error('Import fout:', error)
       setSaveError(`Import mislukt: ${error.message}`)
+      setIsSaving(false)
+      return
     }
+
+    // Mic patch herstellen — alleen de nieuwe cues binnen deze import
+    if (micPatch && micPatch.devices.length > 0 && inserted && inserted.length > 0) {
+      const insertedIds = inserted.map(c => c.id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any
+
+      // Bestaande devices voor deze show ophalen om dubbele te voorkomen
+      const { data: existing }: { data: Array<{ id: string; name: string; type: string; channel: number | null }> | null } = await sb
+        .from('audio_devices')
+        .select('id, name, type, channel')
+        .eq('show_id', show.id)
+      const existingByKey = new Map<string, string>()
+      for (const d of existing ?? []) {
+        existingByKey.set(`${d.name}|${d.type}|${d.channel ?? ''}`, d.id)
+      }
+
+      const deviceIdByIndex: Record<number, string> = {}
+      const devicesToInsert: Array<{ index: number; row: Record<string, unknown> }> = []
+      micPatch.devices.forEach((d, i) => {
+        const key = `${d.name}|${d.type}|${d.channel ?? ''}`
+        const existingId = existingByKey.get(key)
+        if (existingId) {
+          deviceIdByIndex[i] = existingId
+        } else {
+          devicesToInsert.push({ index: i, row: {
+            show_id: show.id,
+            name:    d.name,
+            type:    d.type,
+            channel: d.channel,
+            color:   d.color,
+            notes:   d.notes,
+          }})
+        }
+      })
+
+      if (devicesToInsert.length > 0) {
+        const { data: newDevices, error: devErr }: { data: Array<{ id: string }> | null; error: unknown } = await sb
+          .from('audio_devices')
+          .insert(devicesToInsert.map(d => d.row))
+          .select('id')
+        if (devErr) {
+          console.error('Mic patch devices aanmaken mislukt:', devErr)
+        } else {
+          (newDevices ?? []).forEach((nd, i) => {
+            deviceIdByIndex[devicesToInsert[i].index] = nd.id
+          })
+        }
+      }
+
+      const asnRows = micPatch.assignments
+        .filter(a => deviceIdByIndex[a.device_index] && insertedIds[a.cue_index])
+        .map(a => ({
+          cue_id:      insertedIds[a.cue_index],
+          device_id:   deviceIdByIndex[a.device_index],
+          person_name: a.person_name,
+          phase:       a.phase,
+        }))
+
+      if (asnRows.length > 0) {
+        const { error: asnErr } = await sb.from('cue_audio_assignments').insert(asnRows)
+        if (asnErr) {
+          console.error('Mic patch assignments aanmaken mislukt:', asnErr)
+          // Geen harde fout — cues staan er, alleen mic patch mist
+        }
+      }
+    }
+
     setIsSaving(false)
-  }, [cues, rundown.id, supabase])
+  }, [cues, rundown.id, show.id, supabase])
 
   const applyTemplate = useCallback(async (templateCues: TemplateCue[], audio: TemplateAudioPayload | null) => {
     setIsSaving(true)

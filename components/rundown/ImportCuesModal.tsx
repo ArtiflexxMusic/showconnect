@@ -3,9 +3,34 @@
 import { useState, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react'
+import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, ChevronDown, Mic } from 'lucide-react'
 import type { CueType, CreateCueInput } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
+
+// ─── Mic patch import types ─────────────────────────────────────────────────
+
+export type ImportAudioDeviceType = 'handheld' | 'headset' | 'lapel' | 'table' | 'iem'
+export type ImportAudioPhase = 'before' | 'during' | 'after'
+
+export interface ImportAudioDevice {
+  name: string
+  type: ImportAudioDeviceType
+  channel: number | null
+  color: string
+  notes: string | null
+}
+
+export interface ImportAudioAssignment {
+  cue_index: number
+  device_index: number
+  person_name: string | null
+  phase: ImportAudioPhase
+}
+
+export interface ImportMicPatch {
+  devices: ImportAudioDevice[]
+  assignments: ImportAudioAssignment[]
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -16,6 +41,7 @@ interface ParsedRow {
 interface MappedCue {
   title: string
   type: CueType
+  secondary_types: CueType[]
   duration_seconds: number
   notes: string | null
   tech_notes: string | null
@@ -27,7 +53,7 @@ interface MappedCue {
 
 interface ImportCuesModalProps {
   onClose: () => void
-  onImport: (cues: CreateCueInput[]) => Promise<void>
+  onImport: (cues: CreateCueInput[], micPatch: ImportMicPatch | null) => Promise<void>
 }
 
 // ─── Cue type mapping ────────────────────────────────────────────────────────
@@ -48,16 +74,17 @@ const CUE_TYPES: CueType[] = ['video', 'audio', 'lighting', 'speech', 'break', '
 
 // ─── Column detection ────────────────────────────────────────────────────────
 
-type FieldKey = 'title' | 'type' | 'duration' | 'notes' | 'tech_notes' | 'presenter' | 'location'
+type FieldKey = 'title' | 'type' | 'secondary_types' | 'duration' | 'notes' | 'tech_notes' | 'presenter' | 'location'
 
 const COLUMN_ALIASES: Record<FieldKey, string[]> = {
-  title:      ['titel', 'title', 'naam', 'name', 'onderwerp', 'item', 'cue', 'omschrijving', 'description'],
-  type:       ['type', 'soort', 'categorie', 'category', 'format'],
-  duration:   ['duur', 'duration', 'tijd', 'time', 'lengte', 'length', 'min', 'minuten', 'minutes', 'sec', 'seconden', 'seconds', 'tijdsduur'],
-  notes:      ['notities', 'notes', 'note', 'opmerkingen', 'beschrijving', 'info', 'opmerking', 'toelichting'],
-  tech_notes: ['tech', 'technisch', 'tech notes', 'technische notities', 'tech_notes', 'technotities', 'techniek'],
-  presenter:  ['spreker', 'presenter', 'presentator', 'speaker', 'wie', 'who', 'host'],
-  location:   ['locatie', 'location', 'ruimte', 'podium', 'scene', 'scène', 'zaal', 'plek', 'venue'],
+  title:           ['titel', 'title', 'naam', 'name', 'onderwerp', 'item', 'cue', 'omschrijving', 'description'],
+  type:            ['type', 'soort', 'categorie', 'category', 'format'],
+  secondary_types: ['extra types', 'extra', 'tags', 'extra_types', 'extratypes', 'secondary', 'sub types', 'subtypes'],
+  duration:        ['duur', 'duration', 'tijd', 'time', 'lengte', 'length', 'min', 'minuten', 'minutes', 'sec', 'seconden', 'seconds', 'tijdsduur'],
+  notes:           ['notities', 'notes', 'note', 'opmerkingen', 'beschrijving', 'info', 'opmerking', 'toelichting'],
+  tech_notes:      ['tech', 'technisch', 'tech notes', 'technische notities', 'tech_notes', 'technotities', 'techniek'],
+  presenter:       ['spreker', 'presenter', 'presentator', 'speaker', 'wie', 'who', 'host'],
+  location:        ['locatie', 'location', 'ruimte', 'podium', 'scene', 'scène', 'zaal', 'plek', 'venue'],
 }
 
 function detectColumn(headers: string[], field: FieldKey): string | null {
@@ -148,7 +175,11 @@ declare global {
       }
       utils: {
         sheet_to_json: (sheet: unknown, opts?: { header?: number; defval?: string }) => ParsedRow[]
+        aoa_to_sheet: (data: unknown[][]) => unknown
+        book_new: () => { SheetNames: string[]; Sheets: Record<string, unknown> }
+        book_append_sheet: (wb: unknown, ws: unknown, name: string) => void
       }
+      writeFile: (wb: unknown, filename: string) => void
     }
   }
 }
@@ -182,6 +213,137 @@ async function parseXLSXRows(buffer: ArrayBuffer): Promise<ParsedRow[]> {
   return rows as ParsedRow[]
 }
 
+// Leest alle relevante sheets: cues + optioneel devices + mic patch
+async function parseXLSXWorkbook(buffer: ArrayBuffer): Promise<{
+  cues: ParsedRow[]
+  devices: ParsedRow[] | null
+  patch: ParsedRow[] | null
+}> {
+  const XLSX = await loadXLSX()
+  const wb = XLSX.read(buffer, { type: 'array' })
+  const find = (...names: string[]) =>
+    wb.SheetNames.find(s => names.some(n => s.toLowerCase() === n.toLowerCase()))
+
+  const cuesName = find('Cues', 'Rundown') ?? wb.SheetNames[0]
+  const cues = XLSX.utils.sheet_to_json(wb.Sheets[cuesName], { defval: '' }) as ParsedRow[]
+
+  const devName = find('Devices', 'Microfoons', 'Mic devices')
+  const devices = devName ? XLSX.utils.sheet_to_json(wb.Sheets[devName], { defval: '' }) as ParsedRow[] : null
+
+  const patchName = find('Mic Patch', 'MicPatch', 'Patch', 'Mic')
+  const patch = patchName ? XLSX.utils.sheet_to_json(wb.Sheets[patchName], { defval: '' }) as ParsedRow[] : null
+
+  return { cues, devices, patch }
+}
+
+// Device type mapping (losse termen zoals 'lavalier' → 'lapel')
+const DEVICE_TYPE_MAP: Record<string, ImportAudioDeviceType> = {
+  handheld: 'handheld', hand: 'handheld', handmic: 'handheld',
+  headset: 'headset', head: 'headset',
+  lapel: 'lapel', lavalier: 'lapel', lav: 'lapel', speldje: 'lapel', speld: 'lapel',
+  table: 'table', tafel: 'table', tafelmic: 'table', tafelmicrofoon: 'table',
+  iem: 'iem', 'in-ear': 'iem', earpiece: 'iem', monitor: 'iem',
+}
+
+const PHASE_MAP: Record<string, ImportAudioPhase> = {
+  before: 'before', vooraf: 'before', pre: 'before',
+  during: 'during', tijdens: 'during',
+  after: 'after',  na: 'after', 'na afloop': 'after', post: 'after',
+}
+
+function getField(row: ParsedRow, ...keys: string[]): string {
+  for (const k of keys) {
+    const found = Object.keys(row).find(rk => rk.toLowerCase().trim() === k.toLowerCase())
+    if (found && String(row[found]).trim()) return String(row[found]).trim()
+  }
+  return ''
+}
+
+function deriveMicPatch(
+  devRows: ParsedRow[] | null,
+  patchRows: ParsedRow[] | null,
+  cueCount: number,
+): ImportMicPatch | null {
+  if (!devRows || !patchRows || devRows.length === 0 || patchRows.length === 0) return null
+
+  const devices: ImportAudioDevice[] = devRows.map(r => {
+    const name = getField(r, 'naam', 'name', 'device')
+    const rawType = getField(r, 'type', 'soort').toLowerCase()
+    const type: ImportAudioDeviceType = DEVICE_TYPE_MAP[rawType] ?? 'handheld'
+    const rawCh = getField(r, 'kanaal', 'channel', 'ch')
+    const channel = rawCh ? parseInt(rawCh, 10) : null
+    const color = getField(r, 'kleur', 'color') || '#64748b'
+    const notes = getField(r, 'notities', 'notes', 'opmerking') || null
+    return { name, type, channel: isNaN(channel!) ? null : channel, color, notes }
+  }).filter(d => d.name)
+
+  const deviceIndexByName = new Map<string, number>()
+  devices.forEach((d, i) => deviceIndexByName.set(d.name.toLowerCase(), i))
+
+  const assignments: ImportAudioAssignment[] = []
+  for (const r of patchRows) {
+    const rawCue = getField(r, 'cue #', 'cue#', 'cue', 'nummer', '#')
+    const devName = getField(r, 'device', 'microfoon', 'mic', 'naam')
+    if (!rawCue || !devName) continue
+    const cueNum = parseInt(String(rawCue).replace(/[^\d]/g, ''), 10)
+    if (isNaN(cueNum) || cueNum < 1 || cueNum > cueCount) continue
+    const di = deviceIndexByName.get(devName.toLowerCase())
+    if (di === undefined) continue
+    const rawPhase = getField(r, 'fase', 'phase').toLowerCase()
+    const phase: ImportAudioPhase = PHASE_MAP[rawPhase] ?? 'during'
+    const person_name = getField(r, 'persoon', 'person', 'spreker', 'wie') || null
+    assignments.push({
+      cue_index:    cueNum - 1,
+      device_index: di,
+      person_name,
+      phase,
+    })
+  }
+
+  if (assignments.length === 0) return null
+  return { devices, assignments }
+}
+
+// Genereert een lege sjabloon met 3 sheets (Cues, Devices, Mic Patch)
+async function downloadSjabloonXlsx() {
+  const XLSX = await loadXLSX()
+  const wb = XLSX.utils.book_new()
+
+  const cuesWs = XLSX.utils.aoa_to_sheet([
+    ['#', 'Titel', 'Type', 'Extra types', 'Duur', 'Spreker', 'Locatie', 'Notities', 'Tech notities'],
+    [1, 'Ontvangst',          'custom', '',             '30:00', '',              'Entree',     'Gasten welkom heten',        'Muziek in foyer'],
+    [2, 'Opening',             'intro',  'speech',       '5:00',  'Dagvoorzitter', 'Podium',     'Welkomstwoord',              'Microfoon aan, intro-dia'],
+    [3, 'Keynote spreker',     'speech', 'presentation', '30:00', 'Jan de Vries',  'Podium',     'Keynote over strategie',     'Clicker gereed, slides geladen'],
+    [4, 'Panel discussie',     'speech', '',             '20:00', 'Panel',         'Podium',     '4 panelleden',               'Handheld mics klaar'],
+    [5, 'Pauze',               'break',  '',             '15:00', '',              'Foyer',      'Koffie & thee',              'Muziek aan'],
+    [6, 'Workshop',            'custom', '',             '45:00', '',              'Zaal 2',     'Interactieve sessie',        ''],
+    [7, 'Afsluiting',          'outro',  'speech',       '5:00',  'Dagvoorzitter', 'Podium',     'Bedankt voor uw aanwezigheid', 'Slot-dia'],
+  ])
+  XLSX.utils.book_append_sheet(wb, cuesWs, 'Cues')
+
+  const devWs = XLSX.utils.aoa_to_sheet([
+    ['Kanaal', 'Naam',            'Type',     'Kleur',   'Notities'],
+    [1,        'Handheld Voorzit', 'handheld', '#ef4444', 'Dagvoorzitter'],
+    [2,        'Headset Jan',      'headset',  '#3b82f6', 'Reserve dag 2'],
+    [3,        'Handheld Panel 1', 'handheld', '#f97316', ''],
+    [4,        'Handheld Panel 2', 'handheld', '#f97316', ''],
+    [5,        'Lavalier Keynote', 'lapel',    '#22c55e', 'Voor bewegende spreker'],
+  ])
+  XLSX.utils.book_append_sheet(wb, devWs, 'Devices')
+
+  const patchWs = XLSX.utils.aoa_to_sheet([
+    ['Cue #', 'Device',            'Persoon',        'Fase'],
+    [2,        'Handheld Voorzit',  'Dagvoorzitter',  'during'],
+    [3,        'Lavalier Keynote',  'Jan de Vries',   'during'],
+    [4,        'Handheld Panel 1',  'Panellid 1',     'during'],
+    [4,        'Handheld Panel 2',  'Panellid 2',     'during'],
+    [7,        'Handheld Voorzit',  'Dagvoorzitter',  'during'],
+  ])
+  XLSX.utils.book_append_sheet(wb, patchWs, 'Mic Patch')
+
+  XLSX.writeFile(wb, 'cueboard-sjabloon.xlsx')
+}
+
 // ─── Row → Cue mapping ───────────────────────────────────────────────────────
 
 type ColumnMap = Partial<Record<FieldKey, string>>
@@ -201,9 +363,24 @@ function mapRowToCue(row: ParsedRow, colMap: ColumnMap): MappedCue {
   const duration_seconds = parseDuration(rawDuration)
   if (!duration_seconds && rawDuration) warnings.push(`Duur "${rawDuration}" niet herkend, ingesteld op 0`)
 
+  // Secondary types — komma- of pipe-gescheiden lijst → CueType[]
+  const rawSecondary = (colMap.secondary_types ? row[colMap.secondary_types] : '') || ''
+  const secondary_types: CueType[] = []
+  if (rawSecondary.trim()) {
+    for (const raw of rawSecondary.split(/[,;|]/).map(s => s.trim()).filter(Boolean)) {
+      const mapped = TYPE_MAP[raw.toLowerCase()]
+      if (mapped && mapped !== type && !secondary_types.includes(mapped)) {
+        secondary_types.push(mapped)
+      } else if (!mapped) {
+        warnings.push(`Extra type "${raw}" niet herkend`)
+      }
+    }
+  }
+
   return {
     title: title.trim(),
     type,
+    secondary_types,
     duration_seconds,
     notes: (colMap.notes ? row[colMap.notes]?.trim() : null) || null,
     tech_notes: (colMap.tech_notes ? row[colMap.tech_notes]?.trim() : null) || null,
@@ -242,10 +419,13 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
   const [rawRows, setRawRows] = useState<ParsedRow[]>([])
   const [colMap, setColMap] = useState<ColumnMap>({})
   const [fileName, setFileName] = useState('')
+  const [rawDevices, setRawDevices] = useState<ParsedRow[] | null>(null)
+  const [rawPatch, setRawPatch]     = useState<ParsedRow[] | null>(null)
 
   const mappedCues: MappedCue[] = rawRows.map(r => mapRowToCue(r, colMap))
   const validCount = mappedCues.filter(c => c.valid).length
   const warnCount = mappedCues.filter(c => c.warnings.length > 0).length
+  const derivedPatch = deriveMicPatch(rawDevices, rawPatch, validCount)
 
   // ── File processing ──────────────────────────────────────────────────────
 
@@ -260,9 +440,14 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
       if (file.name.endsWith('.csv') || file.type === 'text/csv') {
         const text = await file.text()
         rows = parseCSV(text)
+        setRawDevices(null)
+        setRawPatch(null)
       } else if (file.name.match(/\.xlsx?$/i)) {
         const buffer = await file.arrayBuffer()
-        rows = await parseXLSXRows(buffer)
+        const wb = await parseXLSXWorkbook(buffer)
+        rows = wb.cues
+        setRawDevices(wb.devices)
+        setRawPatch(wb.patch)
       } else {
         throw new Error('Alleen .csv en .xlsx bestanden worden ondersteund')
       }
@@ -307,6 +492,7 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
       .map(c => ({
         title:            c.title,
         type:             c.type,
+        secondary_types:  c.secondary_types,
         duration_seconds: c.duration_seconds,
         notes:            c.notes ?? undefined,
         tech_notes:       c.tech_notes ?? undefined,
@@ -316,14 +502,14 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
     if (toImport.length === 0) return
     setImporting(true)
     try {
-      await onImport(toImport)
+      await onImport(toImport, derivedPatch)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import mislukt')
     } finally {
       setImporting(false)
     }
-  }, [mappedCues, onImport, onClose])
+  }, [mappedCues, onImport, onClose, derivedPatch])
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -404,7 +590,7 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
                   <p className="text-xs text-muted-foreground">{rawRows.length} rijen gevonden</p>
                 </div>
                 <button
-                  onClick={() => { setRawRows([]); setHeaders([]); setColMap({}); setFileName(''); setError(null) }}
+                  onClick={() => { setRawRows([]); setHeaders([]); setColMap({}); setFileName(''); setError(null); setRawDevices(null); setRawPatch(null) }}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Ander bestand
@@ -417,7 +603,7 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {(Object.keys(COLUMN_ALIASES) as FieldKey[]).map(field => {
                     const labels: Record<FieldKey, string> = {
-                      title: 'Titel *', type: 'Type', duration: 'Duur',
+                      title: 'Titel *', type: 'Type', secondary_types: 'Extra types', duration: 'Duur',
                       notes: 'Notities', tech_notes: 'Tech notities',
                       presenter: 'Spreker', location: 'Locatie',
                     }
@@ -444,7 +630,7 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
               </div>
 
               {/* Status bar */}
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-3 text-xs flex-wrap">
                 <div className="flex items-center gap-1.5 text-green-500">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   {validCount} klaar om te importeren
@@ -459,6 +645,18 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
                   <div className="flex items-center gap-1.5 text-yellow-500">
                     <AlertTriangle className="h-3.5 w-3.5" />
                     {warnCount} met waarschuwingen
+                  </div>
+                )}
+                {derivedPatch && (
+                  <div className="flex items-center gap-1.5 text-emerald-400">
+                    <Mic className="h-3.5 w-3.5" />
+                    Mic patch: {derivedPatch.devices.length} devices, {derivedPatch.assignments.length} toewijzingen
+                  </div>
+                )}
+                {!derivedPatch && (rawDevices || rawPatch) && (
+                  <div className="flex items-center gap-1.5 text-yellow-500" title="Zowel 'Devices' als 'Mic Patch' sheets nodig met minstens 1 rij die matcht">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Mic patch gedetecteerd maar niet bruikbaar
                   </div>
                 )}
               </div>
@@ -520,22 +718,20 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
 
           {/* Template download hint */}
           {rawRows.length === 0 && !parsing && (
-            <div className="text-center">
+            <div className="text-center space-y-1.5">
               <p className="text-xs text-muted-foreground">
                 Geen sjabloon bij de hand?{' '}
                 <button
                   onClick={() => {
-                    const csv = 'Titel,Type,Duur,Spreker,Locatie,Notities,Tech notities\nOpening,intro,5:00,,,Welkomstwoord,Microfoon aan\nPresentatie,speech,15:00,Jan de Vries,Podium A,Keynote spreker,Clicker gereed\nPauze,break,15:00,,,Koffie,\nAfsluiting,outro,5:00,,,Bedankt voor aanwezig zijn,'
-                    const blob = new Blob([csv], { type: 'text/csv' })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url; a.download = 'cueboard-sjabloon.csv'; a.click()
-                    URL.revokeObjectURL(url)
+                    downloadSjabloonXlsx().catch(e => setError(e instanceof Error ? e.message : 'Sjabloon genereren mislukt'))
                   }}
                   className="text-primary hover:underline"
                 >
-                  download het sjabloon
+                  download het Excel-sjabloon
                 </button>
+              </p>
+              <p className="text-[11px] text-muted-foreground/60">
+                Bevat 3 tabs: <strong>Cues</strong>, <strong>Devices</strong> en <strong>Mic Patch</strong> — vul ze allemaal in en je show staat inclusief audio-patch in één upload klaar.
               </p>
             </div>
           )}

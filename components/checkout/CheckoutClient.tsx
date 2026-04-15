@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,6 +58,15 @@ const FALLBACK_METHODS: MollieMethod[] = [
     },
   },
   {
+    id: 'paypal',
+    description: 'PayPal',
+    image: {
+      size1x: 'https://www.mollie.com/external/icons/payment-methods/paypal.png',
+      size2x: 'https://www.mollie.com/external/icons/payment-methods/paypal%402x.png',
+      svg:    'https://www.mollie.com/external/icons/payment-methods/paypal.svg',
+    },
+  },
+  {
     id: 'directdebit',
     description: 'SEPA overboeking',
     image: {
@@ -85,16 +94,34 @@ const PLAN_STYLE = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+type BillingType = 'subscription' | 'oneoff'
+
+// Welke methoden mogen recurring in dit Mollie-account?
+// Alleen creditcard is hier betrouwbaar — iDEAL/PayPal vereisen extra activatie
+// (SEPA Direct Debit voor iDEAL, billing agreements voor PayPal).
+const SUBSCRIPTION_METHODS = new Set(['creditcard'])
+
 export function CheckoutClient({ variantKey, variant, methods }: CheckoutClientProps) {
   const router = useRouter()
+  const [billingType, setBillingType] = useState<BillingType>('subscription')
   const [selected, setSelected] = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
 
-  const displayMethods = methods.length > 0 ? methods : FALLBACK_METHODS
+  const allMethods     = methods.length > 0 ? methods : FALLBACK_METHODS
+  const displayMethods = billingType === 'subscription'
+    ? allMethods.filter((m) => SUBSCRIPTION_METHODS.has(m.id))
+    : allMethods
   const style          = PLAN_STYLE[variant.plan as 'pro' | 'team']
   const Icon           = style.icon
   const isYearly       = variant.interval === 'yearly'
+
+  // Reset gekozen methode als die niet (meer) in de gefilterde lijst staat
+  useEffect(() => {
+    if (selected && !displayMethods.find((m) => m.id === selected)) {
+      setSelected(null)
+    }
+  }, [billingType, selected, displayMethods])
 
   async function handlePay() {
     if (!selected) return
@@ -104,7 +131,7 @@ export function CheckoutClient({ variantKey, variant, methods }: CheckoutClientP
       const res  = await fetch('/api/mollie/checkout', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ variant: variantKey, method: selected }),
+        body:    JSON.stringify({ variant: variantKey, method: selected, billingType }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Checkout mislukt')
@@ -195,7 +222,67 @@ export function CheckoutClient({ variantKey, variant, methods }: CheckoutClientP
           {/* ── Rechts: betaalmethode kiezer ─────────────────────────── */}
           <div className="lg:col-span-3 space-y-5">
 
-            <h2 className="text-base font-semibold">Kies een betaalmethode</h2>
+            {/* Billing type toggle: abonnement vs eenmalig */}
+            <div>
+              <h2 className="text-base font-semibold mb-3">Hoe wil je betalen?</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBillingType('subscription')}
+                  className={cn(
+                    'rounded-xl border p-4 text-left transition-all',
+                    billingType === 'subscription'
+                      ? 'border-primary bg-primary/5 shadow-sm shadow-primary/20'
+                      : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn(
+                      'h-4 w-4 rounded-full border-2 flex items-center justify-center',
+                      billingType === 'subscription' ? 'border-primary' : 'border-muted-foreground/40'
+                    )}>
+                      {billingType === 'subscription' && <span className="h-2 w-2 rounded-full bg-primary" />}
+                    </span>
+                    <span className="text-sm font-semibold">Abonnement</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    Wordt automatisch verlengd. Op elk moment opzegbaar via je account.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingType('oneoff')}
+                  className={cn(
+                    'rounded-xl border p-4 text-left transition-all',
+                    billingType === 'oneoff'
+                      ? 'border-primary bg-primary/5 shadow-sm shadow-primary/20'
+                      : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn(
+                      'h-4 w-4 rounded-full border-2 flex items-center justify-center',
+                      billingType === 'oneoff' ? 'border-primary' : 'border-muted-foreground/40'
+                    )}>
+                      {billingType === 'oneoff' && <span className="h-2 w-2 rounded-full bg-primary" />}
+                    </span>
+                    <span className="text-sm font-semibold">Eenmalig</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    Eén keer betalen, plan loopt vanzelf af. Geen automatische incasso.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-base font-semibold">Kies een betaalmethode</h2>
+              {billingType === 'subscription' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Abonnementen lopen via creditcard zodat we automatisch kunnen incasseren.
+                </p>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {displayMethods.map((method) => {

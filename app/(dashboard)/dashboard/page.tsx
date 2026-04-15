@@ -5,10 +5,16 @@ import { redirect } from 'next/navigation'
 import { ShowsOverview } from '@/components/dashboard/ShowsOverview'
 import { DashboardGuide } from '@/components/dashboard/DashboardGuide'
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
+import { PaymentSuccessBanner } from '@/components/dashboard/PaymentSuccessBanner'
 
 export const metadata: Metadata = { title: 'Dashboard – CueBoard' }
 
-export default async function DashboardPage() {
+interface DashboardProps {
+  searchParams: Promise<{ payment?: string; plan?: string; interval?: string }>
+}
+
+export default async function DashboardPage({ searchParams }: DashboardProps) {
+  const { payment, plan: paidPlan, interval: paidInterval } = await searchParams
   // Gratis dankzij React.cache() — layout heeft al getCachedUser() aangeroepen
   const user = await getCachedUser()
   if (!user) redirect('/login')
@@ -74,6 +80,9 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {payment === 'success' && (
+        <PaymentSuccessBanner plan={paidPlan ?? null} interval={paidInterval ?? null} />
+      )}
       {showChecklist && (
         <OnboardingChecklist
           hasShows={hasShows}

@@ -130,7 +130,24 @@ export const PLAN_VARIANTS: Record<string, PlanVariant> = {
  * Geen bedragfilter zodat alle ingeschakelde methoden terugkomen (incl. IN3).
  * locale=nl_NL zorgt voor Nederlandse namen.
  */
+/**
+ * Methoden waarvan we weten dat ze recurring kunnen — gebruikt om sequenceType te bepalen.
+ * iDEAL/Bancontact/SEPA → mandaat via SEPA Direct Debit (Mollie account moet SDD aan hebben)
+ * Creditcard/Apple Pay → mandaat via card vault
+ * PayPal → billing agreement (Mollie account moet PayPal recurring aan hebben)
+ */
+export const RECURRING_METHODS = new Set([
+  'ideal', 'bancontact', 'directdebit', 'creditcard', 'applepay', 'paypal',
+])
+
+export function isRecurringMethod(method: string | undefined): boolean {
+  return !!method && RECURRING_METHODS.has(method)
+}
+
 export async function getAvailableMethods(): Promise<MollieMethod[]> {
+  // 'oneoff' geeft de volledige lijst terug — alle methoden waar het Mollie-account
+  // mee kan ontvangen. We bepalen pas bij checkout per methode of er een subscription
+  // bij komt (sequenceType='first') of niet (oneoff). Zo missen we niks in de UI.
   const params = new URLSearchParams({
     sequenceType: 'oneoff',
     locale:       'nl_NL',
@@ -148,21 +165,25 @@ export async function createCustomer(name: string, email: string): Promise<Molli
 }
 
 /**
- * Maak een betaling aan voor planactivatie.
- * Gebruikt sequenceType 'oneoff' zodat alle betaalmethoden werken (iDEAL, creditcard, etc.).
+ * Maak de eerste betaling aan voor planactivatie.
+ * sequenceType:
+ *  - 'first'  → Mollie slaat een mandaat op, daarna kan createSubscription() incasseren
+ *  - 'oneoff' → eenmalige betaling zonder mandaat, geen automatische verlenging
+ * Wordt bepaald in de checkout-route op basis van de gekozen methode.
  */
 export async function createFirstPayment(opts: {
-  customerId:  string
-  variant:     PlanVariant
-  redirectUrl: string
-  webhookUrl:  string
-  userId:      string
-  method?:     string   // bijv. 'ideal' | 'bancontact' | 'applepay' | 'in3' | 'directdebit' | 'creditcard'
+  customerId:   string
+  variant:      PlanVariant
+  redirectUrl:  string
+  webhookUrl:   string
+  userId:       string
+  method?:      string
+  sequenceType: 'first' | 'oneoff'
 }): Promise<MolliePayment> {
   const body: Record<string, unknown> = {
     amount:       { currency: 'EUR', value: opts.variant.amount },
     customerId:   opts.customerId,
-    sequenceType: 'oneoff',
+    sequenceType: opts.sequenceType,
     description:  opts.variant.description,
     redirectUrl:  opts.redirectUrl,
     webhookUrl:   opts.webhookUrl,

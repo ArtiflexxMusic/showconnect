@@ -242,7 +242,7 @@ export function buildPaymentRequestEmail(opts: {
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
       Heb je vragen? Stuur een mail naar
-      <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>.
+      <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>.
     </p>
   `
 
@@ -279,7 +279,7 @@ export function buildTrialWelcomeEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>
     </p>
   `
 
@@ -319,7 +319,7 @@ export function buildPlanExpiredEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>
     </p>
   `
 
@@ -367,7 +367,7 @@ export function buildTrialExpiringEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>
     </p>
   `
 
@@ -418,7 +418,7 @@ export function buildTrialExpiring3DayEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>
     </p>
   `
 
@@ -458,7 +458,7 @@ export function buildInviteEmail(opts: {
     </a>
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>
     </p>
   `
 
@@ -497,12 +497,133 @@ export function buildAdminDirectEmail(opts: {
     <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
     <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
       Dit bericht is verstuurd door het CueBoard-team.
-      Vragen? <a href="mailto:info@cueboard.nl" style="color:#22c55e;text-decoration:none;">info@cueboard.nl</a>
+      Vragen? <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>
     </p>
   `
 
   return {
     subject: opts.subject,
+    html:    emailBase(content),
+  }
+}
+
+/**
+ * Mail: betaling geslaagd — bevestiging na succesvolle Mollie payment
+ * Voor zowel eerste betalingen (na admin-conversie of /upgrade) als activeringen.
+ */
+export function buildPaymentConfirmedEmail(opts: {
+  name: string | null
+  plan: 'pro' | 'team'
+  interval: 'monthly' | 'yearly'
+  amount: string         // bv. "9.99"
+  currency: string       // bv. "EUR"
+  expiresAt: string      // ISO datum
+  paymentId: string
+}) {
+  const displayName = opts.name ?? 'daar'
+  const planLabel   = opts.plan === 'pro' ? 'Team' : 'Business'
+  const intervalLabel = opts.interval === 'monthly' ? 'maand' : 'jaar'
+  const amountFormatted = `${opts.currency === 'EUR' ? '€' : opts.currency + ' '}${opts.amount.replace('.', ',')}`
+  const expiryDate  = new Date(opts.expiresAt).toLocaleDateString('nl-NL', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const billingUrl  = `${BASE_URL}/billing`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Betaling ontvangen — bedankt! 🎉
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#ccc;line-height:1.7;">
+      We hebben je betaling van <strong style="color:#fff;">${amountFormatted}</strong> ontvangen.
+      Je <strong style="color:#fff;">${planLabel}</strong>-plan is direct geactiveerd en loopt tot
+      <strong style="color:#fff;">${expiryDate}</strong>.
+    </p>
+    <div style="margin:24px 0;padding:16px 20px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:10px;">
+      <p style="margin:0 0 6px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.08em;">Overzicht</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;color:#ccc;line-height:1.8;">
+        <tr><td style="color:#888;">Plan</td><td style="text-align:right;color:#fff;font-weight:600;">${planLabel}</td></tr>
+        <tr><td style="color:#888;">Periode</td><td style="text-align:right;">per ${intervalLabel}</td></tr>
+        <tr><td style="color:#888;">Bedrag</td><td style="text-align:right;color:#fff;font-weight:600;">${amountFormatted}</td></tr>
+        <tr><td style="color:#888;">Geldig tot</td><td style="text-align:right;">${expiryDate}</td></tr>
+        <tr><td style="color:#888;">Referentie</td><td style="text-align:right;font-family:monospace;font-size:12px;color:#666;">${opts.paymentId}</td></tr>
+      </table>
+    </div>
+    <p style="margin:0 0 8px;font-size:15px;color:#ccc;line-height:1.7;">
+      Je kunt je abonnement op elk moment beheren via je accountinstellingen:
+    </p>
+    <a href="${billingUrl}" style="${btnStyle}">
+      Naar mijn abonnement →
+    </a>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Vragen over je betaling of factuur? Stuur een mail naar
+      <a href="mailto:info@artiflexx.nl" style="color:#22c55e;text-decoration:none;">info@artiflexx.nl</a>.
+    </p>
+  `
+
+  return {
+    subject: `Bedankt voor je betaling — ${planLabel}-plan geactiveerd`,
+    html:    emailBase(content),
+  }
+}
+
+/**
+ * Mail: terugkerende betaling geslaagd — verlengingsbevestiging
+ */
+export function buildPaymentRenewedEmail(opts: {
+  name: string | null
+  plan: 'pro' | 'team'
+  interval: 'monthly' | 'yearly'
+  amount: string
+  currency: string
+  expiresAt: string
+  paymentId: string
+}) {
+  const displayName = opts.name ?? 'daar'
+  const planLabel   = opts.plan === 'pro' ? 'Team' : 'Business'
+  const intervalLabel = opts.interval === 'monthly' ? 'maand' : 'jaar'
+  const amountFormatted = `${opts.currency === 'EUR' ? '€' : opts.currency + ' '}${opts.amount.replace('.', ',')}`
+  const expiryDate  = new Date(opts.expiresAt).toLocaleDateString('nl-NL', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const billingUrl  = `${BASE_URL}/billing`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">
+      Je abonnement is verlengd
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">
+      Hoi ${displayName},
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#ccc;line-height:1.7;">
+      We hebben de terugkerende betaling voor je <strong style="color:#fff;">${planLabel}</strong>-plan
+      ontvangen. Je toegang loopt nu door tot <strong style="color:#fff;">${expiryDate}</strong>.
+    </p>
+    <div style="margin:24px 0;padding:16px 20px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:10px;">
+      <p style="margin:0 0 6px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.08em;">Overzicht</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;color:#ccc;line-height:1.8;">
+        <tr><td style="color:#888;">Plan</td><td style="text-align:right;color:#fff;font-weight:600;">${planLabel}</td></tr>
+        <tr><td style="color:#888;">Periode</td><td style="text-align:right;">per ${intervalLabel}</td></tr>
+        <tr><td style="color:#888;">Bedrag</td><td style="text-align:right;color:#fff;font-weight:600;">${amountFormatted}</td></tr>
+        <tr><td style="color:#888;">Geldig tot</td><td style="text-align:right;">${expiryDate}</td></tr>
+        <tr><td style="color:#888;">Referentie</td><td style="text-align:right;font-family:monospace;font-size:12px;color:#666;">${opts.paymentId}</td></tr>
+      </table>
+    </div>
+    <a href="${billingUrl}" style="${btnStyle}">
+      Naar mijn abonnement →
+    </a>
+    <hr style="margin:32px 0;border:none;border-top:1px solid #222;" />
+    <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+      Wil je opzeggen of je abonnement aanpassen? Dat kan altijd via
+      <a href="${billingUrl}" style="color:#22c55e;text-decoration:none;">je accountinstellingen</a>.
+    </p>
+  `
+
+  return {
+    subject: `Je CueBoard ${planLabel}-plan is verlengd`,
     html:    emailBase(content),
   }
 }

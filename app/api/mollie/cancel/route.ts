@@ -32,39 +32,30 @@ export async function POST(request: NextRequest) {
 
     if (!profile) return NextResponse.json({ error: 'Profiel niet gevonden' }, { status: 404 })
 
-    if (profile.mollie_subscription_id && profile.mollie_customer_id) {
-      // ── Mollie-abonnement opzeggen ──────────────────────────────────────
-      // Plan blijft actief tot einde betaalperiode
-      await cancelSubscription(profile.mollie_customer_id, profile.mollie_subscription_id)
-
-      await supabase
-        .from('profiles')
-        .update({ mollie_subscription_id: null })
-        .eq('id', user.id)
-
-      return NextResponse.json({
-        ok:      true,
-        mode:    'subscription_cancelled',
-        expires_at: profile.plan_expires_at,
-      })
-    } else {
-      // ── Eenmalige betaling: plan direct terugzetten naar free ───────────
-      await supabase
-        .from('profiles')
-        .update({
-          plan:                  'free',
-          plan_source:           'free',
-          plan_interval:         null,
-          plan_expires_at:       null,
-          mollie_subscription_id: null,
-        })
-        .eq('id', user.id)
-
-      return NextResponse.json({
-        ok:   true,
-        mode: 'downgraded_to_free',
-      })
+    if (!profile.mollie_subscription_id || !profile.mollie_customer_id) {
+      // Geen Mollie-abonnement → er valt niks op te zeggen.
+      // Eenmalige betalingen lopen vanzelf af op plan_expires_at — daarvoor het plan
+      // hard resetten zou betaalde tijd weggooien.
+      return NextResponse.json(
+        { error: 'Geen actief abonnement om op te zeggen. Je plan loopt vanzelf af op de vervaldatum.' },
+        { status: 400 }
+      )
     }
+
+    // ── Mollie-abonnement opzeggen ──────────────────────────────────────
+    // Plan blijft actief tot einde betaalperiode
+    await cancelSubscription(profile.mollie_customer_id, profile.mollie_subscription_id)
+
+    await supabase
+      .from('profiles')
+      .update({ mollie_subscription_id: null })
+      .eq('id', user.id)
+
+    return NextResponse.json({
+      ok:         true,
+      mode:       'subscription_cancelled',
+      expires_at: profile.plan_expires_at,
+    })
   } catch (err: unknown) {
     console.error('[mollie/cancel]', err)
     const message = err instanceof Error ? err.message : 'Annulering mislukt'

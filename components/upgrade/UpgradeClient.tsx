@@ -234,7 +234,9 @@ export function UpgradeClient({
             const isCurrent     = plan.key === currentPlan && isActivePlan
             const isCurrentFree = plan.key === 'free' && !isActivePlan
             const isUpgrade     = PLAN_ORDER[plan.key] > PLAN_ORDER[currentPlan]
-            const isDowngrade   = PLAN_ORDER[plan.key] < PLAN_ORDER[currentPlan] && isActivePaid  // alleen bij betaald, niet cadeau
+            // Downgrade-knop alleen tonen bij actief abonnement — anders verliest de user
+            // betaalde tijd (oneoff plannen lopen vanzelf af op plan_expires_at)
+            const isDowngrade   = PLAN_ORDER[plan.key] < PLAN_ORDER[currentPlan] && isActivePaid && hasSubscription
 
             const chosen = plan.key !== 'free'
               ? billingInterval === 'monthly' ? plan.monthly! : plan.yearly!
@@ -302,9 +304,7 @@ export function UpgradeClient({
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {billingInterval === 'yearly'
-                          ? 'Eenmalig gefactureerd'
-                          : 'Maandelijks gefactureerd'}
+                        {billingInterval === 'yearly' ? 'Per jaar' : 'Per maand'}
                       </p>
                     </>
                   )}
@@ -358,17 +358,16 @@ export function UpgradeClient({
           <p className="text-sm text-destructive text-center">{error}</p>
         )}
 
-        {/* Plan opzeggen sectie (alleen bij betaald — niet bij cadeau) */}
-        {isActivePaid && (
+        {/* Plan opzeggen sectie — alleen bij actief Mollie-abonnement.
+            Voor eenmalige betalingen is er niks om op te zeggen: plan loopt vanzelf af. */}
+        {isActivePaid && hasSubscription && (
           <div className="rounded-xl border border-border/50 p-4 sm:p-5 space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Abonnement beheren
             </h3>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-sm text-muted-foreground">
-                {hasSubscription
-                  ? 'Je abonnement wordt automatisch verlengd. Je kunt op elk moment opzeggen.'
-                  : 'Je plan is eenmalig betaald en wordt niet automatisch verlengd.'}
+                Je abonnement wordt automatisch verlengd. Je kunt op elk moment opzeggen — je toegang blijft behouden tot het einde van de betaalperiode.
               </p>
               <Button
                 variant="outline"
@@ -382,6 +381,18 @@ export function UpgradeClient({
                   : 'Plan opzeggen'}
               </Button>
             </div>
+          </div>
+        )}
+
+        {isActivePaid && !hasSubscription && planExpiresAt && (
+          <div className="rounded-xl border border-border/50 bg-muted/20 p-4 sm:p-5">
+            <p className="text-sm text-muted-foreground">
+              Je plan is eenmalig betaald en loopt automatisch af op{' '}
+              <span className="text-foreground font-medium">
+                {new Date(planExpiresAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+              . Je hoeft niets te doen — er worden geen automatische incasso&apos;s gedaan. Wil je doorgaan? Verleng dan handmatig hierboven.
+            </p>
           </div>
         )}
 

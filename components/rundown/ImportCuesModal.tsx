@@ -216,7 +216,11 @@ async function parseXLSXWorkbook(buffer: ArrayBuffer): Promise<{
   const find = (...names: string[]) =>
     wb.SheetNames.find(s => names.some(n => s.toLowerCase() === n.toLowerCase()))
 
-  const cuesName = find('Cues', 'Rundown') ?? wb.SheetNames[0]
+  // Skip instructie-sheets in de fallback zodat Uitleg/README niet per ongeluk als cues wordt geparsed
+  const SKIP_SHEETS = new Set(['uitleg', 'instructies', 'instructions', 'readme', 'help', 'legenda'])
+  const firstDataSheet = wb.SheetNames.find(s => !SKIP_SHEETS.has(s.toLowerCase())) ?? wb.SheetNames[0]
+
+  const cuesName = find('Cues', 'Rundown') ?? firstDataSheet
   const cues = XLSX.utils.sheet_to_json(wb.Sheets[cuesName], { defval: '' }) as ParsedRow[]
 
   const devName = find('Devices', 'Microfoons', 'Mic devices')
@@ -296,10 +300,53 @@ function deriveMicPatch(
   return { devices, assignments }
 }
 
-// Genereert een lege sjabloon met 3 sheets (Cues, Devices, Mic Patch)
+// Genereert een sjabloon met 4 sheets (Uitleg + Cues + Devices + Mic Patch)
 async function downloadSjabloonXlsx() {
   const XLSX = await loadXLSX()
   const wb = XLSX.utils.book_new()
+
+  // ── Tab 1: Uitleg ─────────────────────────────────────────────────────
+  const uitlegWs = XLSX.utils.aoa_to_sheet([
+    ['CueBoard — Import sjabloon'],
+    [],
+    ['Vul de drie tabbladen hieronder in en upload dit bestand terug in CueBoard.'],
+    ['Alle tabbladen moeten in dit bestand blijven staan. Hoofdletters maken niet uit.'],
+    [],
+    ['─── Tab "Cues" — het programma van je show ───'],
+    ['Kolom',          'Verplicht', 'Toegestane waarden / formaat'],
+    ['#',              'Ja',        'Volgnummer (1, 2, 3, ...) — gebruikt om te koppelen in Mic Patch'],
+    ['Titel',          'Ja',        'Korte naam van de cue, bv "Opening", "Keynote"'],
+    ['Type',           'Aanbevolen','Een van: intro, video, audio, lighting, speech, break, outro, presentation, custom'],
+    ['Extra types',    'Optioneel', 'Extra types als tags, komma-gescheiden (bv "audio, lighting")'],
+    ['Duur',           'Aanbevolen','Formaat M:SS of H:MM:SS (bv "5:00" = 5 min, "1:30:00" = 1u30)'],
+    ['Spreker',        'Optioneel', 'Naam van de spreker/presentator'],
+    ['Locatie',        'Optioneel', 'Podium of zaal'],
+    ['Notities',       'Optioneel', 'Algemene info voor crew'],
+    ['Tech notities',  'Optioneel', 'Interne technische aantekeningen'],
+    [],
+    ['─── Tab "Devices" — de microfoons/audio-kanalen ───'],
+    ['Kolom',    'Verplicht', 'Toegestane waarden / formaat'],
+    ['Kanaal',   'Optioneel', 'Nummer van het audio-kanaal (1, 2, 3, ...)'],
+    ['Naam',     'Ja',        'Unieke naam, bv "Handheld 1", "Headset Jan" — exact deze naam in Mic Patch'],
+    ['Type',     'Ja',        'Een van: handheld, headset, lapel (= lavalier), table (= tafelmic), iem (= in-ear monitor)'],
+    ['Kleur',    'Optioneel', 'Hex-code voor het label, bv "#ef4444" (rood), "#3b82f6" (blauw)'],
+    ['Notities', 'Optioneel', 'Vrije tekst, bv "Reserve", "Voor bewegende spreker"'],
+    [],
+    ['─── Tab "Mic Patch" — welke device per cue ───'],
+    ['Kolom',   'Verplicht', 'Toegestane waarden / formaat'],
+    ['Cue #',   'Ja',        'Het volgnummer uit de Cues-tab (1 = eerste cue, etc.)'],
+    ['Device',  'Ja',        'Exacte naam uit de Devices-tab (bv "Handheld 1")'],
+    ['Persoon', 'Optioneel', 'Wie gebruikt de device in deze cue (bv "Jan de Vries")'],
+    ['Fase',    'Aanbevolen','Een van: vooraf (= before), tijdens (= during), na afloop (= after). Leeg = tijdens.'],
+    [],
+    ['Tip: je kan één device bij meerdere cues inplannen door meerdere rijen in Mic Patch aan te maken.'],
+    ['Tip: rijen zonder geldige Cue # of bestaande Device-naam worden stil overgeslagen.'],
+  ])
+  // Kolombreedtes
+  ;(uitlegWs as unknown as { ['!cols']: Array<{ wch: number }> })['!cols'] = [
+    { wch: 18 }, { wch: 12 }, { wch: 90 },
+  ]
+  XLSX.utils.book_append_sheet(wb, uitlegWs, 'Uitleg')
 
   const cuesWs = XLSX.utils.aoa_to_sheet([
     ['#', 'Titel', 'Type', 'Extra types', 'Duur', 'Spreker', 'Locatie', 'Notities', 'Tech notities'],

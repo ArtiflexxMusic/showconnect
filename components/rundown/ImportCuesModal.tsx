@@ -260,37 +260,79 @@ function deriveMicPatch(
   patchRows: ParsedRow[] | null,
   cueCount: number,
 ): ImportMicPatch | null {
-  if (!devRows || !patchRows || devRows.length === 0 || patchRows.length === 0) return null
+  if (!patchRows || patchRows.length === 0) return null
 
-  const devices: ImportAudioDevice[] = devRows.map(r => {
-    const name = getField(r, 'naam', 'name', 'device')
-    const rawType = getField(r, 'type', 'soort').toLowerCase()
-    const type: ImportAudioDeviceType = DEVICE_TYPE_MAP[rawType] ?? 'handheld'
-    const rawCh = getField(r, 'kanaal', 'channel', 'ch')
-    const channel = rawCh ? parseInt(rawCh, 10) : null
-    const color = getField(r, 'kleur', 'color') || '#64748b'
-    const notes = getField(r, 'notities', 'notes', 'opmerking') || null
-    return { name, type, channel: isNaN(channel!) ? null : channel, color, notes }
-  }).filter(d => d.name)
+  // Mic-patch tab bevat ÀLLE device-info inline. Unieke (naam, type, kanaal)
+  // combinaties → één device. Zo hoeft de gebruiker geen aparte Devices-tab
+  // in te vullen. Oude 3-tab sjablonen met een aparte Devices-tab blijven
+  // werken: als die bestaat, voegen we die devices vooraf toe zodat matches
+  // daarop kloppen.
+  const devices: ImportAudioDevice[] = []
+  const deviceIndexByKey = new Map<string, number>()
 
-  const deviceIndexByName = new Map<string, number>()
-  devices.forEach((d, i) => deviceIndexByName.set(d.name.toLowerCase(), i))
+  const keyOf = (name: string, type: ImportAudioDeviceType, channel: number | null) =>
+    `${name.toLowerCase()}|${type}|${channel ?? ''}`
+
+  const addDevice = (d: ImportAudioDevice): number => {
+    const key = keyOf(d.name, d.type, d.channel)
+    const existing = deviceIndexByKey.get(key)
+    if (existing !== undefined) return existing
+    devices.push(d)
+    const idx = devices.length - 1
+    deviceIndexByKey.set(key, idx)
+    return idx
+  }
+
+  // Oude Devices-tab (als die bestaat in upload) voor backward-compat
+  if (devRows) {
+    for (const r of devRows) {
+      const name = getField(r, 'naam', 'name', 'device', 'microfoon')
+      if (!name) continue
+      const rawType = getField(r, 'type', 'soort').toLowerCase()
+      const type: ImportAudioDeviceType = DEVICE_TYPE_MAP[rawType] ?? 'handheld'
+      const rawCh = getField(r, 'kanaal', 'channel', 'ch')
+      const chNum = rawCh ? parseInt(rawCh, 10) : NaN
+      const channel = isNaN(chNum) ? null : chNum
+      addDevice({
+        name,
+        type,
+        channel,
+        color: getField(r, 'kleur', 'color') || '#64748b',
+        notes: getField(r, 'notities', 'notes', 'opmerking') || null,
+      })
+    }
+  }
 
   const assignments: ImportAudioAssignment[] = []
   for (const r of patchRows) {
     const rawCue = getField(r, 'cue #', 'cue#', 'cue', 'nummer', '#')
-    const devName = getField(r, 'device', 'microfoon', 'mic', 'naam')
-    if (!rawCue || !devName) continue
+    const name   = getField(r, 'microfoon', 'device', 'mic', 'naam')
+    if (!rawCue || !name) continue
     const cueNum = parseInt(String(rawCue).replace(/[^\d]/g, ''), 10)
     if (isNaN(cueNum) || cueNum < 1 || cueNum > cueCount) continue
-    const di = deviceIndexByName.get(devName.toLowerCase())
-    if (di === undefined) continue
+
+    const rawType = getField(r, 'type', 'soort').toLowerCase()
+    const type: ImportAudioDeviceType = DEVICE_TYPE_MAP[rawType] ?? 'handheld'
+    const rawCh = getField(r, 'kanaal', 'channel', 'ch')
+    const chNum = rawCh ? parseInt(rawCh, 10) : NaN
+    const channel = isNaN(chNum) ? null : chNum
+
+    // Match eerst op naam alleen (oude sjabloon, Devices-tab case), dan op volle key
+    let deviceIndex = -1
+    for (const [key, idx] of deviceIndexByKey.entries()) {
+      if (key.startsWith(name.toLowerCase() + '|')) { deviceIndex = idx; break }
+    }
+    if (deviceIndex === -1) {
+      deviceIndex = addDevice({ name, type, channel, color: '#64748b', notes: null })
+    }
+
     const rawPhase = getField(r, 'fase', 'phase').toLowerCase()
     const phase: ImportAudioPhase = PHASE_MAP[rawPhase] ?? 'during'
     const person_name = getField(r, 'persoon', 'person', 'spreker', 'wie') || null
+
     assignments.push({
       cue_index:    cueNum - 1,
-      device_index: di,
+      device_index: deviceIndex,
       person_name,
       phase,
     })
@@ -300,85 +342,76 @@ function deriveMicPatch(
   return { devices, assignments }
 }
 
-// Genereert een sjabloon met 4 sheets (Uitleg + Cues + Devices + Mic Patch)
+// Genereert een compact sjabloon: Uitleg + Cues + Mic patch (3 tabs)
 async function downloadSjabloonXlsx() {
   const XLSX = await loadXLSX()
   const wb = XLSX.utils.book_new()
 
-  // ── Tab 1: Uitleg ─────────────────────────────────────────────────────
+  // ── Tab 1: Uitleg (kort en scanbaar) ────────────────────────────────────
   const uitlegWs = XLSX.utils.aoa_to_sheet([
-    ['CueBoard — Import sjabloon'],
+    ['CueBoard — import sjabloon'],
     [],
-    ['Vul de drie tabbladen hieronder in en upload dit bestand terug in CueBoard.'],
-    ['Alle tabbladen moeten in dit bestand blijven staan. Hoofdletters maken niet uit.'],
+    ['Dit bestand heeft 2 tabbladen die je invult:'],
+    ['  1. Cues — het draaiboek (wat gebeurt wanneer)'],
+    ['  2. Mic patch — welke microfoon wordt gebruikt bij welke cue'],
     [],
-    ['─── Tab "Cues" — het programma van je show ───'],
-    ['Kolom',          'Verplicht', 'Toegestane waarden / formaat'],
-    ['#',              'Ja',        'Volgnummer (1, 2, 3, ...) — gebruikt om te koppelen in Mic Patch'],
-    ['Titel',          'Ja',        'Korte naam van de cue, bv "Opening", "Keynote"'],
-    ['Type',           'Aanbevolen','Een van: intro, video, audio, lighting, speech, break, outro, presentation, custom'],
-    ['Extra types',    'Optioneel', 'Extra types als tags, komma-gescheiden (bv "audio, lighting")'],
-    ['Duur',           'Aanbevolen','Formaat M:SS of H:MM:SS (bv "5:00" = 5 min, "1:30:00" = 1u30)'],
-    ['Spreker',        'Optioneel', 'Naam van de spreker/presentator'],
-    ['Locatie',        'Optioneel', 'Podium of zaal'],
-    ['Notities',       'Optioneel', 'Algemene info voor crew'],
-    ['Tech notities',  'Optioneel', 'Interne technische aantekeningen'],
+    ['Upload daarna dit bestand terug in CueBoard → "Cues importeren".'],
     [],
-    ['─── Tab "Devices" — de microfoons/audio-kanalen ───'],
-    ['Kolom',    'Verplicht', 'Toegestane waarden / formaat'],
-    ['Kanaal',   'Optioneel', 'Nummer van het audio-kanaal (1, 2, 3, ...)'],
-    ['Naam',     'Ja',        'Unieke naam, bv "Handheld 1", "Headset Jan" — exact deze naam in Mic Patch'],
-    ['Type',     'Ja',        'Een van: handheld, headset, lapel (= lavalier), table (= tafelmic), iem (= in-ear monitor)'],
-    ['Kleur',    'Optioneel', 'Hex-code voor het label, bv "#ef4444" (rood), "#3b82f6" (blauw)'],
-    ['Notities', 'Optioneel', 'Vrije tekst, bv "Reserve", "Voor bewegende spreker"'],
     [],
-    ['─── Tab "Mic Patch" — welke device per cue ───'],
-    ['Kolom',   'Verplicht', 'Toegestane waarden / formaat'],
-    ['Cue #',   'Ja',        'Het volgnummer uit de Cues-tab (1 = eerste cue, etc.)'],
-    ['Device',  'Ja',        'Exacte naam uit de Devices-tab (bv "Handheld 1")'],
-    ['Persoon', 'Optioneel', 'Wie gebruikt de device in deze cue (bv "Jan de Vries")'],
-    ['Fase',    'Aanbevolen','Een van: vooraf (= before), tijdens (= during), na afloop (= after). Leeg = tijdens.'],
+    ['TAB "Cues"'],
+    ['Kolom',    'Wat invullen'],
+    ['#',        'Volgnummer — 1, 2, 3, ... (verbindt met de Mic patch tab)'],
+    ['Titel',    'Korte naam, bv "Opening", "Keynote Jan", "Pauze"'],
+    ['Type',     'intro · speech · break · outro · custom (laat leeg = custom)'],
+    ['Duur',     'M:SS, bv "5:00" = 5 min, "1:30:00" = 1 uur 30'],
+    ['Spreker',  'Naam van de spreker (optioneel)'],
+    ['Notities', 'Vrije tekst voor de crew (optioneel)'],
     [],
-    ['Tip: je kan één device bij meerdere cues inplannen door meerdere rijen in Mic Patch aan te maken.'],
-    ['Tip: rijen zonder geldige Cue # of bestaande Device-naam worden stil overgeslagen.'],
+    [],
+    ['TAB "Mic patch"'],
+    ['Kolom',     'Wat invullen'],
+    ['Cue #',     'Het nummer uit de Cues-tab waarin de microfoon wordt gebruikt'],
+    ['Microfoon', 'Vrije naam, bv "Mic 1", "Headset Jan" — zelfde naam = zelfde microfoon'],
+    ['Type',      'handheld · headset · lavalier · tafelmic · in-ear (laat leeg = handheld)'],
+    ['Kanaal',    'Audio-kanaal nummer (optioneel)'],
+    ['Persoon',   'Wie gebruikt de microfoon in deze cue (optioneel)'],
+    [],
+    ['Tip: één microfoon bij meerdere cues? Meerdere rijen, zelfde naam.'],
+    ['Tip: rijen met een Cue # dat niet bestaat worden overgeslagen.'],
   ])
-  // Kolombreedtes
   ;(uitlegWs as unknown as { ['!cols']: Array<{ wch: number }> })['!cols'] = [
-    { wch: 18 }, { wch: 12 }, { wch: 90 },
+    { wch: 14 }, { wch: 72 },
   ]
   XLSX.utils.book_append_sheet(wb, uitlegWs, 'Uitleg')
 
+  // ── Tab 2: Cues ─────────────────────────────────────────────────────────
   const cuesWs = XLSX.utils.aoa_to_sheet([
-    ['#', 'Titel', 'Type', 'Extra types', 'Duur', 'Spreker', 'Locatie', 'Notities', 'Tech notities'],
-    [1, 'Ontvangst',          'custom', '',             '30:00', '',              'Entree',     'Gasten welkom heten',        'Muziek in foyer'],
-    [2, 'Opening',             'intro',  'speech',       '5:00',  'Dagvoorzitter', 'Podium',     'Welkomstwoord',              'Microfoon aan, intro-dia'],
-    [3, 'Keynote spreker',     'speech', 'presentation', '30:00', 'Jan de Vries',  'Podium',     'Keynote over strategie',     'Clicker gereed, slides geladen'],
-    [4, 'Panel discussie',     'speech', '',             '20:00', 'Panel',         'Podium',     '4 panelleden',               'Handheld mics klaar'],
-    [5, 'Pauze',               'break',  '',             '15:00', '',              'Foyer',      'Koffie & thee',              'Muziek aan'],
-    [6, 'Workshop',            'custom', '',             '45:00', '',              'Zaal 2',     'Interactieve sessie',        ''],
-    [7, 'Afsluiting',          'outro',  'speech',       '5:00',  'Dagvoorzitter', 'Podium',     'Bedankt voor uw aanwezigheid', 'Slot-dia'],
+    ['#', 'Titel',          'Type',    'Duur',  'Spreker',       'Notities'],
+    [1,   'Ontvangst',       'custom',  '30:00', '',              'Gasten welkom'],
+    [2,   'Opening',         'intro',   '5:00',  'Dagvoorzitter', 'Welkomstwoord'],
+    [3,   'Keynote',         'speech',  '30:00', 'Jan de Vries',  'Over strategie'],
+    [4,   'Paneldiscussie',  'speech',  '20:00', '',              '4 panelleden'],
+    [5,   'Pauze',           'break',   '15:00', '',              'Koffie & thee'],
+    [6,   'Afsluiting',      'outro',   '5:00',  'Dagvoorzitter', 'Bedankt'],
   ])
+  ;(cuesWs as unknown as { ['!cols']: Array<{ wch: number }> })['!cols'] = [
+    { wch: 4 }, { wch: 26 }, { wch: 10 }, { wch: 8 }, { wch: 20 }, { wch: 28 },
+  ]
   XLSX.utils.book_append_sheet(wb, cuesWs, 'Cues')
 
-  const devWs = XLSX.utils.aoa_to_sheet([
-    ['Kanaal', 'Naam',            'Type',     'Kleur',   'Notities'],
-    [1,        'Handheld Voorzit', 'handheld', '#ef4444', 'Dagvoorzitter'],
-    [2,        'Headset Jan',      'headset',  '#3b82f6', 'Reserve dag 2'],
-    [3,        'Handheld Panel 1', 'handheld', '#f97316', ''],
-    [4,        'Handheld Panel 2', 'handheld', '#f97316', ''],
-    [5,        'Lavalier Keynote', 'lapel',    '#22c55e', 'Voor bewegende spreker'],
-  ])
-  XLSX.utils.book_append_sheet(wb, devWs, 'Devices')
-
+  // ── Tab 3: Mic patch (alles in één tab) ────────────────────────────────
   const patchWs = XLSX.utils.aoa_to_sheet([
-    ['Cue #', 'Device',            'Persoon',        'Fase'],
-    [2,        'Handheld Voorzit',  'Dagvoorzitter',  'during'],
-    [3,        'Lavalier Keynote',  'Jan de Vries',   'during'],
-    [4,        'Handheld Panel 1',  'Panellid 1',     'during'],
-    [4,        'Handheld Panel 2',  'Panellid 2',     'during'],
-    [7,        'Handheld Voorzit',  'Dagvoorzitter',  'during'],
+    ['Cue #', 'Microfoon',   'Type',     'Kanaal', 'Persoon'],
+    [2,        'Mic 1',       'handheld', 1,        'Dagvoorzitter'],
+    [3,        'Headset Jan', 'headset',  2,        'Jan de Vries'],
+    [4,        'Mic Panel 1', 'handheld', 3,        'Panellid 1'],
+    [4,        'Mic Panel 2', 'handheld', 4,        'Panellid 2'],
+    [6,        'Mic 1',       'handheld', 1,        'Dagvoorzitter'],
   ])
-  XLSX.utils.book_append_sheet(wb, patchWs, 'Mic Patch')
+  ;(patchWs as unknown as { ['!cols']: Array<{ wch: number }> })['!cols'] = [
+    { wch: 8 }, { wch: 20 }, { wch: 12 }, { wch: 8 }, { wch: 20 },
+  ]
+  XLSX.utils.book_append_sheet(wb, patchWs, 'Mic patch')
 
   XLSX.writeFile(wb, 'cueboard-sjabloon.xlsx')
 }
@@ -770,7 +803,7 @@ export function ImportCuesModal({ onClose, onImport }: ImportCuesModalProps) {
                 </button>
               </p>
               <p className="text-[11px] text-muted-foreground/60">
-                Bevat 3 tabs: <strong>Cues</strong>, <strong>Devices</strong> en <strong>Mic Patch</strong> — vul ze allemaal in en je show staat inclusief audio-patch in één upload klaar.
+                Bevat 2 tabbladen om in te vullen: <strong>Cues</strong> (het draaiboek) en <strong>Mic patch</strong> (welke microfoon per cue). Tab <strong>Uitleg</strong> legt per kolom uit wat je invult.
               </p>
             </div>
           )}

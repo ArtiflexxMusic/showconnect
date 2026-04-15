@@ -366,7 +366,9 @@ async function downloadSjabloonXlsx() {
     ['Extra types',  'Extra types naast het hoofdtype, komma-gescheiden. Bv "audio, lighting" (optioneel)'],
     ['Duur',         'M:SS, bv "5:00" = 5 min, "1:30:00" = 1 uur 30'],
     ['Spreker',      'Naam van de spreker (optioneel)'],
+    ['Locatie',      'Podium, zaal of ruimte (optioneel)'],
     ['Notities',     'Vrije tekst voor de crew (optioneel)'],
+    ['Tech notities','Technische aantekeningen voor techniek (optioneel)'],
     [],
     [],
     ['TAB "Mic patch"'],
@@ -387,16 +389,16 @@ async function downloadSjabloonXlsx() {
 
   // ── Tab 2: Cues ─────────────────────────────────────────────────────────
   const cuesWs = XLSX.utils.aoa_to_sheet([
-    ['#', 'Titel',          'Type',    'Extra types',     'Duur',  'Spreker',       'Notities'],
-    [1,   'Ontvangst',       'custom',  '',                '30:00', '',              'Gasten welkom'],
-    [2,   'Opening',         'intro',   'speech',          '5:00',  'Dagvoorzitter', 'Welkomstwoord'],
-    [3,   'Keynote',         'speech',  'presentation',    '30:00', 'Jan de Vries',  'Over strategie'],
-    [4,   'Paneldiscussie',  'speech',  'audio, lighting', '20:00', '',              '4 panelleden'],
-    [5,   'Pauze',           'break',   '',                '15:00', '',              'Koffie & thee'],
-    [6,   'Afsluiting',      'outro',   'speech',          '5:00',  'Dagvoorzitter', 'Bedankt'],
+    ['#', 'Titel',          'Type',    'Extra types',     'Duur',  'Spreker',       'Locatie',   'Notities',        'Tech notities'],
+    [1,   'Ontvangst',       'custom',  '',                '30:00', '',              'Entree',    'Gasten welkom',   'Muziek aan in foyer'],
+    [2,   'Opening',         'intro',   'speech',          '5:00',  'Dagvoorzitter', 'Podium',    'Welkomstwoord',   'Intro-dia op scherm'],
+    [3,   'Keynote',         'speech',  'presentation',    '30:00', 'Jan de Vries',  'Podium',    'Over strategie',  'Clicker gereed, slides geladen'],
+    [4,   'Paneldiscussie',  'speech',  'audio, lighting', '20:00', '',              'Podium',    '4 panelleden',    'Handheld mics klaar, stoelen opstellen'],
+    [5,   'Pauze',           'break',   '',                '15:00', '',              'Foyer',     'Koffie & thee',   'Muziek aan'],
+    [6,   'Afsluiting',      'outro',   'speech',          '5:00',  'Dagvoorzitter', 'Podium',    'Bedankt',         'Slot-dia'],
   ])
   ;(cuesWs as unknown as { ['!cols']: Array<{ wch: number }> })['!cols'] = [
-    { wch: 4 }, { wch: 26 }, { wch: 10 }, { wch: 22 }, { wch: 8 }, { wch: 20 }, { wch: 28 },
+    { wch: 4 }, { wch: 26 }, { wch: 10 }, { wch: 22 }, { wch: 8 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 32 },
   ]
   XLSX.utils.book_append_sheet(wb, cuesWs, 'Cues')
 

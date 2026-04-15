@@ -18,11 +18,26 @@ export default function CallsheetPrintLayout({ children }: { children: React.Rea
           line-height: 1.5;
         }
         @media print {
+          /* Toon alles dat niet expliciet .no-print is */
           .no-print { display: none !important; }
-          html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* Strip dark-theme kleuren zodat tekst zichtbaar blijft in print */
+          html, body {
+            background: white !important;
+            color: #0a0f0d !important;
+            color-scheme: light !important;
+          }
+          /* Ensure print kleur-preservatie overal */
+          *, *::before, *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* Strip alle position:fixed (Toaster, chat-widget) zodat ze de print niet blokkeren */
+          [style*="position: fixed"], [style*="position:fixed"], .fixed { display: none !important; }
+          /* min-height: 100vh breekt pagination — reset naar auto in print */
+          [style*="min-height: 100vh"], [style*="minHeight: 100vh"] { min-height: auto !important; }
           @page { margin: 12mm 16mm; size: A4 portrait; }
           .page-break { page-break-before: always; }
-          tr { page-break-inside: avoid; }
+          tr, .avoid-break { page-break-inside: avoid; }
         }
       `}</style>
       {children}

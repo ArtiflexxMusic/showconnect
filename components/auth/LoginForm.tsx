@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,8 +11,13 @@ import { AlertCircle, Loader2, LogIn } from 'lucide-react'
 
 type Mode = 'login' | 'signup' | 'reset'
 
+const URL_ERROR_MESSAGES: Record<string, string> = {
+  auth_callback_failed: 'Inloggen via die link is mislukt. Probeer opnieuw of vraag een nieuwe link aan.',
+}
+
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [mode, setMode] = useState<Mode>('login')
@@ -22,6 +27,14 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // Toon fout uit URL (bv. ?error=auth_callback_failed na mislukte magic link)
+  useEffect(() => {
+    const urlError = searchParams.get('error')
+    if (urlError) {
+      setError(URL_ERROR_MESSAGES[urlError] ?? 'Er is iets misgegaan. Probeer opnieuw.')
+    }
+  }, [searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -33,7 +46,12 @@ export function LoginForm() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        router.push('/dashboard')
+        // Honoreer ?redirect=... param (bv. uit invite-flow), maar alleen als het een interne path is
+        const redirectParam = searchParams.get('redirect')
+        const safeRedirect = redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+          ? redirectParam
+          : '/dashboard'
+        router.push(safeRedirect)
         router.refresh()
 
       } else if (mode === 'signup') {

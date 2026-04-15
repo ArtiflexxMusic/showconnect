@@ -36,8 +36,8 @@ export function RegisterForm({ redirectTo, plan }: RegisterFormProps) {
   // Bepaal waar naartoe na e-mailbevestiging:
   // - invite-redirect heeft altijd voorrang
   // - als ?plan= meegegeven: direct naar checkout
-  // - anders: welkomstpagina
-  const afterConfirmPath = redirectTo ?? (plan && PLAN_TO_CHECKOUT[plan]) ?? '/welcome'
+  // - anders: publieke bevestigingspagina (werkt ook als de sessie nog niet gesynced is)
+  const afterConfirmPath = redirectTo ?? (plan && PLAN_TO_CHECKOUT[plan]) ?? '/email-confirmed'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

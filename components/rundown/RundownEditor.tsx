@@ -1493,7 +1493,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                 Views
               </Button>
               {showViewMenu && (
-                <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[180px]">
+                <div className="absolute right-0 top-full mt-1 z-[60] bg-popover border border-border rounded-md shadow-lg py-1 min-w-[180px]">
                   <a
                     href={`/shows/${show.id}/rundown/${rundown.id}/caller`}
                     target="_blank"
@@ -2156,10 +2156,10 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         />
       </div>
 
-      {/* Sluit menu's bij klik buiten */}
+      {/* Sluit menu's bij klik buiten — z-30 zodat de menus zelf (z-50) altijd bovenop zitten */}
       {(showFilterMenu || showViewMenu || showRundownMenu) && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-30"
           onClick={() => { setShowFilterMenu(false); setShowViewMenu(false); setShowRundownMenu(false) }}
         />
       )}

@@ -784,28 +784,35 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       return
     }
     pushHistory('Alle cues resetten')
-
-    // Optimistische UI-update: alles direct op pending zetten zodat je
-    // visueel meteen ziet dat de reset is doorgevoerd.
-    setCues((prev) => prev.map((c) => ({ ...c, status: 'pending' as const, started_at: null })))
+    setIsSaving(true)
     setElapsed(0)
 
-    // Eén bulk-update ipv N aparte calls — sneller en minder RLS-round-trips
-    const ids = cues.map((c) => c.id)
+    // Bulk update op rundown-niveau — geen afhankelijkheid van lokale cue-array
     const { error } = await supabase
       .from('cues')
       .update({ status: 'pending', started_at: null } as Record<string, unknown>)
-      .in('id', ids)
+      .eq('rundown_id', rundown.id)
 
     if (error) {
-      console.error('Reset cues mislukt:', error)
+      console.error('[resetAllCues] Bulk-update mislukt:', error)
       setSaveError(`Reset mislukt: ${error.message}`)
-      toast.error('Reset mislukt — probeer opnieuw')
-      // Geen harde rollback: Realtime zal de echte DB-state terugsturen
-    } else {
-      toast.success(`${ids.length} cues gereset naar pending`)
+      toast.error(`Reset mislukt: ${error.message}`)
+      setIsSaving(false)
+      return
     }
-  }, [cues, supabase, pushHistory])
+
+    // Force een refetch van de echte DB-state zodat we niet afhankelijk zijn van
+    // Realtime-event-timing (die soms mist of traag is)
+    const { data: fresh } = await supabase
+      .from('cues')
+      .select('*')
+      .eq('rundown_id', rundown.id)
+      .order('position', { ascending: true })
+    if (fresh) setCues(fresh as Cue[])
+
+    toast.success(`${fresh?.length ?? cues.length} cues gereset naar pending`)
+    setIsSaving(false)
+  }, [cues, supabase, rundown.id])
 
   const startCue = useCallback(async (id: string) => {
     const now = new Date().toISOString()

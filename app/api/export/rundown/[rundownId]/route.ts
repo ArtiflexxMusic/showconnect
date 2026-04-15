@@ -74,27 +74,34 @@ export async function GET(
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
-  // Haal alle cues op
-  const { data: cues } = await supabase
+  // Haal alle cues op (cast nodig tot generated types secondary_types kennen)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cues }: { data: Array<{ position: number; title: string; type: string; secondary_types: string[] | null; duration_seconds: number; presenter: string | null; location: string | null; notes: string | null; tech_notes: string | null }> | null } = await (supabase as any)
     .from('cues')
-    .select('position, title, type, duration_seconds, presenter, location, notes, tech_notes')
+    .select('position, title, type, secondary_types, duration_seconds, presenter, location, notes, tech_notes')
     .eq('rundown_id', rundownId)
     .order('position', { ascending: true })
 
   if (!cues) return NextResponse.json({ error: 'Cues niet gevonden' }, { status: 404 })
 
   // Bouw CSV op
-  const headers = ['#', 'Titel', 'Type', 'Duur', 'Spreker / Naam', 'Locatie / Podium', 'Notities', 'Technische notities']
-  const rows = cues.map(cue => [
-    String(cue.position),
-    csvCell(cue.title),
-    csvCell(CUE_TYPE_LABELS[cue.type] ?? cue.type),
-    csvCell(formatDuration(cue.duration_seconds)),
-    csvCell(cue.presenter),
-    csvCell(cue.location),
-    csvCell(cue.notes),
-    csvCell(cue.tech_notes),
-  ])
+  const headers = ['#', 'Titel', 'Type', 'Extra types', 'Duur', 'Spreker / Naam', 'Locatie / Podium', 'Notities', 'Technische notities']
+  const rows = cues.map(cue => {
+    const extra = ((cue as { secondary_types?: string[] }).secondary_types ?? [])
+      .map(t => CUE_TYPE_LABELS[t] ?? t)
+      .join(', ')
+    return [
+      String(cue.position),
+      csvCell(cue.title),
+      csvCell(CUE_TYPE_LABELS[cue.type] ?? cue.type),
+      csvCell(extra),
+      csvCell(formatDuration(cue.duration_seconds)),
+      csvCell(cue.presenter),
+      csvCell(cue.location),
+      csvCell(cue.notes),
+      csvCell(cue.tech_notes),
+    ]
+  })
 
   const totalSeconds = cues.reduce((sum, c) => sum + c.duration_seconds, 0)
 

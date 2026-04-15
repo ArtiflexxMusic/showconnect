@@ -90,10 +90,11 @@ export async function GET(
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
-  // Cues
-  const { data: cues } = await supabase
+  // Cues (cast nodig tot generated types secondary_types kennen)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cues }: { data: Array<{ id: string; position: number; title: string; type: string; secondary_types: string[] | null; duration_seconds: number; presenter: string | null; location: string | null; notes: string | null; tech_notes: string | null }> | null } = await (supabase as any)
     .from('cues')
-    .select('id, position, title, type, duration_seconds, presenter, location, notes, tech_notes')
+    .select('id, position, title, type, secondary_types, duration_seconds, presenter, location, notes, tech_notes')
     .eq('rundown_id', rundownId)
     .order('position', { ascending: true })
 
@@ -141,33 +142,34 @@ export async function GET(
   })
 
   rundownSheet.columns = [
-    { header: '#',                  key: 'position',   width:  5 },
-    { header: 'Titel',              key: 'title',      width: 36 },
-    { header: 'Type',               key: 'type',       width: 14 },
-    { header: 'Duur',               key: 'duration',   width: 10 },
-    { header: 'Starttijd',          key: 'startTime',  width: 11 },
-    { header: 'Spreker / naam',     key: 'presenter',  width: 24 },
-    { header: 'Locatie / podium',   key: 'location',   width: 22 },
-    { header: 'Notities',           key: 'notes',      width: 40 },
-    { header: 'Technische notities', key: 'techNotes', width: 40 },
+    { header: '#',                  key: 'position',     width:  5 },
+    { header: 'Titel',              key: 'title',        width: 36 },
+    { header: 'Type',               key: 'type',         width: 14 },
+    { header: 'Extra types',        key: 'extraTypes',   width: 20 },
+    { header: 'Duur',               key: 'duration',     width: 10 },
+    { header: 'Starttijd',          key: 'startTime',    width: 11 },
+    { header: 'Spreker / naam',     key: 'presenter',    width: 24 },
+    { header: 'Locatie / podium',   key: 'location',     width: 22 },
+    { header: 'Notities',           key: 'notes',        width: 40 },
+    { header: 'Technische notities', key: 'techNotes',   width: 40 },
   ]
 
   // Header-rij met show-info (rijen 1-3), daarna kolomkoppen op rij 4
   rundownSheet.spliceRows(1, 0, [], [], [])
   rundownSheet.getCell('A1').value = `${show.name} — ${rundown.name}`
   rundownSheet.getCell('A1').font  = { bold: true, size: 14 }
-  rundownSheet.mergeCells('A1:I1')
+  rundownSheet.mergeCells('A1:J1')
 
   const showMeta: string[] = []
   if (show.date)  showMeta.push(new Date(show.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }))
   if (show.venue) showMeta.push(show.venue)
   rundownSheet.getCell('A2').value = showMeta.join(' · ')
   rundownSheet.getCell('A2').font  = { color: { argb: 'FF666666' } }
-  rundownSheet.mergeCells('A2:I2')
+  rundownSheet.mergeCells('A2:J2')
 
   rundownSheet.getCell('A3').value = `Geëxporteerd op ${new Date().toLocaleString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
   rundownSheet.getCell('A3').font  = { color: { argb: 'FF999999' }, italic: true, size: 10 }
-  rundownSheet.mergeCells('A3:I3')
+  rundownSheet.mergeCells('A3:J3')
 
   // Kolomkoppen op rij 4 stylen
   const headerRow = rundownSheet.getRow(4)
@@ -180,16 +182,20 @@ export async function GET(
   let runningSeconds = 0
   for (const cue of cues) {
     const startTime = formatStartTime(rundown.show_start_time, runningSeconds)
+    const extraTypes = ((cue as { secondary_types?: string[] }).secondary_types ?? [])
+      .map(t => CUE_TYPE_LABELS[t] ?? t)
+      .join(', ')
     rundownSheet.addRow({
-      position:  cue.position,
-      title:     cue.title,
-      type:      CUE_TYPE_LABELS[cue.type] ?? cue.type,
-      duration:  formatDuration(cue.duration_seconds),
+      position:   cue.position,
+      title:      cue.title,
+      type:       CUE_TYPE_LABELS[cue.type] ?? cue.type,
+      extraTypes,
+      duration:   formatDuration(cue.duration_seconds),
       startTime,
-      presenter: cue.presenter ?? '',
-      location:  cue.location ?? '',
-      notes:     cue.notes ?? '',
-      techNotes: cue.tech_notes ?? '',
+      presenter:  cue.presenter ?? '',
+      location:   cue.location ?? '',
+      notes:      cue.notes ?? '',
+      techNotes:  cue.tech_notes ?? '',
     })
     runningSeconds += cue.duration_seconds
   }

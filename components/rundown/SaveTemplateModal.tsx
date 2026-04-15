@@ -61,6 +61,7 @@ export function SaveTemplateModal({ open, onClose, rundownName, cues, showId }: 
     const cuesJson: TemplateCue[] = cues.map((c) => ({
       title:            c.title,
       type:             c.type,
+      secondary_types:  c.secondary_types ?? [],
       duration_seconds: c.duration_seconds,
       notes:            c.notes,
       tech_notes:       c.tech_notes,

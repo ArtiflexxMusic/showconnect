@@ -172,13 +172,24 @@ export const SortableCueRow = memo(function SortableCueRow({
           </div>
 
           {/* Type + duur inline op mobiel */}
-          <div className="flex items-center gap-2 mt-0.5 sm:hidden">
+          <div className="flex items-center gap-2 mt-0.5 sm:hidden flex-wrap">
             <span className={cn(
               'inline-flex items-center rounded-full border px-1.5 py-px text-[10px] font-medium',
               cueTypeColor(cue.type)
             )}>
               {cueTypeLabel(cue.type)}
             </span>
+            {cue.secondary_types?.map((st) => (
+              <span
+                key={st}
+                className={cn(
+                  'inline-flex items-center rounded-full border px-1 py-px text-[9px] font-medium opacity-70',
+                  cueTypeColor(st)
+                )}
+              >
+                {cueTypeLabel(st)}
+              </span>
+            ))}
             {isRunning && cue.started_at ? (
               <CueCountdown durationSeconds={cue.duration_seconds} startedAt={cue.started_at} />
             ) : (
@@ -210,14 +221,26 @@ export const SortableCueRow = memo(function SortableCueRow({
           )}
         </div>
 
-        {/* Type badge — verborgen op mobiel */}
-        <div className="hidden sm:block">
+        {/* Type badge + extra tags — verborgen op mobiel */}
+        <div className="hidden sm:flex items-center gap-1 flex-wrap justify-end max-w-[180px]">
           <span className={cn(
             'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
             cueTypeColor(cue.type)
           )}>
             {cueTypeLabel(cue.type)}
           </span>
+          {cue.secondary_types?.map((st) => (
+            <span
+              key={st}
+              className={cn(
+                'inline-flex items-center rounded-full border px-1.5 py-px text-[10px] font-medium opacity-70',
+                cueTypeColor(st)
+              )}
+              title={`Extra type: ${cueTypeLabel(st)}`}
+            >
+              {cueTypeLabel(st)}
+            </span>
+          ))}
         </div>
 
         {/* Duur / Countdown — verborgen op mobiel */}

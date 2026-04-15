@@ -52,6 +52,7 @@ export function CueFormModal({
 }: CueFormModalProps) {
   const [title, setTitle]           = useState('')
   const [type, setType]             = useState<CueType>('custom')
+  const [secondaryTypes, setSecondaryTypes] = useState<CueType[]>([])
   const [durationStr, setDurationStr] = useState('0:00')
   const [notes, setNotes]           = useState('')
   const [techNotes, setTechNotes]   = useState('')
@@ -105,6 +106,7 @@ export function CueFormModal({
       if (initialValues) {
         setTitle(initialValues.title ?? '')
         setType(initialValues.type ?? 'custom')
+        setSecondaryTypes(initialValues.secondary_types ?? [])
         setDurationStr(formatDuration(initialValues.duration_seconds ?? 0))
         setNotes(initialValues.notes ?? '')
         setTechNotes(initialValues.tech_notes ?? '')
@@ -135,6 +137,7 @@ export function CueFormModal({
       } else {
         setTitle('')
         setType('custom')
+        setSecondaryTypes([])
         setDurationStr('0:00')
         setNotes('')
         setTechNotes('')
@@ -305,6 +308,7 @@ export function CueFormModal({
     onSave({
       title:            title.trim(),
       type,
+      secondary_types:  secondaryTypes,
       duration_seconds: parseDuration(durationStr),
       notes:            notes.trim() || null,
       tech_notes:       techNotes.trim() || null,
@@ -370,7 +374,12 @@ export function CueFormModal({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Type</Label>
-                <Select value={type} onValueChange={(v) => setType(v as CueType)}>
+                <Select value={type} onValueChange={(v) => {
+                  const next = v as CueType
+                  setType(next)
+                  // Als het nieuwe primair-type in de tags stond, haal hem eruit
+                  setSecondaryTypes(prev => prev.filter(t => t !== next))
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -394,6 +403,33 @@ export function CueFormModal({
                   placeholder="5:00"
                   className="font-mono"
                 />
+              </div>
+            </div>
+
+            {/* Extra types (tags naast primair) */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Extra types <span className="text-muted-foreground/60">(optioneel — tags naast primaire type)</span></Label>
+              <div className="flex flex-wrap gap-1.5">
+                {CUE_TYPES.filter(t => t.value !== type).map((t) => {
+                  const active = secondaryTypes.includes(t.value)
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setSecondaryTypes(prev => active
+                        ? prev.filter(x => x !== t.value)
+                        : [...prev, t.value]
+                      )}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors ${
+                        active
+                          ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+                          : 'border-border/60 bg-muted/20 text-muted-foreground hover:border-border hover:text-foreground'
+                      }`}
+                    >
+                      <span>{t.emoji}</span>{t.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 

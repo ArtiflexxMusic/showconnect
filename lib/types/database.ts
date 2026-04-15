@@ -82,7 +82,8 @@ export interface Cue {
   rundown_id: string
   position: number
   title: string
-  type: CueType
+  type: CueType                 // Primair type — leidend voor kleur/filter/sortering
+  secondary_types: CueType[]    // Extra types als tags (mag leeg zijn)
   duration_seconds: number
   notes: string | null
   tech_notes: string | null   // Technische notities (alleen voor technici)
@@ -150,6 +151,7 @@ export interface RundownTemplate {
 export interface TemplateCue {
   title: string
   type: CueType
+  secondary_types?: CueType[]
   duration_seconds: number
   notes?: string | null
   tech_notes?: string | null
@@ -244,6 +246,7 @@ export interface CueAudioAssignment {
 export interface CreateCueInput {
   title: string
   type: CueType
+  secondary_types?: CueType[]
   duration_seconds: number
   notes?: string | null
   tech_notes?: string | null

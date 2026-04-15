@@ -1218,17 +1218,36 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               </span>
 
 
-              {/* Titel */}
-              <span className={cn(
-                'flex-1 truncate',
-                isActive   ? 'font-semibold text-green-300'
-                : isDone || isSkipped ? 'line-through' : ''
-              )}>
-                {cue.title}
-                {cue.presenter && (
-                  <span className="text-muted-foreground/40 text-xs ml-1.5">· {cue.presenter}</span>
+              {/* Titel + notities (extra tekst blok) */}
+              <div className="flex-1 min-w-0">
+                <div className={cn(
+                  'truncate',
+                  isActive   ? 'font-semibold text-green-300'
+                  : isDone || isSkipped ? 'line-through' : ''
+                )}>
+                  {cue.title}
+                  {cue.presenter && (
+                    <span className="text-muted-foreground/40 text-xs ml-1.5">· {cue.presenter}</span>
+                  )}
+                  {cue.location && (
+                    <span className="text-muted-foreground/40 text-xs ml-1.5">@ {cue.location}</span>
+                  )}
+                </div>
+                {(cue.notes || cue.tech_notes) && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] leading-snug">
+                    {cue.notes && (
+                      <span className="text-muted-foreground/60 truncate max-w-full">
+                        {cue.notes}
+                      </span>
+                    )}
+                    {cue.tech_notes && (
+                      <span className="text-yellow-400/80 truncate max-w-full">
+                        🔧 {cue.tech_notes}
+                      </span>
+                    )}
+                  </div>
                 )}
-              </span>
+              </div>
 
               {/* Duur aanpassen (alleen pending) */}
               <div className="hidden sm:flex items-center gap-0.5 w-24 justify-center shrink-0">

@@ -132,28 +132,28 @@ export function MicStatusBar({
         return (
           <div
             key={dev.id}
-            title={`${dev.name}${dev.channel ? ` — ch.${dev.channel}` : ''}${isOn ? ' · actief' : ' · inactief'}`}
-            className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium border transition-all duration-200"
-            style={isOn ? {
-              backgroundColor: dev.color + '20',
-              borderColor:     dev.color + '55',
-              color:           dev.color,
-            } : {
-              backgroundColor: 'transparent',
-              borderColor:     'rgba(255,255,255,0.08)',
-              color:           'rgba(255,255,255,0.2)',
-            }}
+            title={`${dev.name}${dev.channel ? ` — ch.${dev.channel}` : ''}${isOn ? ' · ACTIEF' : ' · inactief'}`}
+            className={
+              'flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border transition-all duration-200 ' +
+              (isOn
+                ? 'bg-emerald-500/25 border-emerald-400/80 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.55)]'
+                : 'bg-transparent border-white/10 text-white/25')
+            }
           >
+            {/* Stip: neemt device-kleur als identifier over (active), grijs (inactive) */}
             <span
-              className="h-1.5 w-1.5 rounded-full shrink-0"
+              className={'h-2 w-2 rounded-full shrink-0 ' + (isOn ? 'ring-2 ring-emerald-300/70' : '')}
               style={{
                 backgroundColor: isOn ? dev.color : 'rgba(255,255,255,0.12)',
-                boxShadow:       isOn ? `0 0 5px ${dev.color}` : 'none',
+                boxShadow:       isOn ? `0 0 8px ${dev.color}` : 'none',
               }}
             />
             {dev.name}
             {dev.channel !== null && (
-              <span className="text-[10px] opacity-50 font-mono">ch.{dev.channel}</span>
+              <span className="text-[10px] opacity-60 font-mono">ch.{dev.channel}</span>
+            )}
+            {isOn && (
+              <span className="text-[9px] uppercase tracking-widest text-emerald-300/90 font-bold">● on</span>
             )}
           </div>
         )

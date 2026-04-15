@@ -776,16 +776,22 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     })
   }, [cues, supabase])
 
-  // ── Reset alle cues ──────────────────────────────────────────────────────
+  // ── Reset alle cues — directe één-klik reset met undo via toast ─────────
   const resetAllCues = useCallback(async () => {
     setShowResetConfirm(false)
     if (cues.length === 0) {
       toast.success('Geen cues om te resetten')
       return
     }
-    pushHistory('Alle cues resetten')
+
+    // Snapshot van huidige statussen voor eventuele undo
+    const snapshot = cues.map(c => ({
+      id: c.id,
+      status: c.status,
+      started_at: c.started_at,
+    }))
+
     setIsSaving(true)
-    setElapsed(0)
 
     // Bulk update op rundown-niveau — geen afhankelijkheid van lokale cue-array
     const { error } = await supabase
@@ -801,17 +807,43 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       return
     }
 
-    // Force een refetch van de echte DB-state zodat we niet afhankelijk zijn van
-    // Realtime-event-timing (die soms mist of traag is)
+    // Force refetch van DB-state zodat UI 100% klopt met server (Realtime-onafhankelijk)
     const { data: fresh } = await supabase
       .from('cues')
       .select('*')
       .eq('rundown_id', rundown.id)
       .order('position', { ascending: true })
     if (fresh) setCues(fresh as Cue[])
-
-    toast.success(`${fresh?.length ?? cues.length} cues gereset naar pending`)
+    setElapsed(0)
     setIsSaving(false)
+
+    toast.success(`${fresh?.length ?? cues.length} cues gereset naar pending`, {
+      duration: 8000,
+      action: {
+        label: 'Ongedaan maken',
+        onClick: async () => {
+          // Herstel de oude statussen per cue
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sb = supabase as any
+          await Promise.all(
+            snapshot
+              .filter(s => s.status !== 'pending' || s.started_at !== null)
+              .map(s =>
+                sb.from('cues')
+                  .update({ status: s.status, started_at: s.started_at })
+                  .eq('id', s.id)
+              )
+          )
+          const { data: restored } = await supabase
+            .from('cues')
+            .select('*')
+            .eq('rundown_id', rundown.id)
+            .order('position', { ascending: true })
+          if (restored) setCues(restored as Cue[])
+          toast.success('Reset ongedaan gemaakt')
+        },
+      },
+    })
   }, [cues, supabase, rundown.id])
 
   const startCue = useCallback(async (id: string) => {
@@ -1270,9 +1302,9 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
         />
       )}
 
-      {/* ── Reset bevestiging overlay ─────────────────────────────────── */}
+      {/* ── Reset bevestiging overlay (fallback, standaard pad gebruikt directe reset) ─ */}
       {showResetConfirm && (
-        <div className="absolute inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+        <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-card border border-border rounded-xl p-6 max-w-sm mx-4 shadow-xl">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="h-5 w-5 text-yellow-400" />
@@ -1623,11 +1655,12 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                 </div>
               )}
 
-              {/* Reset */}
+              {/* Reset — één klik, undo via toast */}
               {hasRunningOrDone && (
-                <Button size="sm" variant="outline" onClick={() => setShowResetConfirm(true)}
+                <Button size="sm" variant="outline" onClick={resetAllCues}
+                  disabled={isSaving}
                   className="gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/30"
-                  title="Reset alle cues">
+                  title="Reset alle cues naar pending (ongedaan maken via toast)">
                   <RotateCcw className="h-3.5 w-3.5" />
                 </Button>
               )}
@@ -1709,7 +1742,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
                     {hasRunningOrDone && (
                       <>
                         <hr className="border-border/50 my-1" />
-                        <button onClick={() => { setShowMoreMenu(false); setShowResetConfirm(true) }}
+                        <button onClick={() => { setShowMoreMenu(false); resetAllCues() }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left text-destructive/80">
                           <RotateCcw className="h-3.5 w-3.5" /> Reset alle cues
                         </button>

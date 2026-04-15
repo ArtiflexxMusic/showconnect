@@ -990,7 +990,15 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
       .eq('id', rundown.id)
       .select()
       .single()
-    if (!error && data) setRundown(data as Rundown)
+    if (error) {
+      console.error('[saveRundownSettings] mislukt:', error)
+      toast.error(`Opslaan mislukt: ${error.message}`)
+      throw error
+    }
+    if (data) {
+      setRundown(data as Rundown)
+      toast.success('Instellingen opgeslagen')
+    }
   }, [rundown.id, supabase])
 
   // ── Rundown vergrendelen / ontgrendelen ─────────────────────────────────

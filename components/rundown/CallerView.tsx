@@ -826,7 +826,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           </div>
 
         ) : activeCue ? (
-          <div className="w-full max-w-3xl">
+          <div className="w-full max-w-5xl">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 text-center">
               Nu live — cue #{activeCue.position + 1}
               {expectedTimes[activeCue.position] && expectedTimes[activeCue.position] !== '--:--' && (
@@ -869,49 +869,84 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
               {/* Titel */}
               <h2 className="text-xl sm:text-3xl font-bold mb-3 sm:mb-5 leading-tight">{activeCue.title}</h2>
 
-              {/* Countdown — het hart van de interface */}
-              <div className="text-center mb-2">
-                <span className={cn(
-                  'text-6xl sm:text-9xl font-mono font-black tabular-nums leading-none block',
-                  countdownColor(countdown, activeCue.duration_seconds),
-                  countdownPulse(countdown)
-                )}>
-                  {formatDuration(countdown)}
-                </span>
-                <p className="text-sm text-muted-foreground mt-1 font-mono">
-                  {formatDuration(activeCue.duration_seconds)} totaal
-                </p>
-              </div>
-
-              {/* Tijd aanpassen */}
-              <div className="flex flex-col items-center gap-2 mb-2">
-                {/* Preset knoppen */}
-                <div className="flex items-center gap-1.5">
-                  {[
-                    { label: '−5m', delta: -300 },
-                    { label: '−1m', delta: -60 },
-                    { label: '−30s', delta: -30 },
-                    { label: '+30s', delta: +30 },
-                    { label: '+1m', delta: +60 },
-                    { label: '+5m', delta: +300 },
-                  ].map(({ label, delta }) => (
+              {/* Countdown — het hart van de interface, tijd-aanpas-knoppen links + rechts */}
+              <div className="flex items-center justify-center gap-4 sm:gap-8 mb-2">
+                {/* Minus-kolom (links) */}
+                <div className="hidden sm:flex flex-col gap-1.5 shrink-0">
+                  {[{ label: '−5m', delta: -300 }, { label: '−1m', delta: -60 }, { label: '−30s', delta: -30 }].map(({ label, delta }) => (
                     <button
                       key={label}
                       onClick={() => {
                         const newDur = Math.max(5, activeCue.duration_seconds + delta)
                         handleCueUpdate(activeCue.id, { duration_seconds: newDur })
                       }}
-                      className={cn(
-                        'px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border transition-all',
-                        delta < 0
-                          ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-                          : 'border-green-500/30 text-green-400 hover:bg-green-500/10'
-                      )}
+                      className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all min-w-[60px]"
                     >
                       {label}
                     </button>
                   ))}
                 </div>
+
+                {/* Klok */}
+                <div className="text-center">
+                  <span className={cn(
+                    'text-6xl sm:text-9xl font-mono font-black tabular-nums leading-none block',
+                    countdownColor(countdown, activeCue.duration_seconds),
+                    countdownPulse(countdown)
+                  )}>
+                    {formatDuration(countdown)}
+                  </span>
+                  <p className="text-sm text-muted-foreground mt-1 font-mono">
+                    {formatDuration(activeCue.duration_seconds)} totaal
+                  </p>
+                </div>
+
+                {/* Plus-kolom (rechts) */}
+                <div className="hidden sm:flex flex-col gap-1.5 shrink-0">
+                  {[{ label: '+30s', delta: +30 }, { label: '+1m', delta: +60 }, { label: '+5m', delta: +300 }].map(({ label, delta }) => (
+                    <button
+                      key={label}
+                      onClick={() => {
+                        const newDur = Math.max(5, activeCue.duration_seconds + delta)
+                        handleCueUpdate(activeCue.id, { duration_seconds: newDur })
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all min-w-[60px]"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mobiele tijd-aanpas-rij (alle 6 knoppen onder de klok op klein scherm) */}
+              <div className="sm:hidden flex items-center justify-center gap-1.5 mb-2 flex-wrap">
+                {[
+                  { label: '−5m', delta: -300 },
+                  { label: '−1m', delta: -60 },
+                  { label: '−30s', delta: -30 },
+                  { label: '+30s', delta: +30 },
+                  { label: '+1m', delta: +60 },
+                  { label: '+5m', delta: +300 },
+                ].map(({ label, delta }) => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      const newDur = Math.max(5, activeCue.duration_seconds + delta)
+                      handleCueUpdate(activeCue.id, { duration_seconds: newDur })
+                    }}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border transition-all',
+                      delta < 0
+                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+                        : 'border-green-500/30 text-green-400 hover:bg-green-500/10'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-col items-center gap-2 mb-2">
                 {/* Eigen tijd invullen */}
                 <form
                   className="flex items-center gap-1.5"
@@ -1034,30 +1069,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           </div>
         )}
 
-        {/* ── VOLGENDE CUE ── */}
-        {nextCue && !showComplete && (
-          <div className="w-full max-w-3xl">
-            <div className="flex items-center gap-3 rounded-lg border border-border/40 bg-muted/20 px-4 py-3">
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Volgende</span>
-              <Badge className={cn('text-xs border shrink-0', cueTypeColor(nextCue.type))}>
-                {cueTypeLabel(nextCue.type)}
-              </Badge>
-              <span className="text-sm font-medium truncate">{nextCue.title}</span>
-              {nextCue.presenter && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
-                  <Mic className="h-3 w-3" />{nextCue.presenter}
-                </span>
-              )}
-              <span className="text-sm text-muted-foreground font-mono shrink-0 ml-auto">
-                {formatDuration(nextCue.duration_seconds)}
-                {expectedTimes[nextCue.position] && expectedTimes[nextCue.position] !== '--:--' && (
-                  <span className="text-muted-foreground/50 ml-2">@{expectedTimes[nextCue.position]}</span>
-                )}
-              </span>
-            </div>
-          </div>
-        )}
+        {/* "Volgende cue"-preview verwijderd — zelfde info zichtbaar in cue-lijst onder GO */}
       </div>{/* /inner my-auto wrapper */}
       </div>
 

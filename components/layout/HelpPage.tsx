@@ -394,7 +394,7 @@ export function HelpPage() {
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-          <p className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">CueBoard</p>
+          <p className="text-xs font-semibold text-white uppercase tracking-widest">Cue<span className="text-emerald-400">Board</span></p>
         </div>
         <h1 className="text-2xl font-extrabold text-foreground">Help & Uitleg</h1>
         <p className="text-muted-foreground mt-1">

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard.app'
+    const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard.nl'
     const inviteLink = `${appUrl}/invite/${invitation.token}`
     const showName   = (invitation.shows as { name: string } | null)?.name ?? 'een show'
     const roleName   = ROLE_LABELS[invitation.role] ?? invitation.role
@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 40px 20px; }
     .container { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
-    .logo { font-size: 20px; font-weight: 700; color: #22c55e; letter-spacing: 2px; margin-bottom: 24px; }
+    .logo { font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: 2px; margin-bottom: 24px; }
+    .logo .board { color: #22c55e; }
     h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; color: #f1f5f9; }
     p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 8px 0; }
     .role-badge { display: inline-block; background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb40; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 500; margin: 12px 0; }
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
 </head>
 <body>
   <div class="container">
-    <div class="logo">CueBoard</div>
+    <div class="logo">Cue<span class="board">Board</span></div>
     <h1>Je bent uitgenodigd!</h1>
     <p><strong style="color:#f1f5f9">${inviterName}</strong> nodigt je uit om deel te nemen aan:</p>
     <p style="color:#f1f5f9; font-size: 18px; font-weight: 600; margin: 12px 0;">${showName}</p>

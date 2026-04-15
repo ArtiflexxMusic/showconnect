@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const BASE_URL = 'https://cueboard-app.vercel.app'
+const BASE_URL = 'https://cueboard.nl'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

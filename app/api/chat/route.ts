@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       const minutes = Math.ceil((reset - Date.now()) / 60_000)
       return new Response(
         JSON.stringify({
-          error: `Je hebt de limiet bereikt (30 berichten per uur). Probeer het over ${minutes} minuten opnieuw, of mail naar info@cueboard.nl.`,
+          error: `Je hebt de limiet bereikt (30 berichten per uur). Probeer het over ${minutes} minuten opnieuw, of mail naar info@artiflexx.nl.`,
         }),
         { status: 429, headers: { 'content-type': 'application/json' } },
       )

@@ -94,7 +94,7 @@ function CueBoardLogo({ dark = false }: { dark?: boolean }) {
         fontWeight: 900, fontSize: 15, letterSpacing: '-0.02em',
         textTransform: 'uppercase', color: dark ? BRAND.dark : BRAND.white,
         lineHeight: 1,
-      }}>CueBoard</span>
+      }}>Cue<span style={{ color: BRAND.green }}>Board</span></span>
     </div>
   )
 }

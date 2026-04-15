@@ -168,7 +168,7 @@ export function GreenRoomView({ castMember, show, rundowns, cues: initialCues, t
       <div className="border-b border-white/[0.06] px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.55)]" />
-          <span className="font-extrabold text-sm tracking-tight text-white uppercase">CueBoard</span>
+          <span className="font-extrabold text-sm tracking-tight text-white uppercase">Cue<span className="text-emerald-400">Board</span></span>
         </div>
         <div className="text-xs font-mono text-white/30">
           {now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}

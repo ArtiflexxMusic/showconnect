@@ -211,7 +211,7 @@ function GreenRoomLoginInner() {
       <div className="mb-10 text-center">
         <div className="inline-flex items-center gap-2 mb-3">
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-          <span className="font-extrabold uppercase tracking-widest text-white text-lg">CueBoard</span>
+          <span className="font-extrabold uppercase tracking-widest text-white text-lg">Cue<span className="text-emerald-400">Board</span></span>
         </div>
         <p className="text-white/30 text-sm">Green Room</p>
       </div>

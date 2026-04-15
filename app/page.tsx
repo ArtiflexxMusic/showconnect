@@ -21,7 +21,7 @@ function Logo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   return (
     <div className="flex items-center gap-2.5">
       <span className={`inline-block ${dot} rounded-full bg-emerald-400 shadow-[0_0_10px_3px_rgba(52,211,153,0.55)]`} />
-      <span className={`font-extrabold ${text} tracking-tight text-white uppercase leading-none`}>CueBoard</span>
+      <span className={`font-extrabold ${text} tracking-tight text-white uppercase leading-none`}>Cue<span className="text-emerald-400">Board</span></span>
     </div>
   )
 }

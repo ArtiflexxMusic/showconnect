@@ -46,7 +46,7 @@ export function PublicShowPage({ show, rundowns }: PublicShowPageProps) {
       <div className="border-b border-border/50 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clapperboard className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-foreground">CueBoard</span>
+          <span className="font-semibold text-foreground">Cue<span className="text-emerald-400">Board</span></span>
         </div>
         {activeRundown && (
           <Badge className="bg-red-500/15 text-red-400 border-red-500/30 flex items-center gap-1.5 animate-pulse">
@@ -135,7 +135,7 @@ export function PublicShowPage({ show, rundowns }: PublicShowPageProps) {
 
         {/* Footer */}
         <div className="pt-4 border-t border-border/50 text-xs text-muted-foreground/60 text-center">
-          Gedeeld via <a href="https://cueboard.nl" className="hover:text-muted-foreground transition-colors">CueBoard</a>
+          Gedeeld via <a href="https://cueboard.nl" className="hover:text-muted-foreground transition-colors">Cue<span className="text-emerald-400">Board</span></a>
         </div>
       </div>
     </div>

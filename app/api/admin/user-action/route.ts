@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: targetEmail,
-        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard-app.vercel.app'}/auth/callback` },
+        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard.nl'}/auth/callback` },
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ success: true, message: `Bevestigingsmail verstuurd naar ${targetEmail}` })
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     case 'send_password_reset': {
       // resetPasswordForEmail stuurt via SMTP (generateLink doet dat niet)
       const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard-app.vercel.app'}/auth/callback?next=/reset-password`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard.nl'}/auth/callback?next=/reset-password`,
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ success: true, message: `Wachtwoord-resetmail verstuurd naar ${targetEmail}` })
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       // signInWithOtp stuurt de magic link via SMTP (generateLink doet dat niet)
       const { error } = await supabase.auth.signInWithOtp({
         email: targetEmail,
-        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard-app.vercel.app'}/auth/callback` },
+        options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cueboard.nl'}/auth/callback` },
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ success: true, message: `Inloglink verstuurd naar ${targetEmail}` })

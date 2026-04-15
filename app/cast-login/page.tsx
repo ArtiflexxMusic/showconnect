@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation'
-import type { NextRequest } from 'next/server'
 
 // Backward-compat: oude /cast-login?magic=TOKEN URLs worden doorgestuurd naar /green-room?magic=TOKEN
-export default function CastLoginRedirect({
+export default async function CastLoginRedirect({
   searchParams,
 }: {
-  searchParams: { magic?: string }
+  searchParams: Promise<{ magic?: string }>
 }) {
-  const magic = searchParams?.magic
+  const { magic } = await searchParams
   if (magic) {
     redirect(`/green-room?magic=${magic}`)
   }

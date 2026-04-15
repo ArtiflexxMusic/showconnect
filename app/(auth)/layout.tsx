@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="inline-flex flex-col items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_10px_3px_rgba(52,211,153,0.7)]" />
-              <span className="font-black text-2xl tracking-tight text-white uppercase">CueBoard</span>
+              <span className="font-black text-2xl tracking-tight text-white uppercase">Cue<span className="text-emerald-400">Board</span></span>
             </div>
             <p className="text-sm text-muted-foreground">
               Show control voor live events

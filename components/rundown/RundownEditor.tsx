@@ -852,7 +852,25 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
   }, [cues, rundown, show, supabase])
 
   const skipCue   = useCallback(async (id: string) => updateCue(id, { status: 'skipped' }), [updateCue])
-  const resetCue  = useCallback(async (id: string) => updateCue(id, { status: 'pending', started_at: null }), [updateCue])
+  const resetCue = useCallback(async (id: string) => {
+    const cue = cues.find(c => c.id === id)
+    if (!cue) { console.warn('[resetCue] cue niet gevonden:', id); return }
+    // Optimistische UI — direct zichtbaar, ongeacht netwerk
+    setCues(prev => prev.map(c => c.id === id ? { ...c, status: 'pending' as const, started_at: null } : c))
+    // DB update met harde cast zodat Supabase-types geen velden strippen
+    const { error } = await supabase
+      .from('cues')
+      .update({ status: 'pending', started_at: null } as Record<string, unknown>)
+      .eq('id', id)
+    if (error) {
+      console.error('[resetCue] DB-update mislukt:', error)
+      // Rollback
+      setCues(prev => prev.map(c => c.id === id ? cue : c))
+      toast.error(`Reset mislukt: ${error.message}`)
+      return
+    }
+    toast.success(`"${cue.title}" gereset`)
+  }, [cues, supabase])
 
   // ── Bulk-acties ──────────────────────────────────────────────────────────
   const toggleCueSelection = useCallback((id: string) => {

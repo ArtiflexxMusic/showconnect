@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { PLAN_LIMITS, type Plan } from '@/lib/plans'
 
 export const metadata: Metadata = { title: 'Uitnodiging – CueBoard' }
 
@@ -116,6 +117,46 @@ export default async function InvitePage({ params }: PageProps) {
     .single()
 
   if (!existingMember) {
+    // ── Plan-limit check: niet toevoegen als de show-eigenaar al op z'n max zit ──
+    const { data: showRow } = await admin
+      .from('shows')
+      .select('created_by')
+      .eq('id', invitation.show_id)
+      .single()
+
+    if (showRow?.created_by) {
+      const { data: ownerProfile } = await admin
+        .from('profiles')
+        .select('plan')
+        .eq('id', showRow.created_by)
+        .single()
+
+      const ownerPlan = (ownerProfile?.plan as Plan | undefined) ?? 'free'
+      const memberLimit = PLAN_LIMITS[ownerPlan].max_members_per_show
+
+      const { count: currentCount } = await admin
+        .from('show_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('show_id', invitation.show_id)
+
+      // Eigenaar telt soms apart, soms als member — neem brede marge
+      if (currentCount !== null && currentCount >= memberLimit) {
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center p-6">
+            <div className="text-center max-w-sm">
+              <p className="text-4xl mb-4">🚫</p>
+              <h1 className="text-xl font-semibold mb-2">Show is vol</h1>
+              <p className="text-sm text-muted-foreground mb-6">
+                Het team voor deze show heeft het maximum aantal leden bereikt voor het huidige plan ({memberLimit} leden).
+                Vraag de organisator om z&apos;n plan te upgraden of contact op te nemen.
+              </p>
+              <Button asChild><Link href="/dashboard">Naar dashboard</Link></Button>
+            </div>
+          </div>
+        )
+      }
+    }
+
     // Lid toevoegen (service role bypasses RLS)
     const { error: insertError } = await admin.from('show_members').insert({
       show_id:    invitation.show_id,
@@ -123,9 +164,24 @@ export default async function InvitePage({ params }: PageProps) {
       role:       invitation.role,
       invited_by: invitation.invited_by,
     })
-    if (insertError) console.error('[invite] show_members insert failed:', insertError.message)
 
-    // Uitnodiging markeren als geaccepteerd
+    if (insertError) {
+      console.error('[invite] show_members insert failed:', insertError.message)
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="text-center max-w-sm">
+            <p className="text-4xl mb-4">⚠️</p>
+            <h1 className="text-xl font-semibold mb-2">Toevoegen mislukt</h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              Je kon niet als lid worden toegevoegd aan deze show. Vraag de organisator om de uitnodiging opnieuw te sturen of neem contact op met support.
+            </p>
+            <Button asChild><Link href="/dashboard">Naar dashboard</Link></Button>
+          </div>
+        </div>
+      )
+    }
+
+    // Uitnodiging pas markeren als geaccepteerd nadat insert geslaagd is
     await admin.from('invitations')
       .update({ accepted_at: new Date().toISOString() })
       .eq('id', invitation.id)

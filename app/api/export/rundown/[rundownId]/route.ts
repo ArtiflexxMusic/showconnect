@@ -42,13 +42,13 @@ const CUE_TYPE_LABELS: Record<string, string> = {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { rundownId: string } }
+  { params }: { params: Promise<{ rundownId: string }> },
 ) {
+  const { rundownId } = await params
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-
-  const { rundownId } = params
 
   // Haal rundown + show op voor naamgeving
   const { data: rundown } = await supabase

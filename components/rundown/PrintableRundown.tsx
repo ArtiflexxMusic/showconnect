@@ -69,6 +69,15 @@ export function PrintableRundown({ rundown, show, cues }: PrintableRundownProps)
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
             CSV exporteren
           </button>
+          {/* Excel download knop — incl. mic patch sheet */}
+          <a
+            href={`/api/export/rundown/${rundown.id}/xlsx`}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1px solid #16a34a', borderRadius: 8, background: '#f0fdf4', color: '#15803d', fontSize: 13, cursor: 'pointer', fontWeight: 500, textDecoration: 'none' }}
+            title="Download als Excel met aparte mic patch-sheet"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13l3 3 5-5"/></svg>
+            Excel + mic patch
+          </a>
           <button
             onClick={() => window.print()}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: 'none', borderRadius: 8, background: '#0d4a2e', color: 'white', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}

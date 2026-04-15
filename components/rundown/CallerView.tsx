@@ -1170,8 +1170,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         </div>
       )}
 
-      {/* ── CUE LIJST — verticaal scrollbaar, live aanpassen ────────── */}
-      <div className="shrink-0 h-[32vh] sm:h-[35vh] border-t border-border/40 overflow-y-auto bg-muted/5">
+      {/* ── CUE LIJST — compact: ~2 rijen zichtbaar, active cue auto-scroll ─── */}
+      <div className="shrink-0 h-[130px] sm:h-[150px] border-t border-border/40 overflow-y-auto bg-muted/5">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-1.5 bg-muted/30 border-b border-border/30 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
           <span className="w-7 shrink-0">#</span>

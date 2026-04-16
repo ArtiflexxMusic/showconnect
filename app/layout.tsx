@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Space_Grotesk } from 'next/font/google'
 import { Toaster } from '@/components/ui/toast'
 import { ChatWidgetMount } from '@/components/chatbot/chat-widget-mount'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const spaceGrotesk = Space_Grotesk({
@@ -70,16 +71,18 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="nl" className={`dark ${spaceGrotesk.variable}`}>
+    <html lang="nl" className={spaceGrotesk.variable} suppressHydrationWarning>
       <head>
         {/* DNS + TCP + TLS al klaar vóór de eerste Supabase-request */}
         <link rel="preconnect" href="https://gvvwetqifyzslrxwujqe.supabase.co" />
         <link rel="dns-prefetch" href="https://gvvwetqifyzslrxwujqe.supabase.co" />
       </head>
       <body className={spaceGrotesk.className}>
-        {children}
-        <Toaster />
-        <ChatWidgetMount />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster />
+          <ChatWidgetMount />
+        </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `

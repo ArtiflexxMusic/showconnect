@@ -4,6 +4,30 @@
 
 @layer base {
   :root {
+    /* CueBoard — Light mode (default) */
+    --background: 0 0% 100%;
+    --foreground: 150 30% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 150 30% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 30% 8%;
+    --primary: 142 72% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 15% 95%;
+    --secondary-foreground: 150 30% 15%;
+    --muted: 150 15% 95%;
+    --muted-foreground: 150 10% 40%;
+    --accent: 150 15% 94%;
+    --accent-foreground: 150 30% 15%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 150 15% 88%;
+    --input: 150 15% 88%;
+    --ring: 142 72% 32%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
     /* CueBoard — Dark Green identity */
     --background: 150 30% 4%;
     --foreground: 150 10% 97%;
@@ -24,7 +48,6 @@
     --border: 150 18% 14%;
     --input: 150 18% 14%;
     --ring: 142 72% 45%;
-    --radius: 0.5rem;
   }
 }
 

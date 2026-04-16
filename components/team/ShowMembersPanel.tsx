@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2, Shield, Mic, Users, Eye, Pencil, Mail, Info } from 'lucide-react'
+import { UserPlus, X, ChevronDown, Check, Link2, Clock, Trash2, Shield, Mic, Users, Eye, Pencil, Mail, Info, AlertCircle } from 'lucide-react'
 import type { ShowMember, Invitation, ShowMemberRole } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
@@ -56,6 +56,25 @@ const ROLE_ICONS: Record<ShowMemberRole, React.ReactNode> = {
 // Rollen die je kunt toewijzen bij uitnodigingen (geen owner)
 const ASSIGNABLE_ROLES: ShowMemberRole[] = ['editor', 'caller', 'crew', 'presenter', 'viewer']
 
+interface InviteResult {
+  email: string
+  status: 'sent' | 'skipped' | 'error'
+  message?: string
+  invitationId?: string
+}
+
+function parseEmails(raw: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const token of raw.split(/[\s,;]+/)) {
+    const t = token.trim().toLowerCase()
+    if (!t || seen.has(t)) continue
+    seen.add(t)
+    out.push(t)
+  }
+  return out
+}
+
 function Avatar({ name, email }: { name: string | null; email?: string }) {
   const label = name || email || '?'
   const initials = label.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -97,10 +116,11 @@ export function ShowMembersPanel({
     })
   }, [showId])
   const [showInvite, setShowInvite]   = useState(autoOpenInvite && currentUserRole === 'owner')
-  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteEmails, setInviteEmails] = useState('')
   const [inviteRole, setInviteRole]   = useState<ShowMemberRole>('caller')
   const [inviting, setInviting]       = useState(false)
   const [inviteError, setInviteError] = useState('')
+  const [inviteResults, setInviteResults] = useState<InviteResult[] | null>(null)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [changingRole, setChangingRole] = useState<string | null>(null)
   const [emailSending, setEmailSending] = useState<string | null>(null)
@@ -110,61 +130,62 @@ export function ShowMembersPanel({
   const supabase  = createClient()
   const canManage = currentUserRole === 'owner' || currentUserRole === 'editor'
 
-  // ── Uitnodigen ─────────────────────────────────────────────────────────────
+  // ── Uitnodigen (batch) ─────────────────────────────────────────────────────
+  const parsedEmails = parseEmails(inviteEmails)
+
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) return
+    if (parsedEmails.length === 0) return
     setInviting(true)
     setInviteError('')
+    setInviteResults(null)
 
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { data, error } = await supabase
-      .from('invitations')
-      .insert({
-        show_id:    showId,
-        email:      inviteEmail.trim().toLowerCase(),
-        role:       inviteRole,
-        invited_by: user?.id ?? null,
+    try {
+      const resp = await fetch('/api/invite/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showId,
+          role:   inviteRole,
+          emails: parsedEmails,
+        }),
       })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Invite error:', error)
-      setInviteError(`Uitnodiging mislukt: ${error.message}`)
-      setInviting(false)
-      return
-    }
-
-    if (data) {
-      const inv = data as Invitation
-      setInvitations(prev => [...prev, inv])
-      setInviteEmail('')
-      setShowInvite(false)
-
-      // Stuur de uitnodigingsmail automatisch
-      setEmailSending(inv.id)
-      try {
-        const resp = await fetch('/api/invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invitationId: inv.id }),
-        })
-        if (resp.ok) {
-          setEmailSent(inv.id)
-          setTimeout(() => setEmailSent(null), 4000)
-        } else {
-          const err = await resp.json().catch(() => ({}))
-          console.warn('Mail niet verstuurd:', err)
-          setInviteError('Uitnodiging aangemaakt, maar e-mail kon niet worden verstuurd. Gebruik de "Mail" knop om opnieuw te proberen.')
-        }
-      } catch {
-        console.warn('Mail versturen mislukt')
-      } finally {
-        setEmailSending(null)
+      const data = await resp.json().catch(() => ({})) as {
+        results?: InviteResult[]
+        error?: string
       }
+
+      if (!resp.ok) {
+        setInviteError(data.error ?? 'Uitnodigen mislukt')
+        return
+      }
+
+      const results = data.results ?? []
+      setInviteResults(results)
+
+      // Lijst openstaande uitnodigingen verversen
+      const { data: refreshed } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('show_id', showId)
+        .is('accepted_at', null)
+        .order('created_at', { ascending: false })
+      setInvitations((refreshed ?? []) as Invitation[])
+
+      // Als alles succesvol/skipped is, textarea leegmaken
+      const hasErrors = results.some(r => r.status === 'error')
+      if (!hasErrors) {
+        setInviteEmails('')
+      } else {
+        // Alleen mislukte emails terugzetten zodat Thomas kan corrigeren
+        const failed = results.filter(r => r.status === 'error').map(r => r.email)
+        setInviteEmails(failed.join('\n'))
+      }
+    } catch (err) {
+      console.error('Batch invite error:', err)
+      setInviteError(err instanceof Error ? err.message : 'Onbekende fout')
+    } finally {
+      setInviting(false)
     }
-    setInviting(false)
   }
 
   // ── Email sturen via API ──────────────────────────────────────────────────
@@ -245,16 +266,22 @@ export function ShowMembersPanel({
           {/* Uitnodig formulier */}
           {showInvite && (
             <div className="px-6 py-4 border-b border-border bg-muted/20">
-              <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Nieuwe uitnodiging</p>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="email"
-                  placeholder="email@voorbeeld.nl"
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleInvite()}
-                  className="flex-1 text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+              <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Nieuwe uitnodigingen</p>
+              <textarea
+                placeholder={"email1@voorbeeld.nl\nemail2@voorbeeld.nl\n(of gescheiden door komma's of spaties)"}
+                value={inviteEmails}
+                onChange={e => setInviteEmails(e.target.value)}
+                onKeyDown={e => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault()
+                    handleInvite()
+                  }
+                }}
+                rows={3}
+                className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary resize-y font-mono"
+              />
+
+              <div className="flex items-center gap-2 mt-2 mb-2">
                 <select
                   value={inviteRole}
                   onChange={e => setInviteRole(e.target.value as ShowMemberRole)}
@@ -264,6 +291,11 @@ export function ShowMembersPanel({
                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                   ))}
                 </select>
+                <span className="text-xs text-muted-foreground">
+                  {parsedEmails.length === 0
+                    ? 'Nog geen emails'
+                    : `${parsedEmails.length} ${parsedEmails.length === 1 ? 'uitnodiging' : 'uitnodigingen'}`}
+                </span>
               </div>
 
               {/* Rol uitleg */}
@@ -276,19 +308,36 @@ export function ShowMembersPanel({
               </div>
 
               {inviteError && <p className="text-xs text-destructive mb-2">{inviteError}</p>}
+
+              {inviteResults && inviteResults.length > 0 && (
+                <div className="space-y-1 mb-3 text-xs border border-border rounded-md p-2 bg-background/50">
+                  {inviteResults.map(r => (
+                    <div key={r.email} className="flex items-start gap-2">
+                      {r.status === 'sent' && <Check className="h-3 w-3 mt-0.5 text-primary shrink-0" />}
+                      {r.status === 'skipped' && <AlertCircle className="h-3 w-3 mt-0.5 text-amber-500 shrink-0" />}
+                      {r.status === 'error' && <X className="h-3 w-3 mt-0.5 text-destructive shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <span className="font-mono truncate">{r.email}</span>
+                        {r.message && <span className="text-muted-foreground">: {r.message}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
+                <Button size="sm" onClick={handleInvite} disabled={inviting || parsedEmails.length === 0}>
                   {inviting
-                    ? <><div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1.5" /> Uitnodigen…</>
-                    : <><Mail className="h-3.5 w-3.5 mr-1" /> Uitnodiging versturen</>
+                    ? <><div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1.5" /> Versturen…</>
+                    : <><Mail className="h-3.5 w-3.5 mr-1" /> Versturen{parsedEmails.length > 0 ? ` (${parsedEmails.length})` : ''}</>
                   }
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { setShowInvite(false); setInviteEmail('') }}>
+                <Button size="sm" variant="ghost" onClick={() => { setShowInvite(false); setInviteEmails(''); setInviteResults(null); setInviteError('') }}>
                   Annuleren
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                De ontvanger krijgt direct een e-mail met een uitnodigingslink.
+                Plak meerdere emails tegelijk, gescheiden door nieuwe regels, komma&apos;s of spaties. Iedereen krijgt dezelfde rol.
               </p>
             </div>
           )}

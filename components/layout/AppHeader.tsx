@@ -10,6 +10,7 @@ import type { Profile } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { ChangelogBell } from './ChangelogBell'
 import { GlobalSearch } from './GlobalSearch'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface AppHeaderProps {
   user: Profile | null
@@ -66,13 +67,16 @@ export function AppHeader({ user, isAdmin }: AppHeaderProps) {
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
-            <span className="font-black text-base tracking-tight text-white uppercase">Cue<span className="text-emerald-400">Board</span></span>
+            <span className="font-black text-base tracking-tight text-foreground uppercase">Cue<span className="text-emerald-500 dark:text-emerald-400">Board</span></span>
           </Link>
 
           <div className="flex-1" />
 
           {/* Globale zoekfunctie */}
           {user && <GlobalSearch />}
+
+          {/* Theme toggle */}
+          <ThemeToggle className="h-8 w-8" />
 
           {/* Changelog bell */}
           <ChangelogBell />

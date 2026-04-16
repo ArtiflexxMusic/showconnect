@@ -42,12 +42,16 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() valideert de JWT server-side — veilig maar kost 1 round-trip
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession() leest enkel de cookie, geen Supabase roundtrip (0ms ipv 100-200ms).
+  // Layout/API routes doen alsnog getUser() of getCachedUser() voor echte validatie,
+  // dus een gespoofte cookie wordt daar alsnog afgewezen. Middleware is hier puur
+  // voor redirect-beslissingen (login ja/nee), niet voor data-autorisatie.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p))
 
-  // Niet ingelogd en op beschermde route → naar login
+  // Niet ingelogd en op beschermde route, naar login
   if (!user && isProtected) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -55,7 +59,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Al ingelogd op login/register → naar dashboard
+  // Al ingelogd op login/register, naar dashboard
   if (user && (pathname === '/login' || pathname === '/register')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'

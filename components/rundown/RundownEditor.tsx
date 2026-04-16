@@ -11,19 +11,26 @@ import {
   SortableContext, arrayMove,
   sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import dynamic from 'next/dynamic'
 import { SortableCueRow } from './SortableCueRow'
-import { CueFormModal } from './CueFormModal'
-import { RundownSettings } from './RundownSettings'
-import { ImportCuesModal, type ImportMicPatch } from './ImportCuesModal'
-import { SaveTemplateModal } from './SaveTemplateModal'
-import { LoadTemplateModal } from './LoadTemplateModal'
-import { CueLogPanel } from './CueLogPanel'
-import { ShortcutHelp } from './ShortcutHelp'
-import { MicPatchPanel } from './MicPatchPanel'
-import { ChatPanel, ChatToggleButton } from './ChatPanel'
-import { AlertModal, type AlertTarget } from './AlertModal'
-import { CopyCuesModal } from './CopyCuesModal'
-import { UpgradeModal } from '@/components/upgrade/UpgradeModal'
+import { ChatToggleButton } from './ChatPanel'
+import type { ImportMicPatch } from './ImportCuesModal'
+import type { AlertTarget } from './AlertModal'
+
+// Lazy-load modals + panels. Scheelt ~40-60 kB in de initial rundown-editor
+// bundle, want deze verschijnen pas bij een gebruikersactie (knop/menu/sneltoets).
+const CueFormModal      = dynamic(() => import('./CueFormModal').then(m => ({ default: m.CueFormModal })))
+const RundownSettings   = dynamic(() => import('./RundownSettings').then(m => ({ default: m.RundownSettings })))
+const ImportCuesModal   = dynamic(() => import('./ImportCuesModal').then(m => ({ default: m.ImportCuesModal })))
+const SaveTemplateModal = dynamic(() => import('./SaveTemplateModal').then(m => ({ default: m.SaveTemplateModal })))
+const LoadTemplateModal = dynamic(() => import('./LoadTemplateModal').then(m => ({ default: m.LoadTemplateModal })))
+const CueLogPanel       = dynamic(() => import('./CueLogPanel').then(m => ({ default: m.CueLogPanel })))
+const ShortcutHelp      = dynamic(() => import('./ShortcutHelp').then(m => ({ default: m.ShortcutHelp })))
+const MicPatchPanel     = dynamic(() => import('./MicPatchPanel').then(m => ({ default: m.MicPatchPanel })))
+const ChatPanel         = dynamic(() => import('./ChatPanel').then(m => ({ default: m.ChatPanel })))
+const AlertModal        = dynamic(() => import('./AlertModal').then(m => ({ default: m.AlertModal })))
+const CopyCuesModal     = dynamic(() => import('./CopyCuesModal').then(m => ({ default: m.CopyCuesModal })))
+const UpgradeModal      = dynamic(() => import('@/components/upgrade/UpgradeModal').then(m => ({ default: m.UpgradeModal })))
 import { toast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

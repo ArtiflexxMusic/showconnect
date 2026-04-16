@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   ChevronLeft, ChevronRight, SkipForward, Wifi, WifiOff,
-  Users, Radio, Clock, Play, Pause, Square, Mic, MapPin, Bell,
+  Users, Radio, Clock, Play, Pause, Mic, MapPin, Bell,
   Music, Video, Volume2, VolumeX, StopCircle, Monitor, Zap, ZapOff, MessageSquare,
 } from 'lucide-react'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
@@ -106,7 +106,6 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const [isOnline, setIsOnline]         = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [connectedUsers, setConnectedUsers] = useState(1)
-  const [isProcessing, setIsProcessing] = useState(false)
   const [nudgeMessage, setNudgeMessage] = useState<string | null>(null)
   const [chatAlert, setChatAlert]       = useState<string | null>(null)
   const [showAlertModal, setShowAlertModal] = useState(false)
@@ -281,11 +280,16 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     }
   }, [rundown.id, supabase])
 
+  // Synchrone rapid-fire-debounce voor GO/Prev/Skip, zonder re-render
+  const clickLockRef = useRef(false)
+
   // ── GO ───────────────────────────────────────────────────────────────────
   // forceCueAdvance = true slaat slide-navigatie over (gebruikt door auto-advance)
   const handleGo = useCallback(async (forceCueAdvance = false) => {
-    if (isProcessing || showComplete) return
-    setIsProcessing(true)
+    if (clickLockRef.current || showComplete) return
+    // 60ms rapid-fire debounce, UI blijft responsive (geen wait op DB)
+    clickLockRef.current = true
+    setTimeout(() => { clickLockRef.current = false }, 60)
 
     // ── Slide-first: als de actieve cue een presentatie heeft en er nog
     //    slides over zijn, gaan we naar de volgende slide i.p.v. de volgende cue.
@@ -297,7 +301,6 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       currentSlideIndex < totalSlidesInCue - 1
     ) {
       const newIndex = currentSlideIndex + 1
-      // Optimistisch: UI + broadcast direct
       setCurrentSlideIndex(newIndex)
       if (slideChannelRef.current) {
         slideChannelRef.current.send({
@@ -306,12 +309,10 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           payload: { index: newIndex, source: 'caller' },
         })
       }
-      // DB write in achtergrond, UI wacht niet
       supabase.from('cues')
         .update({ current_slide_index: newIndex } as Record<string, unknown>)
         .eq('id', activeCue.id)
         .then(() => {})
-      setIsProcessing(false)
       return
     }
 
@@ -328,7 +329,6 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
         return c
       }))
     }
-    // Reset de elapsed-ticker van de vorige cue
     if (nextId && nextCue?.slide_index != null) {
       setCurrentSlideIndex(nextCue.slide_index)
       if (slideChannelRef.current) {
@@ -340,7 +340,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       }
     }
 
-    // ── Companion fire-and-forget — blokkeert UI niet ───────────────────
+    // Companion fire-and-forget
     if (nextCue && rundown.companion_webhook_url) {
       const url = rundown.companion_webhook_url
       const isCompanionVar = url.includes('/api/custom-variable/')
@@ -358,41 +358,46 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       }).catch(() => {})
     }
 
-    // ── DB-updates parallel, knop gaat zsm vrij ─────────────────────────
-    try {
-      const updates: PromiseLike<unknown>[] = []
-      if (prevActiveId) {
-        updates.push(
-          supabase.from('cues')
-            .update({ status: 'done' } as Record<string, unknown>)
-            .eq('id', prevActiveId)
-            .eq('status', 'running')
-            .then(r => r)
-        )
-      }
-      if (nextId) {
-        updates.push(
-          supabase.from('cues').update({
-            status: 'running', started_at: nowIso,
-          } as Record<string, unknown>).eq('id', nextId).eq('status', 'pending')
-            .then(r => r)
-        )
-      }
-      const results = await Promise.all(updates)
-      // Als de next-update faalde (bv door race) → echte DB-state ophalen
-      const nextResult = nextId ? results[updates.length - 1] as { error?: unknown } : null
-      if (nextResult && nextResult.error) {
-        const { data: fresh } = await supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
-        if (fresh) setCues(fresh as Cue[])
-      }
-    } finally {
-      setIsProcessing(false)
+    // ── DB-updates fire-and-forget, UI wacht niet ─────────────────────
+    const updates: PromiseLike<unknown>[] = []
+    if (prevActiveId) {
+      updates.push(
+        supabase.from('cues')
+          .update({ status: 'done' } as Record<string, unknown>)
+          .eq('id', prevActiveId)
+          .eq('status', 'running')
+          .then(r => r)
+      )
     }
-  }, [isProcessing, showComplete, activeCue, nextCue, rundown, supabase, totalSlidesInCue, currentSlideIndex])
+    if (nextId) {
+      updates.push(
+        supabase.from('cues').update({
+          status: 'running', started_at: nowIso,
+        } as Record<string, unknown>).eq('id', nextId).eq('status', 'pending')
+          .then(r => r)
+      )
+    }
+    if (updates.length > 0) {
+      Promise.all(updates).then(results => {
+        const nextResult = nextId ? results[updates.length - 1] as { error?: unknown } : null
+        if (nextResult?.error) {
+          // Race of stale state: haal echte state op
+          supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
+            .then(({ data }) => { if (data) setCues(data as Cue[]) })
+        }
+      }).catch(err => {
+        console.error('GO DB-write fout, state herstellen:', err)
+        supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
+          .then(({ data }) => { if (data) setCues(data as Cue[]) })
+      })
+    }
+  }, [showComplete, activeCue, nextCue, rundown, supabase, totalSlidesInCue, currentSlideIndex])
 
   // ── PREV ─────────────────────────────────────────────────────────────────
   const handlePrev = useCallback(async () => {
-    if (isProcessing) return
+    if (clickLockRef.current) return
+    clickLockRef.current = true
+    setTimeout(() => { clickLockRef.current = false }, 60)
 
     // Slide-first: als de actieve cue een presentatie heeft en er nog slides vóór zijn,
     // ga dan naar de vorige slide i.p.v. de vorige cue.
@@ -410,7 +415,6 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           payload: { index: newIndex, source: 'caller' },
         })
       }
-      // DB write in achtergrond — UI wacht niet
       supabase.from('cues')
         .update({ current_slide_index: newIndex } as Record<string, unknown>)
         .eq('id', activeCue.id)
@@ -418,37 +422,41 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       return
     }
 
-    setIsProcessing(true)
     const nowIso = new Date().toISOString()
     const prevDone = [...cues]
       .filter((c) => c.status === 'done')
       .sort((a, b) => b.position - a.position)[0]
 
-    // Optimistische UI — direct zichtbaar
+    // Optimistische UI
     setCues(prev => prev.map(c => {
       if (activeCue && c.id === activeCue.id) return { ...c, status: 'pending' as const, started_at: null }
       if (prevDone   && c.id === prevDone.id)  return { ...c, status: 'running' as const, started_at: nowIso }
       return c
     }))
 
-    try {
-      const updates: PromiseLike<unknown>[] = []
-      if (activeCue) {
-        updates.push(supabase.from('cues').update({ status: 'pending', started_at: null } as Record<string, unknown>).eq('id', activeCue.id).then(r => r))
-      }
-      if (prevDone) {
-        updates.push(supabase.from('cues').update({ status: 'running', started_at: nowIso } as Record<string, unknown>).eq('id', prevDone.id).then(r => r))
-      }
-      await Promise.all(updates)
-    } finally {
-      setIsProcessing(false)
+    // Fire-and-forget DB writes
+    const updates: PromiseLike<unknown>[] = []
+    if (activeCue) {
+      updates.push(supabase.from('cues').update({ status: 'pending', started_at: null } as Record<string, unknown>).eq('id', activeCue.id).then(r => r))
     }
-  }, [isProcessing, activeCue, cues, supabase, currentSlideIndex, slideChannelRef])
+    if (prevDone) {
+      updates.push(supabase.from('cues').update({ status: 'running', started_at: nowIso } as Record<string, unknown>).eq('id', prevDone.id).then(r => r))
+    }
+    if (updates.length > 0) {
+      Promise.all(updates).catch(err => {
+        console.error('PREV DB-write fout:', err)
+        supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
+          .then(({ data }) => { if (data) setCues(data as Cue[]) })
+      })
+    }
+  }, [activeCue, cues, supabase, currentSlideIndex, rundown.id])
 
   // ── SKIP ─────────────────────────────────────────────────────────────────
   const handleSkip = useCallback(async () => {
-    if (isProcessing || !activeCue) return
-    setIsProcessing(true)
+    if (clickLockRef.current || !activeCue) return
+    clickLockRef.current = true
+    setTimeout(() => { clickLockRef.current = false }, 60)
+
     const nowIso = new Date().toISOString()
     const skipId = activeCue.id
     const nextId = nextCue?.id ?? null
@@ -460,20 +468,21 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       return c
     }))
 
-    try {
-      const updates: PromiseLike<unknown>[] = [
-        supabase.from('cues').update({ status: 'skipped' } as Record<string, unknown>).eq('id', skipId).then(r => r),
-      ]
-      if (nextId) {
-        updates.push(
-          supabase.from('cues').update({ status: 'running', started_at: nowIso } as Record<string, unknown>).eq('id', nextId).then(r => r)
-        )
-      }
-      await Promise.all(updates)
-    } finally {
-      setIsProcessing(false)
+    // Fire-and-forget DB
+    const updates: PromiseLike<unknown>[] = [
+      supabase.from('cues').update({ status: 'skipped' } as Record<string, unknown>).eq('id', skipId).then(r => r),
+    ]
+    if (nextId) {
+      updates.push(
+        supabase.from('cues').update({ status: 'running', started_at: nowIso } as Record<string, unknown>).eq('id', nextId).then(r => r)
+      )
     }
-  }, [isProcessing, activeCue, nextCue, supabase])
+    Promise.all(updates).catch(err => {
+      console.error('SKIP DB-write fout:', err)
+      supabase.from('cues').select('*').eq('rundown_id', rundown.id).order('position')
+        .then(({ data }) => { if (data) setCues(data as Cue[]) })
+    })
+  }, [activeCue, nextCue, supabase, rundown.id])
 
   // ── Slide navigatie ───────────────────────────────────────────────────────
   const handleSlideChange = useCallback(async (index: number) => {
@@ -669,14 +678,14 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       autoAdvanceRef.current = false
       return
     }
-    if (countdown <= 0 && !autoAdvanceRef.current && !isProcessing && !showComplete) {
+    if (countdown <= 0 && !autoAdvanceRef.current && !clickLockRef.current && !showComplete) {
       autoAdvanceRef.current = true
       handleGo(true) // forceCueAdvance: timer moet altijd de cue doorsturen, niet de slide
     }
     if (countdown > 0) {
       autoAdvanceRef.current = false
     }
-  }, [countdown, activeCue, isProcessing, showComplete, handleGo])
+  }, [countdown, activeCue, showComplete, handleGo])
 
   // Auto-scroll naar actieve cue in de lijst
   useEffect(() => {
@@ -1135,7 +1144,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           <Button
             variant="outline" size="lg"
             onClick={handlePrev}
-            disabled={isProcessing || doneCues.length === 0}
+            disabled={doneCues.length === 0}
             className="gap-1.5 sm:gap-2 flex-1 sm:flex-none sm:min-w-[120px] max-w-[140px]"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -1145,17 +1154,15 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           <Button
             size="lg"
             onClick={() => handleGo()}
-            disabled={isProcessing || showComplete}
+            disabled={showComplete}
             className={cn(
               'gap-2 flex-1 sm:flex-none sm:min-w-[220px] text-xl font-black h-12 sm:h-14 transition-all',
-              !showComplete && !isProcessing
+              !showComplete
                 ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/40 hover:shadow-green-900/60'
                 : ''
             )}
           >
-            {isProcessing
-              ? <Square className="h-6 w-6 animate-pulse" />
-              : showComplete
+            {showComplete
               ? <>✓ Klaar</>
               : <><Play className="h-6 w-6 fill-current" /> GO</>
             }
@@ -1164,7 +1171,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           <Button
             variant="outline" size="lg"
             onClick={handleSkip}
-            disabled={isProcessing || !activeCue}
+            disabled={!activeCue}
             className="gap-1.5 sm:gap-2 flex-1 sm:flex-none sm:min-w-[120px] max-w-[140px] text-yellow-500 border-yellow-500/30 hover:bg-yellow-500/10"
           >
             <span className="hidden xs:inline sm:inline">Skip</span>

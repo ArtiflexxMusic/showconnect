@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useServerTimeOffset } from '@/hooks/useServerTimeOffset'
 import { cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Mic, MapPin, Wrench, Clock, Wifi, WifiOff, ChevronDown, Music, Video, MessageSquare, Send, Trash2, ChevronUp, Bell, Radio } from 'lucide-react'
@@ -44,7 +45,8 @@ function useWallClock() {
   const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
     setNow(new Date())
-    const id = setInterval(() => setNow(new Date()), 1000)
+    // 250ms tikt zelfde als Caller, countdown voelt synchroon.
+    const id = setInterval(() => setNow(new Date()), 250)
     return () => clearInterval(id)
   }, [])
   return now ?? new Date()
@@ -53,6 +55,8 @@ function useWallClock() {
 export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
   const supabase = createClient()
   const now      = useWallClock()
+  const { offsetRef } = useServerTimeOffset(supabase)
+  const nowMs    = now.getTime() + offsetRef.current
 
   const [cues, setCues]           = useState<Cue[]>(initialCues)
   const [isOnline, setIsOnline]   = useState(true)
@@ -332,7 +336,7 @@ export function CrewView({ rundown, show, initialCues }: CrewViewProps) {
 
   function countdownStr(cue: Cue): string {
     if (cue.status !== 'running' || !cue.started_at) return formatDuration(cue.duration_seconds)
-    const elapsed = Math.floor((now.getTime() - new Date(cue.started_at).getTime()) / 1000)
+    const elapsed = Math.floor((nowMs - new Date(cue.started_at).getTime()) / 1000)
     const remaining = Math.max(0, cue.duration_seconds - elapsed)
     return formatDuration(remaining)
   }

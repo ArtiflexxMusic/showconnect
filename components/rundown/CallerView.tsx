@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useServerTimeOffset } from '@/hooks/useServerTimeOffset'
 import {
   cn, formatDuration, cueTypeLabel, cueTypeColor, calculateCueStartTimes, totalDuration
 } from '@/lib/utils'
@@ -45,26 +46,26 @@ function formatWallClock(date: Date) {
   return date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function formatShowClock(startedAt: Date | null, now: Date) {
+function formatShowClock(startedAt: Date | null, nowMs: number) {
   if (!startedAt) return '--:--:--'
-  const elapsed = Math.floor((now.getTime() - startedAt.getTime()) / 1000)
+  const elapsed = Math.floor((nowMs - startedAt.getTime()) / 1000)
   const h = Math.floor(elapsed / 3600)
   const m = Math.floor((elapsed % 3600) / 60)
   const s = elapsed % 60
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-// Gebruik altijd Date.now() voor berekeningen — 'now' triggert alleen re-renders.
-// Dit voorkomt de off-by-one die ontstaat als de 1s-ticker iets achteroploopt.
-function calcCountdown(cue: Cue, _now: Date): number {
+// Gebruik offset-gecorrigeerde nowMs (Date.now() + server-time offset) voor berekeningen.
+// Alle devices lopen zo op dezelfde Postgres-klok, ook als hun eigen klok drift.
+function calcCountdown(cue: Cue, nowMs: number): number {
   if (cue.status !== 'running' || !cue.started_at) return cue.duration_seconds
-  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(cue.started_at).getTime()) / 1000))
+  const elapsed = Math.max(0, Math.floor((nowMs - new Date(cue.started_at).getTime()) / 1000))
   return Math.max(0, cue.duration_seconds - elapsed)
 }
 
-function calcProgress(cue: Cue, _now: Date): number {
+function calcProgress(cue: Cue, nowMs: number): number {
   if (cue.status !== 'running' || !cue.started_at) return 0
-  const elapsed = Math.max(0, (Date.now() - new Date(cue.started_at).getTime()) / 1000)
+  const elapsed = Math.max(0, (nowMs - new Date(cue.started_at).getTime()) / 1000)
   return Math.min(100, (elapsed / cue.duration_seconds) * 100)
 }
 
@@ -101,6 +102,8 @@ function countdownBorder(remaining: number): string {
 export function CallerView({ rundown, show, initialCues, userId }: CallerViewProps) {
   const supabase = createClient()
   const now      = useWallClock()
+  const { offsetRef } = useServerTimeOffset(supabase)
+  const nowMs    = now.getTime() + offsetRef.current
 
   const [cues, setCues]                 = useState<Cue[]>(initialCues)
   const [isOnline, setIsOnline]         = useState(true)
@@ -317,7 +320,9 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     }
 
     // ── Cue advance ──────────────────────────────────────────────────────
-    const nowIso = new Date().toISOString()
+    // Offset-gecorrigeerde timestamp: caller stempelt op server-time, crew
+    // rekent ook met server-time. Geen drift door klokverschillen.
+    const nowIso = new Date(Date.now() + offsetRef.current).toISOString()
     const prevActiveId = activeCue?.id ?? null
     const nextId       = nextCue?.id ?? null
 
@@ -422,7 +427,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
       return
     }
 
-    const nowIso = new Date().toISOString()
+    const nowIso = new Date(Date.now() + offsetRef.current).toISOString()
     const prevDone = [...cues]
       .filter((c) => c.status === 'done')
       .sort((a, b) => b.position - a.position)[0]
@@ -457,7 +462,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
     clickLockRef.current = true
     setTimeout(() => { clickLockRef.current = false }, 60)
 
-    const nowIso = new Date().toISOString()
+    const nowIso = new Date(Date.now() + offsetRef.current).toISOString()
     const skipId = activeCue.id
     const nextId = nextCue?.id ?? null
 
@@ -560,8 +565,8 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
   const flashedAt15Ref   = useRef(false)
 
   // ── Berekeningen actieve cue (vroeg gedeclareerd — gebruikt in useEffects) ─
-  const countdown = activeCue ? calcCountdown(activeCue, now) : 0
-  const progress  = activeCue ? calcProgress(activeCue, now) : 0
+  const countdown = activeCue ? calcCountdown(activeCue, nowMs) : 0
+  const progress  = activeCue ? calcProgress(activeCue, nowMs) : 0
 
   // Totale resterende tijd (actieve cue countdown + pending cues)
   const totalRemaining = (activeCue ? countdown : 0) +
@@ -843,7 +848,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
           {/* Show clock — verborgen op klein scherm */}
           <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono tabular-nums text-muted-foreground border border-border/50 rounded px-2 py-0.5">
             <Radio className="h-3 w-3" />
-            {formatShowClock(showStartedAt, now)}
+            {formatShowClock(showStartedAt, nowMs)}
           </div>
 
           {/* Klok tweede scherm — verborgen op klein scherm */}
@@ -879,7 +884,7 @@ export function CallerView({ rundown, show, initialCues, userId }: CallerViewPro
             <h2 className="text-3xl font-bold text-green-400 mb-2">Show afgerond!</h2>
             <p className="text-muted-foreground">Alle cues zijn uitgevoerd.</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Totale duur: <span className="font-mono">{formatShowClock(showStartedAt, now)}</span>
+              Totale duur: <span className="font-mono">{formatShowClock(showStartedAt, nowMs)}</span>
             </p>
           </div>
 

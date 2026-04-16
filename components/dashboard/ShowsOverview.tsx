@@ -559,7 +559,7 @@ function ShowCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-base">
-                <Link href={`/shows/${show.id}`} className="hover:text-primary transition-colors">
+                <Link href={`/shows/${show.id}`} prefetch className="hover:text-primary transition-colors">
                   {show.name}
                 </Link>
               </CardTitle>
@@ -811,7 +811,7 @@ function CalendarView({
                   {day}
                 </p>
                 {(showsByDate[day.toString()] ?? []).map(show => (
-                  <Link key={show.id} href={`/shows/${show.id}`}
+                  <Link key={show.id} href={`/shows/${show.id}`} prefetch
                     className="block text-[10px] font-medium text-primary bg-primary/10 border border-primary/20 rounded px-1 py-0.5 mb-0.5 truncate hover:bg-primary/20 transition-colors">
                     {show.name}
                   </Link>

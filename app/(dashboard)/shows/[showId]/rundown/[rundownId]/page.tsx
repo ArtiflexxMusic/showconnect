@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { cache } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/supabase/get-user'
+import { getCachedProfile } from '@/lib/supabase/get-profile'
 import { RundownEditor } from '@/components/rundown/RundownEditor'
 import { getPlanLimits } from '@/lib/plans'
 import type { Show, Rundown, Cue } from '@/lib/types/database'
@@ -11,29 +13,30 @@ interface PageProps {
   params: Promise<{ showId: string; rundownId: string }>
 }
 
-// React.cache() deduplicates within a single request —
-// generateMetadata en de page component delen zo exact dezelfde data
-// zonder dat er twee keer queries worden uitgestuurd.
+// React.cache() deduplicates within a single request: generateMetadata
+// en de page component delen zo exact dezelfde data.
 const loadRundownPage = cache(async (showId: string, rundownId: string) => {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // user + profile komen uit React.cache, layout.tsx heeft ze al opgehaald
+  const user = await getCachedUser()
   if (!user) return null
 
-  // Alle queries parallel — geen waterfall meer
+  // Page-specifieke queries parallel. Profile komt gratis uit de cache
+  // en blokkeert de Promise.all niet.
   const [
+    profile,
     { data: rundown },
     { data: show },
     { data: cues },
     { data: allRundowns },
-    { data: profile },
     { data: membership },
   ] = await Promise.all([
+    getCachedProfile(),
     supabase.from('rundowns').select('*').eq('id', rundownId).eq('show_id', showId).single(),
     supabase.from('shows').select('*').eq('id', showId).single(),
     supabase.from('cues').select('*').eq('rundown_id', rundownId).order('position', { ascending: true }),
     supabase.from('rundowns').select('id, name').eq('show_id', showId).order('created_at', { ascending: true }),
-    supabase.from('profiles').select('plan, plan_expires_at, trial_ends_at').eq('id', user.id).single(),
     supabase.from('show_members').select('role').eq('show_id', showId).eq('user_id', user.id).maybeSingle(),
   ])
 

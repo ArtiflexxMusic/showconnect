@@ -3,6 +3,7 @@ import { cache } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCachedUser } from '@/lib/supabase/get-user'
+import { getCachedProfile } from '@/lib/supabase/get-profile'
 import { ShowDashboard } from '@/components/dashboard/ShowDashboard'
 import type { Show, ShowMemberRole } from '@/lib/types/database'
 
@@ -10,23 +11,23 @@ interface PageProps {
   params: Promise<{ showId: string }>
 }
 
-// Gedeelde data-fetch — React.cache() zorgt dat generateMetadata
+// Gedeelde data-fetch, React.cache() zorgt dat generateMetadata
 // en de page component exact dezelfde Promise delen (één roundtrip).
 const loadShowPage = cache(async (showId: string) => {
   const supabase = await createClient()
 
-  // getCachedUser() is gratis als layout hem al heeft aangeroepen
   const user = await getCachedUser()
   if (!user) return null
 
-  // Alleen kritieke queries parallel — members/invitations laden client-side
-  // als de gebruiker het Team-panel opent. Scheelt de zware profile-JOIN bij elke pageload.
+  // Profile komt gratis uit de cache (layout.tsx heeft 'm al).
+  // Members/invitations laden client-side wanneer het Team-panel opent.
   const [
+    profile,
     { data: show },
     { data: rundowns },
     { data: membership },
-    { data: profile },
   ] = await Promise.all([
+    getCachedProfile(),
     supabase.from('shows').select('*').eq('id', showId).single(),
     supabase.from('rundowns')
       .select('*, cues(count)')
@@ -37,7 +38,6 @@ const loadShowPage = cache(async (showId: string) => {
       .eq('show_id', showId)
       .eq('user_id', user.id)
       .maybeSingle(),
-    supabase.from('profiles').select('role').eq('id', user.id).single(),
   ])
 
   return { user, show, rundowns, membership, profile }

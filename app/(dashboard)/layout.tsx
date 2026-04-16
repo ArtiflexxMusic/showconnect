@@ -1,23 +1,18 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { getCachedUser } from '@/lib/supabase/get-user'
+import { getCachedProfile } from '@/lib/supabase/get-profile'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { TrialBanner } from '@/components/layout/TrialBanner'
 import { isTrialActive } from '@/lib/plans'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // getCachedUser() deelt het resultaat met alle server components in dezelfde request
+  // getCachedUser() + getCachedProfile() delen het resultaat met alle server
+  // components in dezelfde request via React.cache(), dus geen dubbele query's.
   const user = await getCachedUser()
   if (!user) redirect('/login')
 
-  // Profiel parallel ophalen — we hebben user.id, kunnen meteen starten
-  const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const profile = await getCachedProfile()
 
   const showTrialBanner =
     profile?.plan === 'free' &&

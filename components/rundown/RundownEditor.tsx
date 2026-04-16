@@ -1281,6 +1281,7 @@ export function RundownEditor({ rundown: initialRundown, show, initialCues, user
     { key: 'caller',    label: '🎙 Caller',    url: `${baseShareUrl}${basePath}/caller`,    color: 'text-green-400' },
     { key: 'presenter', label: '🖥 Presenter', url: `${baseShareUrl}${basePath}/presenter`, color: '' },
     { key: 'crew',      label: '📱 Crew',      url: `${baseShareUrl}${basePath}/crew`,      color: '' },
+    { key: 'clock',     label: '📺 TV / Clock', url: `${baseShareUrl}${basePath}/clock`,     color: 'text-yellow-400' },
     { key: 'print',     label: '🖨 Afdrukken', url: `${baseShareUrl}${basePath}/print`,     color: 'text-muted-foreground' },
   ]
 

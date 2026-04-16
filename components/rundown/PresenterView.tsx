@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, calculateCueStartTimes } from '@/lib/utils'
+import { useServerTimeOffset } from '@/hooks/useServerTimeOffset'
 import { Button } from '@/components/ui/button'
 import {
   Clock, ChevronRight, Mic, MapPin, Lock, Music, Video,
@@ -22,21 +23,22 @@ function useWallClock() {
   const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
     setNow(new Date())
-    const id = setInterval(() => setNow(new Date()), 1000)
+    // 250ms sync met Caller/Crew/Clock.
+    const id = setInterval(() => setNow(new Date()), 250)
     return () => clearInterval(id)
   }, [])
   return now ?? new Date()
 }
 
-function calcCountdown(cue: Cue, now: Date): number {
+function calcCountdown(cue: Cue, nowMs: number): number {
   if (cue.status !== 'running' || !cue.started_at) return cue.duration_seconds
-  const elapsed = Math.floor((now.getTime() - new Date(cue.started_at).getTime()) / 1000)
+  const elapsed = Math.floor((nowMs - new Date(cue.started_at).getTime()) / 1000)
   return Math.max(0, cue.duration_seconds - elapsed)
 }
 
-function calcProgress(cue: Cue, now: Date): number {
+function calcProgress(cue: Cue, nowMs: number): number {
   if (cue.status !== 'running' || !cue.started_at) return 0
-  const elapsed = (now.getTime() - new Date(cue.started_at).getTime()) / 1000
+  const elapsed = (nowMs - new Date(cue.started_at).getTime()) / 1000
   return Math.min(100, (elapsed / cue.duration_seconds) * 100)
 }
 
@@ -116,6 +118,8 @@ function PinScreen({ pin, onUnlock }: { pin: string; onUnlock: () => void }) {
 export function PresenterView({ rundown, show, initialCues }: PresenterViewProps) {
   const supabase = createClient()
   const now = useWallClock()
+  const { offsetRef } = useServerTimeOffset(supabase)
+  const nowMs = now.getTime() + offsetRef.current
   const { isFullscreen, enter, exit } = useFullscreen()
 
   const [cues, setCues]               = useState<Cue[]>(initialCues)
@@ -140,8 +144,8 @@ export function PresenterView({ rundown, show, initialCues }: PresenterViewProps
   const showProgress = cues.length > 0 ? Math.round((doneCues.length / cues.length) * 100) : 0
   const expectedTimes = calculateCueStartTimes(cues, rundown.show_start_time)
 
-  const countdown = activeCue ? calcCountdown(activeCue, now) : 0
-  const progress  = activeCue ? calcProgress(activeCue, now) : 0
+  const countdown = activeCue ? calcCountdown(activeCue, nowMs) : 0
+  const progress  = activeCue ? calcProgress(activeCue, nowMs) : 0
 
   const hasNextSlide = activeCue?.presentation_url
     ? currentSlideIndex < totalSlidesInCue - 1

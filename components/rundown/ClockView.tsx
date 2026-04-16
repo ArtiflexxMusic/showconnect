@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatDuration, calculateCueStartTimes } from '@/lib/utils'
+import { useServerTimeOffset } from '@/hooks/useServerTimeOffset'
 import type { Cue, Rundown, Show } from '@/lib/types/database'
 
 interface ClockViewProps {
@@ -21,9 +22,9 @@ function useWallClock() {
   return now ?? new Date()
 }
 
-function calcCountdown(cue: Cue, now: Date): number {
+function calcCountdown(cue: Cue, nowMs: number): number {
   if (cue.status !== 'running' || !cue.started_at) return cue.duration_seconds
-  const elapsed = Math.floor((now.getTime() - new Date(cue.started_at).getTime()) / 1000)
+  const elapsed = Math.floor((nowMs - new Date(cue.started_at).getTime()) / 1000)
   return Math.max(0, cue.duration_seconds - elapsed)
 }
 
@@ -39,9 +40,9 @@ function formatWallClock(date: Date) {
   return date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function formatShowClock(startedAt: Date | null, now: Date) {
+function formatShowClock(startedAt: Date | null, nowMs: number) {
   if (!startedAt) return '--:--:--'
-  const elapsed = Math.floor((now.getTime() - startedAt.getTime()) / 1000)
+  const elapsed = Math.floor((nowMs - startedAt.getTime()) / 1000)
   const h = Math.floor(elapsed / 3600)
   const m = Math.floor((elapsed % 3600) / 60)
   const s = elapsed % 60
@@ -51,6 +52,8 @@ function formatShowClock(startedAt: Date | null, now: Date) {
 export function ClockView({ rundown, show, initialCues }: ClockViewProps) {
   const supabase = createClient()
   const now = useWallClock()
+  const { offsetRef } = useServerTimeOffset(supabase)
+  const nowMs = now.getTime() + offsetRef.current
   const [cues, setCues] = useState<Cue[]>(initialCues)
   const [isOnline, setIsOnline] = useState(true)
 
@@ -62,7 +65,7 @@ export function ClockView({ rundown, show, initialCues }: ClockViewProps) {
     : pendingCues[0] ?? null
   const showComplete = pendingCues.length === 0 && !activeCue
 
-  const countdown = activeCue ? calcCountdown(activeCue, now) : 0
+  const countdown = activeCue ? calcCountdown(activeCue, nowMs) : 0
   const showProgress = cues.length > 0 ? Math.round((doneCues.length / cues.length) * 100) : 0
 
   const showStartedAt = (() => {
@@ -142,7 +145,7 @@ export function ClockView({ rundown, show, initialCues }: ClockViewProps) {
           <div className="text-center">
             <div className="text-8xl mb-6">✓</div>
             <p className="text-4xl font-bold text-green-400">Show afgerond</p>
-            <p className="text-white/40 text-xl mt-3">{formatShowClock(showStartedAt, now)} totale duur</p>
+            <p className="text-white/40 text-xl mt-3">{formatShowClock(showStartedAt, nowMs)} totale duur</p>
           </div>
 
         ) : activeCue ? (
@@ -213,7 +216,7 @@ export function ClockView({ rundown, show, initialCues }: ClockViewProps) {
         <div className="text-center">
           <p className="text-white/30 text-xs uppercase tracking-widest mb-1">Show timer</p>
           <p className="font-mono text-5xl font-bold tabular-nums text-white/60">
-            {formatShowClock(showStartedAt, now)}
+            {formatShowClock(showStartedAt, nowMs)}
           </p>
         </div>
 

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from '@sentry/nextjs'
 
 const SUPABASE_HOST = 'gvvwetqifyzslrxwujqe.supabase.co'
+// Sentry ingest + replay — CSP moet deze toestaan om errors te kunnen sturen.
+const SENTRY_HOSTS  = 'https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io'
 
 const securityHeaders = [
   // Prevent browsers from sniffing MIME types
@@ -30,8 +33,8 @@ const securityHeaders = [
       `font-src 'self' https://fonts.gstatic.com data:`,
       // Images: self + data URIs + blob (for PDF viewer) + Supabase Storage + Mollie logo's + QR-code API
       `img-src 'self' data: blob: https://${SUPABASE_HOST} https://www.mollie.com https://api.qrserver.com`,
-      // API + WebSocket connections: self + Supabase
-      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://api.supabase.com`,
+      // API + WebSocket connections: self + Supabase + Sentry
+      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://api.supabase.com ${SENTRY_HOSTS}`,
       // Frames: same origin + Office Online (PPTX embed)
       `frame-src 'self' blob: https://view.officeapps.live.com`,
       // No plugins
@@ -125,4 +128,23 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wrap: source-maps uploaden bij build, tunnel via /monitoring om ad-blockers te omzeilen.
+// Auth-token komt uit Vercel env (SENTRY_AUTH_TOKEN, aangemaakt door de marketplace integratie).
+export default withSentryConfig(nextConfig, {
+  org:           process.env.SENTRY_ORG,
+  project:       process.env.SENTRY_PROJECT,
+  authToken:     process.env.SENTRY_AUTH_TOKEN,
+  // Tunnel client-requests via eigen domein → ad-blockers blokkeren geen errors.
+  tunnelRoute:   '/monitoring',
+  // Upload logs stil: alleen waarschuwen, niet falen als token ontbreekt.
+  silent:        !process.env.CI,
+  // Source-maps uploaden naar Sentry voor leesbare stacktraces.
+  widenClientFileUpload: true,
+  // Automatisch Vercel-cron monitoring aanzetten.
+  automaticVercelMonitors: true,
+  // Geen telemetry naar Sentry.
+  telemetry:     false,
+  // Disable bij afwezigheid auth-token (local dev zonder Sentry credentials).
+  disableLogger: true,
+})
+

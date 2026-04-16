@@ -18,6 +18,12 @@ node_modules/
 # Vercel
 .vercel
 
+# Sentry
+.sentryclirc
+
+# env backup-bestanden
+.env.local.*
+
 # Debug logs
 npm-debug.log*
 yarn-debug.log*

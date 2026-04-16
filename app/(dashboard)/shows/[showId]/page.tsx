@@ -30,7 +30,7 @@ const loadShowPage = cache(async (showId: string) => {
     getCachedProfile(),
     supabase.from('shows').select('*').eq('id', showId).single(),
     supabase.from('rundowns')
-      .select('*, cues(count)')
+      .select('id, name, show_start_time, created_at, cues(count)')
       .eq('show_id', showId)
       .order('created_at', { ascending: true }),
     supabase.from('show_members')
